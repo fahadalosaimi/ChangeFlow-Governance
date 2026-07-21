@@ -1,0 +1,5 @@
+backend/.env
+backend/venv/
+backend/change_impact.db
+__pycache__/
+*.pyc
