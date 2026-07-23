@@ -1,13 +1,18 @@
 from sqlalchemy import inspect, text
 
-from app.database import SessionLocal, engine
+from app.database import (
+    SessionLocal,
+    engine,
+)
 from app.models.foundation import (
     Department,
     Organization,
     Role,
     User,
 )
-from app.services.auth_service import hash_password
+from app.services.auth_service import (
+    hash_password,
+)
 
 
 def ensure_password_column():
@@ -15,11 +20,15 @@ def ensure_password_column():
 
     columns = {
         column["name"]
-        for column in inspector.get_columns("users")
+        for column in inspector.get_columns(
+            "users"
+        )
     }
 
     if "password_hash" in columns:
-        print("password_hash column already exists.")
+        print(
+            "password_hash column already exists."
+        )
         return
 
     with engine.begin() as connection:
@@ -30,7 +39,9 @@ def ensure_password_column():
             )
         )
 
-    print("password_hash column added successfully.")
+    print(
+        "password_hash column added successfully."
+    )
 
 
 def get_or_create_role(
@@ -69,9 +80,13 @@ def upsert_user(
     job_title: str,
     password: str,
 ):
+    normalized_email = email.strip().lower()
+
     user = (
         db.query(User)
-        .filter(User.email == email)
+        .filter(
+            User.email == normalized_email
+        )
         .first()
     )
 
@@ -81,7 +96,7 @@ def upsert_user(
             department_id=department_id,
             role_id=role.id,
             full_name=full_name,
-            email=email,
+            email=normalized_email,
             job_title=job_title,
             is_active="active",
         )
@@ -92,9 +107,12 @@ def upsert_user(
     user.department_id = department_id
     user.role_id = role.id
     user.full_name = full_name
+    user.email = normalized_email
     user.job_title = job_title
     user.is_active = "active"
-    user.password_hash = hash_password(password)
+    user.password_hash = hash_password(
+        password
+    )
 
     return user
 
@@ -113,13 +131,15 @@ def main():
 
         if not organization:
             raise RuntimeError(
-                "No organization exists. Run the foundation "
-                "seed script first."
+                "No organization exists. Run the "
+                "foundation seed script first."
             )
 
         department = (
             db.query(Department)
-            .filter(Department.name == "IT Operations")
+            .filter(
+                Department.name == "IT Operations"
+            )
             .first()
         )
 
@@ -142,12 +162,22 @@ def main():
             "Reviews and authorizes change requests.",
         )
 
-        admin_role = get_or_create_role(
+        cmdb_role = get_or_create_role(
             db,
             "CMDB Manager",
             (
-                "Maintains configuration items, dependencies, "
-                "incidents, and risk rules."
+                "Maintains configuration items, "
+                "dependencies, incidents, and "
+                "risk rules."
+            ),
+        )
+
+        system_admin_role = get_or_create_role(
+            db,
+            "System Administrator",
+            (
+                "Manages users, roles, and "
+                "account access."
             ),
         )
 
@@ -185,19 +215,54 @@ def main():
             db=db,
             organization_id=organization.id,
             department_id=department_id,
-            role=admin_role,
+            role=cmdb_role,
             full_name="Demo CMDB Manager",
             email="admin@changeflow.local",
             job_title="CMDB Manager",
             password="Admin@123",
         )
 
+        upsert_user(
+            db=db,
+            organization_id=organization.id,
+            department_id=department_id,
+            role=system_admin_role,
+            full_name="Demo System Administrator",
+            email="sysadmin@changeflow.local",
+            job_title="System Administrator",
+            password="SysAdmin@123",
+        )
+
         db.commit()
 
-        print("\nAuthentication users created successfully:\n")
-        print("Requester: requester@changeflow.local / Requester@123")
-        print("Manager:   manager@changeflow.local / Manager@123")
-        print("Admin:     admin@changeflow.local / Admin@123")
+        print(
+            "\nAuthentication users created "
+            "successfully:\n"
+        )
+
+        print(
+            "Requester: "
+            "requester@changeflow.local / "
+            "Requester@123"
+        )
+
+        print(
+            "Manager:   "
+            "manager@changeflow.local / "
+            "Manager@123"
+        )
+
+        print(
+            "CMDB:      "
+            "admin@changeflow.local / "
+            "Admin@123"
+        )
+
+        print(
+            "SysAdmin:  "
+            "sysadmin@changeflow.local / "
+            "SysAdmin@123"
+        )
 
     except Exception:
         db.rollback()

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
+const TOKEN_STORAGE_KEY = "changeflow_access_token";
 
 type FoundationOverview = {
   organizations: number;
@@ -112,6 +113,7 @@ type StatusHistoryItem = {
   old_status: string | null;
   new_status: string;
   changed_by: number | null;
+  changed_by_name?: string;
   comment: string | null;
   changed_at: string;
 };
@@ -121,6 +123,7 @@ type AuditLogItem = {
   entity_type: string;
   entity_id: number | null;
   actor_id: number | null;
+  actor_name?: string;
   details: string | null;
   created_at: string;
 };
@@ -129,6 +132,7 @@ type ApprovalItem = {
   approval_id: number;
   change_request_id: number;
   approver_id: number | null;
+  approver_name?: string;
   approval_level: string;
   decision: string;
   comments: string | null;
@@ -148,6 +152,53 @@ type NewChangeForm = {
   business_justification: string;
   planned_start: string;
   planned_end: string;
+};
+
+type CurrentUser = {
+  id: number;
+  organization_id: number;
+  department_id?: number | null;
+  full_name: string;
+  email: string;
+  job_title?: string | null;
+  role_name: string;
+  department_name?: string | null;
+};
+
+type LoginForm = {
+  email: string;
+  password: string;
+};
+
+type SignupForm = {
+  full_name: string;
+  email: string;
+  password: string;
+  job_title: string;
+};
+
+type AdminUser = {
+  id: number;
+  organization_id: number;
+  department_id?: number | null;
+  full_name: string;
+  email: string;
+  job_title?: string | null;
+  role_name: string;
+  department_name?: string | null;
+  is_active: "active" | "inactive";
+  created_at: string;
+};
+
+type RoleOption = {
+  id: number;
+  name: string;
+  description?: string | null;
+};
+
+type UserEdit = {
+  role_name: string;
+  is_active: "active" | "inactive";
 };
 
 const riskRuleValueOptions: Record<string, string[]> = {
@@ -207,6 +258,26 @@ const riskRuleValueOptions: Record<string, string[]> = {
 };
 
 function App() {
+  const [token, setToken] = useState<string>(
+    () => localStorage.getItem(TOKEN_STORAGE_KEY) || ""
+  );
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [loginForm, setLoginForm] = useState<LoginForm>({
+    email: "",
+    password: "",
+  });
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [signupForm, setSignupForm] = useState<SignupForm>({
+    full_name: "",
+    email: "",
+    password: "",
+    job_title: "",
+  });
+
   const [foundationOverview, setFoundationOverview] =
     useState<FoundationOverview | null>(null);
   const [dashboardOverview, setDashboardOverview] =
@@ -214,16 +285,41 @@ function App() {
   const [systems, setSystems] = useState<ITSystem[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [incidents, setIncidents] = useState<HistoricalIncident[]>([]);
-const [riskRules, setRiskRules] = useState<RiskRule[]>([]);
+  const [riskRules, setRiskRules] = useState<RiskRule[]>([]);
+  const [dependencies, setDependencies] = useState<SystemDependency[]>([]);
+  const [changes, setChanges] = useState<ManagedChange[]>([]);
+  const [selectedChange, setSelectedChange] = useState<ManagedChange | null>(null);
+  const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [view, setView] = useState<
+    | "dashboard"
+    | "new"
+    | "revise"
+    | "details"
+    | "foundation"
+    | "users"
+  >("dashboard");
+  const [loading, setLoading] = useState(false);
+  const [revisionComment, setRevisionComment] = useState("");
+  const [approvalComment, setApprovalComment] = useState("");
+  const [systemSearch, setSystemSearch] = useState("");
+  const [managedUsers, setManagedUsers] = useState<AdminUser[]>([]);
+  const [managedRoles, setManagedRoles] = useState<RoleOption[]>([]);
+  const [userEdits, setUserEdits] = useState<Record<number, UserEdit>>({});
+  const [userSearch, setUserSearch] = useState("");
+  const [userManagementLoading, setUserManagementLoading] = useState(false);
+  const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
 
-const [newRiskRule, setNewRiskRule] = useState({
-  name: "",
-  condition_type: "change_type",
-  condition_value: "database",
-  score: 10,
-  description: "",
-  is_active: "active",
-});
+  const [newRiskRule, setNewRiskRule] = useState({
+    name: "",
+    condition_type: "change_type",
+    condition_value: "database",
+    score: 10,
+    description: "",
+    is_active: "active",
+  });
+
   const [newIncident, setNewIncident] = useState({
     system_id: "",
     title: "",
@@ -233,7 +329,6 @@ const [newRiskRule, setNewRiskRule] = useState({
     occurred_at: "",
     resolved_at: "",
   });
-  const [dependencies, setDependencies] = useState<SystemDependency[]>([]);
 
   const [newDependency, setNewDependency] = useState({
     source_system_id: "",
@@ -242,22 +337,15 @@ const [newRiskRule, setNewRiskRule] = useState({
     impact_level: "Medium",
     description: "",
   });
+
   const [newConfigItem, setNewConfigItem] = useState({
-  name: "",
-  description: "",
-  system_type: "Web Application",
-  environment: "Production",
-  criticality: "Medium",
-  department_id: "",
-});
-  const [changes, setChanges] = useState<ManagedChange[]>([]);
-  const [selectedChange, setSelectedChange] = useState<ManagedChange | null>(null);
-  const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
-  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
-  const [view, setView] = useState<"dashboard" | "new" | "details" | "foundation">("dashboard");
-  const [loading, setLoading] = useState(false);
-  const [systemSearch, setSystemSearch] = useState("");
+    name: "",
+    description: "",
+    system_type: "Web Application",
+    environment: "Production",
+    criticality: "Medium",
+    department_id: "",
+  });
 
   const [form, setForm] = useState<NewChangeForm>({
     title: "",
@@ -274,172 +362,572 @@ const [newRiskRule, setNewRiskRule] = useState({
     planned_end: "",
   });
 
-  async function loadData() {
-    const foundationRes = await fetch(`${API_BASE_URL}/foundation/overview`);
-    const foundationData = await foundationRes.json();
-    setFoundationOverview(foundationData);
+  const isRequester = currentUser?.role_name === "Requester";
+  const isChangeManager = currentUser?.role_name === "Change Manager";
+  const isCmdbManager = currentUser?.role_name === "CMDB Manager";
+  const isSystemAdministrator =
+    currentUser?.role_name === "System Administrator";
 
-    const dashboardRes = await fetch(
-      `${API_BASE_URL}/change-management/dashboard/overview`
-    );
-    const dashboardData = await dashboardRes.json();
-    setDashboardOverview(dashboardData);
-
-    const systemsRes = await fetch(`${API_BASE_URL}/foundation/systems`);
-    const systemsData = await systemsRes.json();
-    setSystems(systemsData);
-
-    const departmentsRes = await fetch(`${API_BASE_URL}/foundation/departments`);
-    const departmentsData = await departmentsRes.json();
-    setDepartments(departmentsData);
-
-    const dependenciesRes = await fetch(
-      `${API_BASE_URL}/foundation/dependencies`
-  );
-    const dependenciesData = await dependenciesRes.json();
-    setDependencies(dependenciesData);
-
-    const incidentsRes = await fetch(
-  `${API_BASE_URL}/foundation/incidents`
-  );
-  const incidentsData = await incidentsRes.json();
-  setIncidents(incidentsData);
-
-  const changesRes = await fetch(`${API_BASE_URL}/change-management/requests`);
-  const changesData = await changesRes.json();
-  setChanges(changesData);
-
-  const riskRulesRes = await fetch(
-  `${API_BASE_URL}/foundation/risk-rules`
-  );
-  const riskRulesData = await riskRulesRes.json();
-  setRiskRules(riskRulesData);
+  function clearSession() {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    setToken("");
+    setCurrentUser(null);
+    setSelectedChange(null);
+    setManagedUsers([]);
+    setManagedRoles([]);
+    setUserEdits({});
+    setUserSearch("");
+    setView("dashboard");
   }
 
+  function handleLogout() {
+    clearSession();
+    setLoginForm({ email: "", password: "" });
+    setSignupForm({
+      full_name: "",
+      email: "",
+      password: "",
+      job_title: "",
+    });
+    setAuthMode("login");
+    setLoginError("");
+  }
 
+  async function apiFetch(
+    path: string,
+    options: RequestInit = {},
+    accessToken: string = token
+  ) {
+    const headers = new Headers(options.headers);
 
-  async function openChangeDetails(changeId: number) {
-  const changeRes = await fetch(
-    `${API_BASE_URL}/change-management/requests/${changeId}`
-  );
-  const changeData = await changeRes.json();
-
-  const historyRes = await fetch(
-    `${API_BASE_URL}/change-management/requests/${changeId}/history`
-  );
-  const historyData = await historyRes.json();
-
-  const auditRes = await fetch(
-    `${API_BASE_URL}/change-management/requests/${changeId}/audit-logs`
-  );
-  const auditData = await auditRes.json();
-
-  const approvalsRes = await fetch(
-    `${API_BASE_URL}/change-management/requests/${changeId}/approvals`
-  );
-  const approvalsData = await approvalsRes.json();
-
-  setSelectedChange(changeData);
-  setStatusHistory(historyData);
-  setAuditLogs(auditData);
-  setApprovals(approvalsData);
-  setView("details");
-}
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function createManagedChange() {
-    if (!form.title || !form.description || form.affected_system_ids.length === 0) {
-      alert("Please provide title, description, and select at least one directly affected configuration item.");
-      return;
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
     }
 
-    setLoading(true);
-
-    const response = await fetch(`${API_BASE_URL}/change-management/requests`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        organization_id: 1,
-        requester_id: 1,
-        title: form.title,
-        description: form.description,
-        change_type: form.change_type,
-        change_mode: form.change_mode,
-        priority: form.priority,
-        affected_system_ids: form.affected_system_ids,
-        expected_downtime_minutes: Number(form.expected_downtime_minutes),
-        rollback_complexity: form.rollback_complexity,
-        security_sensitivity: form.security_sensitivity,
-        business_justification: form.business_justification,
-        planned_start: form.planned_start,
-        planned_end: form.planned_end,
-      }),
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
     });
 
-    const data = await response.json();
+    if (response.status === 401) {
+      clearSession();
+    }
 
-    setLoading(false);
+    return response;
+  }
+
+  async function readResponse<T>(response: Response): Promise<T> {
+    const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-      alert("Error creating change request.");
-      console.log(data);
+      const message =
+        data && typeof data === "object" && "detail" in data
+          ? String(data.detail)
+          : "The request could not be completed.";
+
+      throw new Error(message);
+    }
+
+    return data as T;
+  }
+
+  async function loadData(accessToken: string = token) {
+    try {
+      const [
+        foundationData,
+        dashboardData,
+        systemsData,
+        departmentsData,
+        dependenciesData,
+        incidentsData,
+        changesData,
+        riskRulesData,
+      ] = await Promise.all([
+        apiFetch("/foundation/overview", {}, accessToken).then((response) =>
+          readResponse<FoundationOverview>(response)
+        ),
+        apiFetch("/change-management/dashboard/overview", {}, accessToken).then(
+          (response) => readResponse<DashboardOverview>(response)
+        ),
+        apiFetch("/foundation/systems", {}, accessToken).then((response) =>
+          readResponse<ITSystem[]>(response)
+        ),
+        apiFetch("/foundation/departments", {}, accessToken).then((response) =>
+          readResponse<Department[]>(response)
+        ),
+        apiFetch("/foundation/dependencies", {}, accessToken).then((response) =>
+          readResponse<SystemDependency[]>(response)
+        ),
+        apiFetch("/foundation/incidents", {}, accessToken).then((response) =>
+          readResponse<HistoricalIncident[]>(response)
+        ),
+        apiFetch("/change-management/requests", {}, accessToken).then(
+          (response) => readResponse<ManagedChange[]>(response)
+        ),
+        apiFetch("/foundation/risk-rules", {}, accessToken).then((response) =>
+          readResponse<RiskRule[]>(response)
+        ),
+      ]);
+
+      setFoundationOverview(foundationData);
+      setDashboardOverview(dashboardData);
+      setSystems(systemsData);
+      setDepartments(departmentsData);
+      setDependencies(dependenciesData);
+      setIncidents(incidentsData);
+      setChanges(changesData);
+      setRiskRules(riskRulesData);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function loadUserManagementData(accessToken: string = token) {
+    setUserManagementLoading(true);
+
+    try {
+      const [usersData, rolesData, overviewData] = await Promise.all([
+        apiFetch("/auth/admin/users", {}, accessToken).then((response) =>
+          readResponse<AdminUser[]>(response)
+        ),
+        apiFetch("/auth/admin/roles", {}, accessToken).then((response) =>
+          readResponse<RoleOption[]>(response)
+        ),
+        apiFetch("/foundation/overview", {}, accessToken).then((response) =>
+          readResponse<FoundationOverview>(response)
+        ),
+      ]);
+
+      setManagedUsers(usersData);
+      setManagedRoles(rolesData);
+      setFoundationOverview(overviewData);
+      setUserEdits(
+        Object.fromEntries(
+          usersData.map((user) => [
+            user.id,
+            {
+              role_name: user.role_name,
+              is_active: user.is_active,
+            },
+          ])
+        )
+      );
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to load user management data."
+      );
+    } finally {
+      setUserManagementLoading(false);
+    }
+  }
+
+  async function initializeSession(accessToken: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const user = await readResponse<CurrentUser>(response);
+    setCurrentUser(user);
+
+    if (user.role_name === "System Administrator") {
+      await loadUserManagementData(accessToken);
+    } else {
+      await loadData(accessToken);
+    }
+  }
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function restoreSession() {
+      if (!token) {
+        setAuthLoading(false);
+        return;
+      }
+
+      setAuthLoading(true);
+
+      try {
+        await initializeSession(token);
+      } catch (error) {
+        if (!isCancelled) {
+          console.error(error);
+          clearSession();
+        }
+      } finally {
+        if (!isCancelled) {
+          setAuthLoading(false);
+        }
+      }
+    }
+
+    restoreSession();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [token]);
+
+  async function authenticate(email: string, password: string) {
+    const formBody = new URLSearchParams();
+    formBody.set("username", email.trim().toLowerCase());
+    formBody.set("password", password);
+    formBody.set("grant_type", "password");
+
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formBody,
+    });
+
+    const data = await readResponse<{
+      access_token: string;
+      token_type: string;
+    }>(response);
+
+    localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
+    setToken(data.access_token);
+  }
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!loginForm.email.trim() || !loginForm.password) {
+      setLoginError("Enter your email address and password.");
       return;
     }
 
-    await openChangeDetails(data.id);
+    setLoginLoading(true);
+    setLoginError("");
 
-    setForm({
-      title: "",
-      description: "",
-      change_type: "database",
-      change_mode: "Normal",
-      priority: "Medium",
-      affected_system_ids: [],
-      expected_downtime_minutes: 0,
-      rollback_complexity: "Medium",
-      security_sensitivity: "Medium",
-      business_justification: "",
-      planned_start: "",
-      planned_end: "",
-    });
-
-    await loadData();
+    try {
+      await authenticate(loginForm.email, loginForm.password);
+    } catch (error) {
+      setLoginError(
+        error instanceof Error ? error.message : "Unable to sign in."
+      );
+    } finally {
+      setLoginLoading(false);
+    }
   }
 
-  async function submitApproval(decision: string) {
-    if (!selectedChange) return;
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-    const response = await fetch(
-      `${API_BASE_URL}/change-management/requests/${selectedChange.id}/approvals`,
-      {
+    if (
+      !signupForm.full_name.trim() ||
+      !signupForm.email.trim() ||
+      !signupForm.password
+    ) {
+      setLoginError("Enter your full name, email address, and password.");
+      return;
+    }
+
+    if (signupForm.password.length < 8) {
+      setLoginError("Password must contain at least 8 characters.");
+      return;
+    }
+
+    setRegisterLoading(true);
+    setLoginError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          approver_id: 2,
-          approval_level:
-            selectedChange.latest_assessment?.risk_level === "Critical"
-              ? "CAB Review"
-              : "Manager Review",
-          decision,
-          comments: `Authorization decision submitted from ChangeFlow Governance dashboard: ${decision}`,
+          full_name: signupForm.full_name.trim(),
+          email: signupForm.email.trim().toLowerCase(),
+          password: signupForm.password,
+          job_title: signupForm.job_title.trim() || null,
+        }),
+      });
+
+      await readResponse<CurrentUser>(response);
+      await authenticate(signupForm.email, signupForm.password);
+    } catch (error) {
+      setLoginError(
+        error instanceof Error ? error.message : "Unable to create account."
+      );
+    } finally {
+      setRegisterLoading(false);
+    }
+  }
+
+  async function openChangeDetails(changeId: number) {
+    try {
+      const [changeData, historyData, auditData, approvalsData] =
+        await Promise.all([
+          apiFetch(`/change-management/requests/${changeId}`).then((response) =>
+            readResponse<ManagedChange>(response)
+          ),
+          apiFetch(`/change-management/requests/${changeId}/history`).then(
+            (response) => readResponse<StatusHistoryItem[]>(response)
+          ),
+          apiFetch(`/change-management/requests/${changeId}/audit-logs`).then(
+            (response) => readResponse<AuditLogItem[]>(response)
+          ),
+          apiFetch(`/change-management/requests/${changeId}/approvals`).then(
+            (response) => readResponse<ApprovalItem[]>(response)
+          ),
+        ]);
+
+      setSelectedChange(changeData);
+      setStatusHistory(historyData);
+      setAuditLogs(auditData);
+      setApprovals(approvalsData);
+      setView("details");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Unable to load change details.");
+    }
+  }
+
+  function toDateTimeLocalValue(value?: string) {
+  if (!value) return "";
+
+  return value.replace(" ", "T").slice(0, 16);
+}
+
+
+function startRevision() {
+  if (!selectedChange) return;
+
+  if (
+    !isRequester ||
+    selectedChange.status !== "Needs More Information"
+  ) {
+    alert("This change request cannot currently be revised.");
+    return;
+  }
+
+  setForm({
+    title: selectedChange.title,
+    description: selectedChange.description,
+    change_type: selectedChange.change_type,
+    change_mode: selectedChange.change_mode,
+    priority: selectedChange.priority,
+    affected_system_ids: selectedChange.affected_system_ids,
+    expected_downtime_minutes:
+      selectedChange.expected_downtime_minutes,
+    rollback_complexity: selectedChange.rollback_complexity,
+    security_sensitivity: selectedChange.security_sensitivity,
+    business_justification:
+      selectedChange.business_justification || "",
+    planned_start: toDateTimeLocalValue(
+      selectedChange.planned_start
+    ),
+    planned_end: toDateTimeLocalValue(
+      selectedChange.planned_end
+    ),
+  });
+
+  setRevisionComment("");
+  setSystemSearch("");
+  setView("revise");
+}
+  async function createManagedChange() {
+    if (!isRequester) {
+      alert("Only Requester users can register change requests.");
+      return;
+    }
+
+    if (!form.title || !form.description || form.affected_system_ids.length === 0) {
+      alert(
+        "Please provide title, description, and select at least one directly affected configuration item."
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await apiFetch("/change-management/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          change_type: form.change_type,
+          change_mode: form.change_mode,
+          priority: form.priority,
+          affected_system_ids: form.affected_system_ids,
+          expected_downtime_minutes: Number(form.expected_downtime_minutes),
+          rollback_complexity: form.rollback_complexity,
+          security_sensitivity: form.security_sensitivity,
+          business_justification: form.business_justification || null,
+          planned_start: form.planned_start || null,
+          planned_end: form.planned_end || null,
+        }),
+      });
+
+      const data = await readResponse<ManagedChange>(response);
+
+      setForm({
+        title: "",
+        description: "",
+        change_type: "database",
+        change_mode: "Normal",
+        priority: "Medium",
+        affected_system_ids: [],
+        expected_downtime_minutes: 0,
+        rollback_complexity: "Medium",
+        security_sensitivity: "Medium",
+        business_justification: "",
+        planned_start: "",
+        planned_end: "",
+      });
+
+      await loadData();
+      await openChangeDetails(data.id);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Error creating change request.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+async function reviseManagedChange() {
+  if (!selectedChange) return;
+
+  if (!isRequester) {
+    alert("Only the requester can revise this change request.");
+    return;
+  }
+
+  if (
+    !form.title.trim() ||
+    !form.description.trim() ||
+    form.affected_system_ids.length === 0
+  ) {
+    alert(
+      "Please provide title, description, and at least one directly affected configuration item."
+    );
+    return;
+  }
+
+  if (!revisionComment.trim()) {
+    alert("Please explain what was updated in this revision.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await apiFetch(
+      `/change-management/requests/${selectedChange.id}/revise`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          change_type: form.change_type,
+          change_mode: form.change_mode,
+          priority: form.priority,
+          affected_system_ids: form.affected_system_ids,
+          expected_downtime_minutes: Number(
+            form.expected_downtime_minutes
+          ),
+          rollback_complexity: form.rollback_complexity,
+          security_sensitivity: form.security_sensitivity,
+          business_justification:
+            form.business_justification.trim() || null,
+          planned_start: form.planned_start || null,
+          planned_end: form.planned_end || null,
+          revision_comment: revisionComment.trim(),
         }),
       }
     );
 
-    if (!response.ok) {
-      alert("Error submitting approval decision.");
+    const data = await readResponse<ManagedChange>(response);
+
+    setRevisionComment("");
+
+    await loadData();
+    await openChangeDetails(data.id);
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Unable to revise and resubmit the change request."
+    );
+  } finally {
+    setLoading(false);
+  }
+}
+
+  async function submitApproval(decision: string) {
+    if (!selectedChange) return;
+    
+    if (!isChangeManager) {
+      alert(
+        "Only users assigned the Change Manager role can submit authorization decisions."
+      );
       return;
     }
 
-    await openChangeDetails(selectedChange.id);
-    await loadData();
+    if (
+      decision === "Needs More Information" &&
+      !approvalComment.trim()
+    ) {
+      alert(
+        "Please explain what additional information the requester must provide."
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await apiFetch(
+        `/change-management/requests/${selectedChange.id}/approvals`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            approval_level:
+              selectedChange.latest_assessment?.risk_level === "Critical"
+                ? "CAB Review"
+                : "Manager Review",
+
+            decision,
+
+            comments:
+              approvalComment.trim() ||
+              `Authorization decision submitted from ChangeFlow Governance dashboard: ${decision}`,
+          }),
+        }
+      );
+
+      await readResponse(response);
+
+      setApprovalComment("");
+
+      await openChangeDetails(selectedChange.id);
+      await loadData();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit the authorization decision."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   function getRiskClass(risk?: string) {
@@ -448,304 +936,662 @@ const [newRiskRule, setNewRiskRule] = useState({
   }
 
   function getDecisionLabel(decision?: string) {
-  if (!decision) return "N/A";
+    if (!decision) return "N/A";
 
-  if (decision === "Proceed") {
-    return "Authorized to Proceed";
+    if (decision === "Proceed") return "Authorized to Proceed";
+    if (decision === "Proceed with Review") {
+      return "Review Required Before Authorization";
+    }
+    if (decision === "Requires Manager Approval") {
+      return "Management Authorization Required";
+    }
+    if (decision === "Do Not Proceed Without CAB Approval") {
+      return "CAB Authorization Required";
+    }
+
+    return decision;
   }
 
-  if (decision === "Proceed with Review") {
-    return "Review Required Before Authorization";
-  }
-
-  if (decision === "Requires Manager Approval") {
-    return "Management Authorization Required";
-  }
-
-  if (decision === "Do Not Proceed Without CAB Approval") {
-    return "CAB Authorization Required";
-  }
-
-  return decision;
-}
   function toggleAffectedSystem(systemId: number) {
-  const isSelected = form.affected_system_ids.includes(systemId);
+    const isSelected = form.affected_system_ids.includes(systemId);
 
-  const updatedSystems = isSelected
-    ? form.affected_system_ids.filter((id) => id !== systemId)
-    : [...form.affected_system_ids, systemId];
-
-  setForm({
-    ...form,
-    affected_system_ids: updatedSystems,
-  });
-}
-
-const filteredSystems = systems.filter((system) =>
-  `${system.name} ${system.system_type || ""} ${system.criticality} ${system.environment}`
-    .toLowerCase()
-    .includes(systemSearch.toLowerCase())
-);
-
-async function createConfigurationItem() {
-  if (!newConfigItem.name.trim()) {
-    alert("Please enter configuration item name.");
-    return;
+    setForm({
+      ...form,
+      affected_system_ids: isSelected
+        ? form.affected_system_ids.filter((id) => id !== systemId)
+        : [...form.affected_system_ids, systemId],
+    });
   }
 
-  const response = await fetch(`${API_BASE_URL}/foundation/systems`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      organization_id: 1,
-      department_id: newConfigItem.department_id
-        ? Number(newConfigItem.department_id)
-        : null,
-      service_id: null,
-      owner_id: null,
-      name: newConfigItem.name,
-      description: newConfigItem.description,
-      system_type: newConfigItem.system_type,
-      environment: newConfigItem.environment,
-      criticality: newConfigItem.criticality,
-      status: "Active",
-    }),
-  });
+  const filteredSystems = systems.filter((system) =>
+    `${system.name} ${system.system_type || ""} ${system.criticality} ${system.environment}`
+      .toLowerCase()
+      .includes(systemSearch.toLowerCase())
+  );
 
-  if (!response.ok) {
-    alert("Error creating configuration item.");
-    return;
+  async function createConfigurationItem() {
+    if (!isCmdbManager) {
+      alert("Only CMDB Manager users can register configuration items.");
+      return;
+    }
+
+    if (!newConfigItem.name.trim()) {
+      alert("Please enter configuration item name.");
+      return;
+    }
+
+    try {
+      const response = await apiFetch("/foundation/systems", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          organization_id: currentUser?.organization_id ?? 1,
+          department_id: newConfigItem.department_id
+            ? Number(newConfigItem.department_id)
+            : null,
+          service_id: null,
+          owner_id: null,
+          name: newConfigItem.name.trim(),
+          description: newConfigItem.description.trim() || null,
+          system_type: newConfigItem.system_type,
+          environment: newConfigItem.environment,
+          criticality: newConfigItem.criticality,
+          status: "Active",
+        }),
+      });
+
+      await readResponse(response);
+
+      setNewConfigItem({
+        name: "",
+        description: "",
+        system_type: "Web Application",
+        environment: "Production",
+        criticality: "Medium",
+        department_id: "",
+      });
+
+      await loadData();
+      alert("Configuration item registered successfully.");
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error creating configuration item."
+      );
+    }
   }
 
-  setNewConfigItem({
-    name: "",
-    description: "",
-    system_type: "Web Application",
-    environment: "Production",
-    criticality: "Medium",
-    department_id: "",
-  });
+  function getSystemName(systemId: number) {
+    const system = systems.find((item) => item.id === systemId);
+    return system?.name || `Configuration Item #${systemId}`;
+  }
 
-  await loadData();
-}
+  function formatDateTime(value?: string | null) {
+    if (!value) return "N/A";
 
-function getSystemName(systemId: number) {
-  const system = systems.find((item) => item.id === systemId);
+    return new Date(value).toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
 
-  return system?.name || `Configuration Item #${systemId}`;
-}
+  async function createDependency() {
+    if (!isCmdbManager) {
+      alert("Only CMDB Manager users can register dependencies.");
+      return;
+    }
 
-function formatDateTime(value?: string | null) {
-  if (!value) return "N/A";
+    if (!newDependency.source_system_id || !newDependency.target_system_id) {
+      alert(
+        "Please select both the dependent item and the required configuration item."
+      );
+      return;
+    }
 
-  const date = new Date(value);
+    if (newDependency.source_system_id === newDependency.target_system_id) {
+      alert("A configuration item cannot depend on itself.");
+      return;
+    }
 
-  return date.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
+    try {
+      const response = await apiFetch("/foundation/dependencies", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          source_system_id: Number(newDependency.source_system_id),
+          target_system_id: Number(newDependency.target_system_id),
+          dependency_type: newDependency.dependency_type,
+          impact_level: newDependency.impact_level,
+          description: newDependency.description.trim() || null,
+        }),
+      });
 
-async function createDependency() {
-  if (
-    !newDependency.source_system_id ||
-    !newDependency.target_system_id
+      await readResponse(response);
+
+      setNewDependency({
+        source_system_id: "",
+        target_system_id: "",
+        dependency_type: "Application Dependency",
+        impact_level: "Medium",
+        description: "",
+      });
+
+      await loadData();
+      alert("Dependency relationship registered successfully.");
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error creating dependency relationship."
+      );
+    }
+  }
+
+  async function createHistoricalIncident() {
+    if (!isCmdbManager) {
+      alert("Only CMDB Manager users can register historical incidents.");
+      return;
+    }
+
+    if (!newIncident.system_id) {
+      alert("Please select a configuration item.");
+      return;
+    }
+
+    if (!newIncident.title.trim()) {
+      alert("Please enter the incident title.");
+      return;
+    }
+
+    if (
+      newIncident.occurred_at &&
+      newIncident.resolved_at &&
+      new Date(newIncident.resolved_at) < new Date(newIncident.occurred_at)
+    ) {
+      alert("Resolved date cannot be earlier than incident date.");
+      return;
+    }
+
+    try {
+      const response = await apiFetch("/foundation/incidents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          system_id: Number(newIncident.system_id),
+          title: newIncident.title.trim(),
+          description: newIncident.description.trim() || null,
+          severity: newIncident.severity,
+          status: newIncident.status,
+          occurred_at: newIncident.occurred_at || null,
+          resolved_at: newIncident.resolved_at || null,
+        }),
+      });
+
+      await readResponse(response);
+
+      setNewIncident({
+        system_id: "",
+        title: "",
+        description: "",
+        severity: "Medium",
+        status: "Resolved",
+        occurred_at: "",
+        resolved_at: "",
+      });
+
+      await loadData();
+      alert("Historical incident registered successfully.");
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error registering historical incident."
+      );
+    }
+  }
+
+  async function createRiskRule() {
+    if (!isCmdbManager) {
+      alert("Only CMDB Manager users can register risk rules.");
+      return;
+    }
+
+    if (!newRiskRule.name.trim()) {
+      alert("Please enter the risk rule name.");
+      return;
+    }
+
+    if (Number(newRiskRule.score) < 0) {
+      alert("Risk score cannot be negative.");
+      return;
+    }
+
+    try {
+      const response = await apiFetch("/foundation/risk-rules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newRiskRule.name.trim(),
+          condition_type: newRiskRule.condition_type,
+          condition_value: newRiskRule.condition_value,
+          score: Number(newRiskRule.score),
+          description: newRiskRule.description.trim() || null,
+          is_active: newRiskRule.is_active,
+        }),
+      });
+
+      await readResponse(response);
+
+      setNewRiskRule({
+        name: "",
+        condition_type: "change_type",
+        condition_value: "database",
+        score: 10,
+        description: "",
+        is_active: "active",
+      });
+
+      await loadData();
+      alert("Risk rule registered successfully.");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Error creating risk rule.");
+    }
+  }
+
+  async function toggleRiskRuleStatus(rule: RiskRule) {
+    if (!isCmdbManager) {
+      alert("Only CMDB Manager users can update risk rules.");
+      return;
+    }
+
+    try {
+      const nextStatus = rule.is_active === "active" ? "inactive" : "active";
+      const response = await apiFetch(`/foundation/risk-rules/${rule.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_active: nextStatus }),
+      });
+
+      await readResponse(response);
+      await loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Error updating risk rule.");
+    }
+  }
+
+  async function openUserManagement() {
+    if (!isSystemAdministrator) {
+      alert("Only System Administrator users can manage accounts.");
+      return;
+    }
+
+    await loadUserManagementData();
+    setView("users");
+  }
+
+  function updateUserEdit(
+    userId: number,
+    field: keyof UserEdit,
+    value: string
   ) {
-    alert(
-      "Please select both the dependent item and the required configuration item."
+    setUserEdits((current) => ({
+      ...current,
+      [userId]: {
+        role_name:
+          field === "role_name"
+            ? value
+            : current[userId]?.role_name || "Requester",
+        is_active:
+          field === "is_active"
+            ? (value as "active" | "inactive")
+            : current[userId]?.is_active || "active",
+      },
+    }));
+  }
+
+  async function saveManagedUser(user: AdminUser) {
+    if (!isSystemAdministrator) {
+      alert("Only System Administrator users can update accounts.");
+      return;
+    }
+
+    const edit = userEdits[user.id];
+
+    if (!edit) {
+      return;
+    }
+
+    if (
+      edit.role_name === user.role_name &&
+      edit.is_active === user.is_active
+    ) {
+      alert("No account changes were detected.");
+      return;
+    }
+
+    setUpdatingUserId(user.id);
+
+    try {
+      const response = await apiFetch(`/auth/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          role_name: edit.role_name,
+          is_active: edit.is_active,
+        }),
+      });
+
+      const updatedUser = await readResponse<AdminUser>(response);
+
+      setManagedUsers((current) =>
+        current.map((item) =>
+          item.id === updatedUser.id ? updatedUser : item
+        )
+      );
+      setUserEdits((current) => ({
+        ...current,
+        [updatedUser.id]: {
+          role_name: updatedUser.role_name,
+          is_active: updatedUser.is_active,
+        },
+      }));
+
+      alert("User account updated successfully.");
+    } catch (error) {
+      setUserEdits((current) => ({
+        ...current,
+        [user.id]: {
+          role_name: user.role_name,
+          is_active: user.is_active,
+        },
+      }));
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to update the user account."
+      );
+    } finally {
+      setUpdatingUserId(null);
+    }
+  }
+
+  const filteredManagedUsers = managedUsers.filter((user) =>
+    `${user.full_name} ${user.email} ${user.job_title || ""} ${
+      user.department_name || ""
+    } ${user.role_name} ${user.is_active}`
+      .toLowerCase()
+      .includes(userSearch.toLowerCase())
+  );
+
+  function renderAccessDenied(message: string) {
+    return (
+      <section className="panel form-panel access-denied-panel">
+        <h2>Access Restricted</h2>
+        <p>{message}</p>
+        <button className="secondary-button" onClick={() => setView("dashboard")}>
+          Back to Dashboard
+        </button>
+      </section>
     );
-    return;
   }
 
-  if (
-    newDependency.source_system_id === newDependency.target_system_id
-  ) {
-    alert("A configuration item cannot depend on itself.");
-    return;
+  function renderLogin() {
+    const isSignup = authMode === "signup";
+
+    return (
+      <main className="login-page">
+        <section className="login-shell">
+          <div className="login-brand-panel">
+            <span className="login-eyebrow">Enterprise Change Governance</span>
+            <h1>ChangeFlow Governance</h1>
+            <p>
+              Assess change impact, manage authorization workflows, and maintain
+              audit-ready records through role-based access.
+            </p>
+
+            <div className="login-feature-list">
+              <span>Database-driven impact assessment</span>
+              <span>Role-based authorization</span>
+              <span>CMDB foundation and audit trail</span>
+            </div>
+          </div>
+
+          <section className="panel login-panel">
+            <div className="login-form-heading">
+              <h2>{isSignup ? "Create Requester Account" : "Welcome Back"}</h2>
+              <p>
+                {isSignup
+                  ? "New accounts are assigned the Requester role automatically."
+                  : "Sign in with your organizational account."}
+              </p>
+            </div>
+
+            {isSignup ? (
+              <form className="login-form" onSubmit={handleRegister}>
+                <label>Full Name</label>
+                <input
+                  value={signupForm.full_name}
+                  onChange={(event) =>
+                    setSignupForm({
+                      ...signupForm,
+                      full_name: event.target.value,
+                    })
+                  }
+                  placeholder="Enter your full name"
+                  autoComplete="name"
+                />
+
+                <label>Email Address</label>
+                <input
+                  type="email"
+                  value={signupForm.email}
+                  onChange={(event) =>
+                    setSignupForm({
+                      ...signupForm,
+                      email: event.target.value,
+                    })
+                  }
+                  placeholder="name@organization.com"
+                  autoComplete="email"
+                />
+
+                <label>Job Title</label>
+                <input
+                  value={signupForm.job_title}
+                  onChange={(event) =>
+                    setSignupForm({
+                      ...signupForm,
+                      job_title: event.target.value,
+                    })
+                  }
+                  placeholder="Optional"
+                  autoComplete="organization-title"
+                />
+
+                <label>Password</label>
+                <input
+                  type="password"
+                  value={signupForm.password}
+                  onChange={(event) =>
+                    setSignupForm({
+                      ...signupForm,
+                      password: event.target.value,
+                    })
+                  }
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                />
+
+                {loginError && <p className="login-error">{loginError}</p>}
+
+                <button
+                  className="primary-button login-button"
+                  type="submit"
+                  disabled={registerLoading}
+                >
+                  {registerLoading ? "Creating Account..." : "Create Account"}
+                </button>
+              </form>
+            ) : (
+              <form className="login-form" onSubmit={handleLogin}>
+                <label>Email Address</label>
+                <input
+                  type="email"
+                  value={loginForm.email}
+                  onChange={(event) =>
+                    setLoginForm({ ...loginForm, email: event.target.value })
+                  }
+                  placeholder="name@organization.com"
+                  autoComplete="username"
+                />
+
+                <label>Password</label>
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(event) =>
+                    setLoginForm({ ...loginForm, password: event.target.value })
+                  }
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                />
+
+                {loginError && <p className="login-error">{loginError}</p>}
+
+                <button
+                  className="primary-button login-button"
+                  type="submit"
+                  disabled={loginLoading}
+                >
+                  {loginLoading ? "Signing In..." : "Sign In"}
+                </button>
+              </form>
+            )}
+
+            <div className="auth-switch">
+              <span>
+                {isSignup ? "Already have an account?" : "Need an account?"}
+              </span>
+              <button
+                type="button"
+                className="auth-link-button"
+                onClick={() => {
+                  setAuthMode(isSignup ? "login" : "signup");
+                  setLoginError("");
+                }}
+              >
+                {isSignup ? "Sign In" : "Create Requester Account"}
+              </button>
+            </div>
+          </section>
+        </section>
+      </main>
+    );
   }
-
-  const response = await fetch(
-    `${API_BASE_URL}/foundation/dependencies`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        source_system_id: Number(newDependency.source_system_id),
-        target_system_id: Number(newDependency.target_system_id),
-        dependency_type: newDependency.dependency_type,
-        impact_level: newDependency.impact_level,
-        description: newDependency.description.trim() || null,
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    alert(data.detail || "Error creating dependency relationship.");
-    return;
-  }
-
-  setNewDependency({
-    source_system_id: "",
-    target_system_id: "",
-    dependency_type: "Application Dependency",
-    impact_level: "Medium",
-    description: "",
-  });
-
-  await loadData();
-
-  alert("Dependency relationship registered successfully.");
-}
-
-async function createHistoricalIncident() {
-  if (!newIncident.system_id) {
-    alert("Please select a configuration item.");
-    return;
-  }
-
-  if (!newIncident.title.trim()) {
-    alert("Please enter the incident title.");
-    return;
-  }
-
-  if (
-    newIncident.occurred_at &&
-    newIncident.resolved_at &&
-    new Date(newIncident.resolved_at) <
-      new Date(newIncident.occurred_at)
-  ) {
-    alert("Resolved date cannot be earlier than incident date.");
-    return;
-  }
-
-  const response = await fetch(
-    `${API_BASE_URL}/foundation/incidents`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        system_id: Number(newIncident.system_id),
-        title: newIncident.title.trim(),
-        description: newIncident.description.trim() || null,
-        severity: newIncident.severity,
-        status: newIncident.status,
-        occurred_at: newIncident.occurred_at || null,
-        resolved_at: newIncident.resolved_at || null,
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    alert(data.detail || "Error registering historical incident.");
-    return;
-  }
-
-  setNewIncident({
-    system_id: "",
-    title: "",
-    description: "",
-    severity: "Medium",
-    status: "Resolved",
-    occurred_at: "",
-    resolved_at: "",
-  });
-
-  await loadData();
-
-  alert("Historical incident registered successfully.");
-}
-async function createRiskRule() {
-  if (!newRiskRule.name.trim()) {
-    alert("Please enter the risk rule name.");
-    return;
-  }
-
-  if (Number(newRiskRule.score) < 0) {
-    alert("Risk score cannot be negative.");
-    return;
-  }
-
-  const response = await fetch(
-    `${API_BASE_URL}/foundation/risk-rules`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: newRiskRule.name.trim(),
-        condition_type: newRiskRule.condition_type,
-        condition_value: newRiskRule.condition_value,
-        score: Number(newRiskRule.score),
-        description: newRiskRule.description.trim() || null,
-        is_active: newRiskRule.is_active,
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    alert(data.detail || "Error creating risk rule.");
-    return;
-  }
-
-  setNewRiskRule({
-    name: "",
-    condition_type: "change_type",
-    condition_value: "database",
-    score: 10,
-    description: "",
-    is_active: "active",
-  });
-
-  await loadData();
-
-  alert("Risk rule registered successfully.");
-}
-
-async function toggleRiskRuleStatus(rule: RiskRule) {
-  const nextStatus =
-    rule.is_active === "active" ? "inactive" : "active";
-
-  const response = await fetch(
-    `${API_BASE_URL}/foundation/risk-rules/${rule.id}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        is_active: nextStatus,
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    alert(data.detail || "Error updating risk rule.");
-    return;
-  }
-
-  await loadData();
-}
 
   function renderDashboard() {
+    if (isSystemAdministrator) {
+      const activeUsers = managedUsers.filter(
+        (user) => user.is_active === "active"
+      ).length;
+      const inactiveUsers = managedUsers.length - activeUsers;
+
+      return (
+        <>
+          <header className="app-header">
+            <div>
+              <h1>ChangeFlow Governance</h1>
+              <p>
+                System administration workspace for user access, role
+                assignments, and account governance.
+              </p>
+            </div>
+
+            <div className="header-session">
+              <div className="current-user-card">
+                <div className="user-avatar" aria-hidden="true">
+                  {currentUser?.full_name?.charAt(0).toUpperCase() || "U"}
+                </div>
+                <div className="user-meta">
+                  <strong>{currentUser?.full_name}</strong>
+                  <span className="role-pill">{currentUser?.role_name}</span>
+                </div>
+              </div>
+
+              <div className="actions">
+                <button className="primary-button" onClick={openUserManagement}>
+                  User Management
+                </button>
+                <button className="secondary-button" onClick={handleLogout}>
+                  Logout
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <section className="stats-grid system-admin-stats">
+            <div className="stat-card">
+              <span>Total Users</span>
+              <strong>{managedUsers.length}</strong>
+            </div>
+            <div className="stat-card">
+              <span>Active Accounts</span>
+              <strong>{activeUsers}</strong>
+            </div>
+            <div className="stat-card">
+              <span>Inactive Accounts</span>
+              <strong>{inactiveUsers}</strong>
+            </div>
+            <div className="stat-card">
+              <span>Managed Roles</span>
+              <strong>{managedRoles.length}</strong>
+            </div>
+          </section>
+
+          <section className="panel admin-note">
+            <strong>Access Governance</strong>
+            <p>
+              System Administrators manage account status and role assignments.
+              Passwords are never displayed, and protected administrator safeguards
+              are enforced by the backend.
+            </p>
+          </section>
+
+          <section className="panel">
+            <div className="section-header">
+              <div>
+                <h2>User Access Administration</h2>
+                <p>
+                  Review all accounts, manage assigned roles, and activate or
+                  deactivate access from one controlled workspace.
+                </p>
+              </div>
+              <button className="primary-button" onClick={openUserManagement}>
+                Open User Management
+              </button>
+            </div>
+          </section>
+        </>
+      );
+    }
+
     return (
       <>
         <header className="app-header">
@@ -757,14 +1603,37 @@ async function toggleRiskRuleStatus(rule: RiskRule) {
             </p>
           </div>
 
-          <div className="actions">
-            <button className="secondary-button" onClick={() => setView("foundation")}>
-              Admin Console
-            </button>
-            
-            <button className="primary-button" onClick={() => setView("new")}>
-              New Change Request
-            </button>
+          <div className="header-session">
+            <div className="current-user-card">
+              <div className="user-avatar" aria-hidden="true">
+                {currentUser?.full_name?.charAt(0).toUpperCase() || "U"}
+              </div>
+              <div className="user-meta">
+                <strong>{currentUser?.full_name}</strong>
+                <span className="role-pill">{currentUser?.role_name}</span>
+              </div>
+            </div>
+
+            <div className="actions">
+              {isCmdbManager && (
+                <button
+                  className="secondary-button"
+                  onClick={() => setView("foundation")}
+                >
+                  Admin Console
+                </button>
+              )}
+
+              {isRequester && (
+                <button className="primary-button" onClick={() => setView("new")}>
+                  New Change Request
+                </button>
+              )}
+
+              <button className="secondary-button" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
           </div>
         </header>
 
@@ -869,19 +1738,48 @@ async function toggleRiskRuleStatus(rule: RiskRule) {
   }
 
   function renderNewChange() {
+    const isRevision = view === "revise";
+
+    if (!isRequester) {
+      return renderAccessDenied(
+        "Only users assigned the Requester role can register change requests."
+      );
+    }
+
+    if (
+      isRevision &&
+      (
+        !selectedChange ||
+        selectedChange.status !== "Needs More Information"
+      )
+    ) {
+      return renderAccessDenied(
+        "Only change requests awaiting additional information can be revised."
+      );
+    }
+
     return (
       <section className="panel form-panel">
         <div className="section-header">
           <div>
-            <h2>Register New Change Request</h2>
+            <h2>
+              {isRevision
+              ? "Revise & Resubmit Change Request"
+              : "Register New Change Request"}
+            </h2>
             <p>
-              Select affected configuration items from the service foundation.
-              The assessment will evaluate criticality, dependencies, historical incidents,
-              risk rules, and required authorization path.
+              {isRevision
+                ? "Update the requested information and resubmit the change for a new impact assessment."
+                : "Select affected configuration items from the service foundation. The assessment will evaluate criticality, dependencies, historical incidents, risk rules, and the required authorization path."}
             </p>
           </div>
 
-          <button className="secondary-button" onClick={() => setView("dashboard")}>
+          <button
+            className="secondary-button"
+            onClick={() =>
+              setView(isRevision ? "details" : "dashboard")
+            }
+          >
             Back
           </button>
         </div>
@@ -1051,35 +1949,278 @@ async function toggleRiskRuleStatus(rule: RiskRule) {
           }
           placeholder="Why is this change required?"
         />
+        {isRevision && (
+          <>
+            <label>Revision Comment</label>
 
+            <textarea
+              value={revisionComment}
+              onChange={(e) =>
+                setRevisionComment(e.target.value)
+              }
+              placeholder="Explain what information or changes were added before resubmission."
+            />
+          </>
+        )}
         <div className="form-grid">
           <div>
             <label>Planned Start</label>
             <input
+              type="datetime-local"
+              lang="en"
               value={form.planned_start}
-              onChange={(e) => setForm({ ...form, planned_start: e.target.value })}
-              placeholder="2026-07-20 22:00"
-            />
-          </div>
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  planned_start: e.target.value,
+                })
+              }
+          /> 
+        </div>
+        
+        <div>
+          <label>Planned End</label>
+          <input
+            type="datetime-local"
+            lang="en"
+            value={form.planned_end}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                planned_end: e.target.value,
+              })
+             }
+          />
+       </div>
+    </div>
 
+        <button
+          className="primary-button change-submit-button"
+          onClick={
+            isRevision
+              ? reviseManagedChange
+              : createManagedChange
+          }
+          disabled={loading}
+        >
+          {loading
+            ? isRevision
+              ? "Reassessing..."
+              : "Creating..."
+            : isRevision
+              ? "Revise, Reassess & Resubmit"
+              : "Register & Assess"}
+        </button>
+      </section>
+    );
+
+  }
+
+  
+  function renderUserManagement() {
+    if (!isSystemAdministrator) {
+      return renderAccessDenied(
+        "Only users assigned the System Administrator role can manage user accounts."
+      );
+    }
+
+    return (
+      <section className="panel form-panel user-management-page">
+        <div className="section-header">
           <div>
-            <label>Planned End</label>
-            <input
-              value={form.planned_end}
-              onChange={(e) => setForm({ ...form, planned_end: e.target.value })}
-              placeholder="2026-07-21 01:00"
-            />
+            <h2>User Management</h2>
+            <p>
+              Manage organizational access, account status, and role assignments.
+              Sensitive administrator safeguards are enforced by the backend.
+            </p>
           </div>
+          <button
+            className="secondary-button"
+            onClick={() => setView("dashboard")}
+          >
+            Back
+          </button>
         </div>
 
-        <button className="primary-button" onClick={createManagedChange}>
-          {loading ? "Creating..." : "Register & Assess"}
-        </button>
+        <section className="admin-note">
+          <strong>Security Controls</strong>
+          <p>
+            You cannot deactivate your own account, remove your own System
+            Administrator role, or remove access from the last active System
+            Administrator.
+          </p>
+        </section>
+
+        <div className="user-management-toolbar">
+          <input
+            value={userSearch}
+            onChange={(event) => setUserSearch(event.target.value)}
+            placeholder="Search users by name, email, department, role, or status..."
+          />
+          <button
+            className="secondary-button"
+            onClick={() => loadUserManagementData()}
+            disabled={userManagementLoading}
+          >
+            {userManagementLoading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        <section className="user-summary-grid">
+          <div>
+            <span>Total Accounts</span>
+            <strong>{managedUsers.length}</strong>
+          </div>
+          <div>
+            <span>Active</span>
+            <strong>
+              {managedUsers.filter((user) => user.is_active === "active").length}
+            </strong>
+          </div>
+          <div>
+            <span>Inactive</span>
+            <strong>
+              {managedUsers.filter((user) => user.is_active === "inactive").length}
+            </strong>
+          </div>
+          <div>
+            <span>Roles</span>
+            <strong>{managedRoles.length}</strong>
+          </div>
+        </section>
+
+        <section className="panel inner-panel user-table-panel">
+          <div className="section-header compact-section-header">
+            <div>
+              <h3>Registered Users</h3>
+              <p>{filteredManagedUsers.length} account(s) shown.</p>
+            </div>
+          </div>
+
+          {userManagementLoading && managedUsers.length === 0 ? (
+            <p>Loading user accounts...</p>
+          ) : filteredManagedUsers.length === 0 ? (
+            <p>No user accounts match the current search.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="user-management-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Job & Department</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredManagedUsers.map((user) => {
+                    const edit = userEdits[user.id] || {
+                      role_name: user.role_name,
+                      is_active: user.is_active,
+                    };
+                    const isCurrentAdministrator = user.id === currentUser?.id;
+                    const hasChanges =
+                      edit.role_name !== user.role_name ||
+                      edit.is_active !== user.is_active;
+
+                    return (
+                      <tr key={user.id}>
+                        <td>
+                          <div className="managed-user-cell">
+                            <div className="managed-user-avatar" aria-hidden="true">
+                              {user.full_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <strong>{user.full_name}</strong>
+                              <span>{user.email}</span>
+                              {isCurrentAdministrator && (
+                                <small>Current administrator</small>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <strong>{user.job_title || "Not specified"}</strong>
+                          <br />
+                          <span className="table-description">
+                            {user.department_name || "Unassigned department"}
+                          </span>
+                        </td>
+                        <td>
+                          <select
+                            value={edit.role_name}
+                            onChange={(event) =>
+                              updateUserEdit(
+                                user.id,
+                                "role_name",
+                                event.target.value
+                              )
+                            }
+                            disabled={isCurrentAdministrator}
+                          >
+                            {managedRoles.map((role) => (
+                              <option key={role.id} value={role.name}>
+                                {role.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            value={edit.is_active}
+                            onChange={(event) =>
+                              updateUserEdit(
+                                user.id,
+                                "is_active",
+                                event.target.value
+                              )
+                            }
+                            disabled={isCurrentAdministrator}
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                          <span className={`account-status ${user.is_active}`}>
+                            Current: {user.is_active}
+                          </span>
+                        </td>
+                        <td>{formatDateTime(user.created_at)}</td>
+                        <td>
+                          <button
+                            className="table-button"
+                            onClick={() => saveManagedUser(user)}
+                            disabled={
+                              isCurrentAdministrator ||
+                              !hasChanges ||
+                              updatingUserId === user.id
+                            }
+                          >
+                            {updatingUserId === user.id
+                              ? "Saving..."
+                              : "Save Changes"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </section>
     );
   }
 
   function renderFoundationManagement() {
+  if (!isCmdbManager) {
+    return renderAccessDenied(
+      "Only users assigned the CMDB Manager role can access foundation administration."
+    );
+  }
+
   return (
     <section className="panel form-panel">
       <div className="section-header">
@@ -2008,31 +3149,103 @@ async function toggleRiskRuleStatus(rule: RiskRule) {
             ))}
           </ul>
         </section>
+        {isRequester &&
+          selectedChange.status === "Needs More Information" && (
+            <section className="panel inner-panel revision-callout">
+              <h3>Revision Required</h3>
 
+              <p>
+                The Change Manager requested additional information.
+                Review the feedback, update the change record, and submit
+                it for a new impact assessment.
+              </p>
+
+              {approvals.find(
+                (approval) =>
+                  approval.decision === "Needs More Information"
+              )?.comments && (
+                <div className="manager-feedback">
+                  <strong>Change Manager Feedback</strong>
+
+                  <p>
+                    {
+                      approvals.find(
+                        (approval) =>
+                          approval.decision ===
+                          "Needs More Information"
+                      )?.comments
+                  }
+                  </p>
+                </div>
+              )}
+
+              <button
+                className="warning-button"
+                onClick={startRevision}
+              >
+                Revise & Resubmit
+              </button>
+            </section>
+         )}
         <section className="panel inner-panel">
           <h3>Authorization Decision</h3>
-          {selectedChange.status === "Pending Approval" ||
-          selectedChange.status === "Needs More Information" ? (
-          <div className="actions">
-            <button
-            className="approve-button"onClick={() => submitApproval("Approved")}>Approve
-            </button>
-            <button
-            className="warning-button"onClick={() => submitApproval("Needs More Information")}>
-              Needs More Information
-              </button>
-              <button
-              className="delete-button"onClick={() => submitApproval("Rejected")}>
-                Reject
-              </button>
-          </div>
-  ) : (
-    <p className="readonly-note">
-      This change is currently <strong>{selectedChange.status}</strong>. Authorization
-      actions are locked because a final decision has already been recorded.
-    </p>
-  )}
-</section>
+
+          {!isChangeManager ? (
+            <p className="readonly-note">
+              Authorization actions are available only to users assigned
+              the <strong> Change Manager</strong> role.
+            </p>
+          ) : selectedChange.status === "Pending Approval" ? (
+            <>
+              <label>Decision Comments</label>
+
+              <textarea
+                value={approvalComment}
+                onChange={(e) =>
+                  setApprovalComment(e.target.value)
+                }
+                placeholder="Document the decision rationale or specify the additional information required."
+              />
+
+              <div className="actions decision-actions">
+                <button
+                  className="approve-button"
+                  onClick={() => submitApproval("Approved")}
+                >
+                  Approve
+                </button>
+
+                <button
+                  className="warning-button"
+                  onClick={() =>
+                    submitApproval("Needs More Information")
+                  }
+                >
+                  Needs More Information
+                </button>
+
+                <button
+                  className="delete-button"
+                  onClick={() => submitApproval("Rejected")}
+                >
+                  Reject
+                </button>
+              </div>
+            </>
+          ) : selectedChange.status === "Needs More Information" ? (
+            <p className="readonly-note">
+              Waiting for the requester to revise and resubmit this
+              change record.
+            </p>
+          ) : (
+            <p className="readonly-note">
+              This change is currently{" "}
+              <strong>{selectedChange.status}</strong>. Authorization
+              actions are locked because a final decision has already
+              been recorded.
+            </p>
+          )}
+        </section>
 
 <section className="two-column">
   <div className="panel inner-panel">
@@ -2043,10 +3256,30 @@ async function toggleRiskRuleStatus(rule: RiskRule) {
     ) : (
       <ul>
         {approvals.map((approval) => (
-          <li key={approval.approval_id}>
-            <strong>{approval.decision}</strong> - {approval.approval_level}
-            <br />
-            {approval.comments}
+          <li
+           key={approval.approval_id}
+           className="record-item"
+          >
+            <div className="record-header">
+              <strong>{approval.decision}</strong>
+              <span>
+                {formatDateTime(approval.decided_at)}
+              </span>
+            </div>
+
+            <p>
+              {approval.approval_level} by{" "}
+              <strong>
+                {approval.approver_name ||
+                  `User #${approval.approver_id}`}
+              </strong>
+            </p>
+
+            {approval.comments && (
+              <p className="record-comment">
+                {approval.comments}
+              </p>
+            )}
           </li>
         ))}
       </ul>
@@ -2061,11 +3294,25 @@ async function toggleRiskRuleStatus(rule: RiskRule) {
     ) : (
       <ul>
         {statusHistory.map((item, index) => (
-          <li key={index}>
-            <strong>{item.old_status || "Created"}</strong> →{" "}
-            <strong>{item.new_status}</strong>
-            <br />
-            {item.comment}
+          <li key={index} className="record-item">
+            <div className="record-header">
+              <strong>
+                {item.old_status || "Created"} → {item.new_status}
+              </strong>
+
+              <span>{formatDateTime(item.changed_at)}</span>
+            </div>
+
+            <p>
+              Updated by{" "}
+              <strong>{item.changed_by_name || "System"}</strong>
+            </p>
+
+            {item.comment && (
+              <p className="record-comment">
+                {item.comment}
+              </p>
+          )}
           </li>
         ))}
       </ul>
@@ -2081,10 +3328,23 @@ async function toggleRiskRuleStatus(rule: RiskRule) {
   ) : (
     <ul>
       {auditLogs.map((log, index) => (
-        <li key={index}>
-          <strong>{log.action}</strong>
-          <br />
-          {log.details}
+        <li key={index} className="record-item">
+          <div className="record-header">
+            <strong>{log.action}</strong>
+
+            <span>{formatDateTime(log.created_at)}</span>
+          </div>
+
+          <p>
+            Performed by{" "}
+            <strong>{log.actor_name || "System"}</strong>
+          </p>
+
+          {log.details && (
+            <p className="record-comment">
+              {log.details}
+            </p>
+          )}
         </li>
       ))}
     </ul>
@@ -2094,12 +3354,28 @@ async function toggleRiskRuleStatus(rule: RiskRule) {
     );
   }
 
+  if (authLoading) {
+    return (
+      <main className="login-page">
+        <section className="panel login-panel loading-session">
+          <h2>Restoring secure session...</h2>
+        </section>
+      </main>
+    );
+  }
+
+  if (!token || !currentUser) {
+    return renderLogin();
+  }
+
   return (
     <main className="page">
       {view === "dashboard" && renderDashboard()}
-      {view === "new" && renderNewChange()}
+      {(view === "new" || view === "revise") &&
+        renderNewChange()}
       {view === "details" && renderDetails()}
       {view === "foundation" && renderFoundationManagement()}
+      {view === "users" && renderUserManagement()}
     </main>
   );
 }
