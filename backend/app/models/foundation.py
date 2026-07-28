@@ -89,7 +89,7 @@ class User(Base):
         back_populates="owner",
     )
 
-    
+
 class ITService(Base):
     __tablename__ = "it_services"
 
@@ -192,3 +192,36 @@ class RiskRule(Base):
     description = Column(Text, nullable=True)
     is_active = Column(String(20), default="active")
     
+
+class UserAdministrationAudit(Base):
+    __tablename__ = "user_administration_audit_logs"
+        
+    id = Column(Integer, primary_key=True, index=True)
+
+    actor_id = Column(
+            Integer,
+            ForeignKey("users.id"),
+            nullable=False,
+         )
+
+    target_user_id = Column(
+            Integer,
+            ForeignKey("users.id"),
+            nullable=False,
+        )
+
+    action = Column(String(100), nullable=False)
+
+    old_role = Column(String(100), nullable=True)
+    new_role = Column(String(100), nullable=True)
+
+    old_status = Column(String(20), nullable=True)
+    new_status = Column(String(20), nullable=True)
+
+    details = Column(Text, nullable=True)
+
+    created_at = Column(
+            DateTime,
+            default=datetime.utcnow,
+            nullable=False,
+        )

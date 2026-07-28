@@ -3,23 +3,29 @@ from fastapi import (
     Depends,
     HTTPException,
     status,
+    Query,
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session,aliased
 
 from app.database import get_db
 from app.models.foundation import (
+    Department,
     Organization,
     Role,
     User,
+    UserAdministrationAudit,
 )
 from app.schemas.auth import (
     AdminUserOutput,
+    AdminUserPageOutput,
     AdminUserUpdate,
     CurrentUserOutput,
     RoleOptionOutput,
     TokenOutput,
+    UserAdministrationAuditOutput,
+    UserAdministrationAuditPageOutput,
     UserRegistrationInput,
 )
 from app.services.auth_service import (
@@ -90,6 +96,56 @@ def build_admin_user_output(
         ),
         is_active=user.is_active,
         created_at=user.created_at,
+    )
+
+
+def build_user_admin_audit_output(
+    db: Session,
+    audit: UserAdministrationAudit,
+) -> UserAdministrationAuditOutput:
+    actor = (
+        db.query(User)
+        .filter(User.id == audit.actor_id)
+        .first()
+    )
+
+    target_user = (
+        db.query(User)
+        .filter(User.id == audit.target_user_id)
+        .first()
+    )
+
+    return UserAdministrationAuditOutput(
+        id=audit.id,
+        action=audit.action,
+
+        actor_id=audit.actor_id,
+        actor_name=(
+            actor.full_name
+            if actor
+            else f"User #{audit.actor_id}"
+        ),
+
+        target_user_id=audit.target_user_id,
+        target_user_name=(
+            target_user.full_name
+            if target_user
+            else f"User #{audit.target_user_id}"
+        ),
+        target_user_email=(
+            target_user.email
+            if target_user
+            else "Unknown"
+        ),
+
+        old_role=audit.old_role,
+        new_role=audit.new_role,
+
+        old_status=audit.old_status,
+        new_status=audit.new_status,
+
+        details=audit.details,
+        created_at=audit.created_at,
     )
 
 
@@ -320,6 +376,94 @@ def get_managed_users(
     ]
 
 
+@router.get(
+    "/admin/users/paged",
+    response_model=AdminUserPageOutput,
+)
+def get_managed_users_paged(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    search: str | None = Query(default=None),
+    role_name: str | None = Query(default=None),
+    is_active: str | None = Query(default=None),
+    current_user: User = Depends(
+        require_roles("System Administrator")
+    ),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(User)
+        .outerjoin(
+            Role,
+            User.role_id == Role.id,
+        )
+        .outerjoin(
+            Department,
+            User.department_id == Department.id,
+        )
+    )
+
+    if search and search.strip():
+        search_value = f"%{search.strip().lower()}%"
+
+        query = query.filter(
+            or_(
+                func.lower(User.full_name).like(search_value),
+                func.lower(User.email).like(search_value),
+                func.lower(User.job_title).like(search_value),
+                func.lower(Role.name).like(search_value),
+                func.lower(Department.name).like(search_value),
+                func.lower(User.is_active).like(search_value),
+            )
+        )
+
+    if role_name and role_name.strip():
+        query = query.filter(
+            Role.name == role_name.strip()
+        )
+
+    if is_active and is_active.strip():
+        normalized_status = is_active.strip().lower()
+
+        if normalized_status not in {
+            "active",
+            "inactive",
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported account status.",
+            )
+
+        query = query.filter(
+            User.is_active == normalized_status
+        )
+
+    total = query.count()
+
+    users = (
+        query
+        .order_by(User.full_name.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    total_pages = max(
+        1,
+        (total + page_size - 1) // page_size,
+    )
+
+    return AdminUserPageOutput(
+        items=[
+            build_admin_user_output(user)
+            for user in users
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
 @router.patch(
     "/admin/users/{user_id}",
     response_model=AdminUserOutput,
@@ -338,11 +482,19 @@ def update_managed_user(
         .first()
     )
 
+
     if not target_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User account not found.",
         )
+    old_role_name = (
+        target_user.role.name
+        if target_user.role
+        else None
+    )
+
+    old_status = target_user.is_active
 
     update_data = payload.model_dump(
         exclude_unset=True
@@ -440,9 +592,196 @@ def update_managed_user(
     if requested_status is not None:
         target_user.is_active = requested_status
 
+
+    new_role_name = (
+        target_user.role.name
+        if target_user.role
+        else None
+    )
+
+    new_status = target_user.is_active
+
+
+    if old_role_name != new_role_name:
+        db.add(
+            UserAdministrationAudit(
+                actor_id=current_user.id,
+                target_user_id=target_user.id,
+                action="ROLE_CHANGED",
+                old_role=old_role_name,
+                new_role=new_role_name,
+                old_status=old_status,
+                new_status=new_status,
+                details=(
+                    f"User role changed from "
+                    f"'{old_role_name or 'Unknown'}' to "
+                    f"'{new_role_name or 'Unknown'}'."
+                ),
+            )
+        )
+
+    if old_status != new_status:
+        status_action = (
+            "ACCOUNT_ACTIVATED"
+            if new_status == "active"
+            else "ACCOUNT_DEACTIVATED"
+        )
+
+        db.add(
+            UserAdministrationAudit(
+                actor_id=current_user.id,
+                target_user_id=target_user.id,
+                action=status_action,
+                old_role=old_role_name,
+                new_role=new_role_name,
+                old_status=old_status,
+                new_status=new_status,
+                details=(
+                    f"User account status changed from "
+                    f"'{old_status}' to '{new_status}'."
+                ),
+            )
+        )
+
+
     db.commit()
     db.refresh(target_user)
 
     return build_admin_user_output(
         target_user
+    )
+
+@router.get(
+    "/admin/audit-logs",
+    response_model=list[UserAdministrationAuditOutput],
+)
+def get_user_administration_audit_logs(
+    current_user: User = Depends(
+        require_roles("System Administrator")
+    ),
+    db: Session = Depends(get_db),
+):
+    audit_logs = (
+        db.query(UserAdministrationAudit)
+        .order_by(
+            UserAdministrationAudit.created_at.desc(),
+            UserAdministrationAudit.id.desc(),
+        )
+        .all()
+    )
+
+    return [
+        build_user_admin_audit_output(
+            db,
+            audit,
+        )
+        for audit in audit_logs
+    ]
+
+@router.get(
+    "/admin/audit-logs/paged",
+    response_model=UserAdministrationAuditPageOutput,
+)
+def get_user_administration_audit_logs_paged(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    search: str | None = Query(default=None),
+    action: str | None = Query(default=None),
+    current_user: User = Depends(
+        require_roles("System Administrator")
+    ),
+    db: Session = Depends(get_db),
+):
+    actor_user = aliased(User)
+    target_user = aliased(User)
+
+    query = (
+        db.query(UserAdministrationAudit)
+        .join(
+            actor_user,
+            UserAdministrationAudit.actor_id
+            == actor_user.id,
+        )
+        .join(
+            target_user,
+            UserAdministrationAudit.target_user_id
+            == target_user.id,
+        )
+    )
+
+    if search and search.strip():
+        search_value = f"%{search.strip().lower()}%"
+
+        query = query.filter(
+            or_(
+                func.lower(
+                    UserAdministrationAudit.action
+                ).like(search_value),
+
+                func.lower(
+                    actor_user.full_name
+                ).like(search_value),
+
+                func.lower(
+                    target_user.full_name
+                ).like(search_value),
+
+                func.lower(
+                    target_user.email
+                ).like(search_value),
+
+                func.lower(
+                    UserAdministrationAudit.old_role
+                ).like(search_value),
+
+                func.lower(
+                    UserAdministrationAudit.new_role
+                ).like(search_value),
+
+                func.lower(
+                    UserAdministrationAudit.old_status
+                ).like(search_value),
+
+                func.lower(
+                    UserAdministrationAudit.new_status
+                ).like(search_value),
+            )
+        )
+
+    if action and action.strip():
+        query = query.filter(
+            UserAdministrationAudit.action
+            == action.strip()
+        )
+
+    total = query.count()
+
+    audit_logs = (
+        query
+        .order_by(
+            UserAdministrationAudit.created_at.desc(),
+            UserAdministrationAudit.id.desc(),
+        )
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    total_pages = max(
+        1,
+        (total + page_size - 1) // page_size,
+    )
+
+    return UserAdministrationAuditPageOutput(
+        items=[
+            build_user_admin_audit_output(
+                db,
+                audit,
+            )
+            for audit in audit_logs
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
     )

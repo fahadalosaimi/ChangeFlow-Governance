@@ -1,5 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from datetime import date, datetime, time
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+)
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, aliased
 import json
 
 from app.database import get_db
@@ -8,6 +16,7 @@ from app.schemas.change_management import (
     ManagedChangeRevision,
     ChangeStatusUpdate,
     ApprovalDecisionCreate,
+    ManagedChangePageOutput,
 )
 from app.schemas.foundation_analysis import FoundationImpactAnalysisInput
 from app.services.foundation_risk_engine import analyze_foundation_change
@@ -24,6 +33,11 @@ from app.models.foundation import User
 from app.services.auth_service import (
     get_current_user,
     require_roles,
+)
+
+from app.services.notification_service import (
+    notify_change_managers,
+    notify_requester,
 )
 
 router = APIRouter(
@@ -112,59 +126,118 @@ def get_accessible_change_request(
     return change_request
 
 
-def build_change_response(change_request: ManagedChangeRequest):
+def build_change_response(
+    change_request: ManagedChangeRequest,
+):
     latest_assessment = None
 
     if change_request.assessments:
-        latest_assessment = change_request.assessments[-1]
+        latest_assessment = max(
+            change_request.assessments,
+            key=lambda assessment: assessment.id,
+        )
+
+    requester = change_request.requester
 
     return {
         "id": change_request.id,
+
+        "requester_id": change_request.requester_id,
+        "requester_name": (
+            requester.full_name
+            if requester
+            else None
+        ),
+        "requester_email": (
+            requester.email
+            if requester
+            else None
+        ),
+
         "title": change_request.title,
         "description": change_request.description,
         "change_type": change_request.change_type,
         "change_mode": change_request.change_mode,
         "priority": change_request.priority,
         "status": change_request.status,
-        "expected_downtime_minutes": change_request.expected_downtime_minutes,
-        "rollback_complexity": change_request.rollback_complexity,
-        "security_sensitivity": change_request.security_sensitivity,
-        "business_justification": change_request.business_justification,
+
+        "expected_downtime_minutes":
+            change_request.expected_downtime_minutes,
+
+        "rollback_complexity":
+            change_request.rollback_complexity,
+
+        "security_sensitivity":
+            change_request.security_sensitivity,
+
+        "business_justification":
+            change_request.business_justification,
+
         "planned_start": change_request.planned_start,
         "planned_end": change_request.planned_end,
+
+        "created_at": change_request.created_at.isoformat(),
+        "updated_at": change_request.updated_at.isoformat(),
+
         "affected_system_ids": [
-            item.system_id for item in change_request.affected_systems
+            item.system_id
+            for item in change_request.affected_systems
         ],
-        "latest_assessment": None
-        if not latest_assessment
-        else {
-            "risk_level": latest_assessment.risk_level,
-            "impact_score": latest_assessment.impact_score,
-            "decision_recommendation": latest_assessment.decision_recommendation,
-            "directly_affected_systems": from_json(
-                latest_assessment.directly_affected_systems
-            ),
-            "indirectly_affected_systems": from_json(
-                latest_assessment.indirectly_affected_systems
-            ),
-            "affected_departments": from_json(
-                latest_assessment.affected_departments
-            ),
-            "system_owners": from_json(latest_assessment.system_owners),
-            "previous_incidents": from_json(
-                latest_assessment.previous_incidents
-            ),
-            "risk_factors": from_json(latest_assessment.risk_factors),
-            "recommendations": from_json(latest_assessment.recommendations),
-            "rollback_plan": from_json(latest_assessment.rollback_plan),
-            "testing_checklist": from_json(
-                latest_assessment.testing_checklist
-            ),
-            "ai_explanation": latest_assessment.ai_explanation,
-        },
+
+        "latest_assessment": (
+            None
+            if not latest_assessment
+            else {
+                "risk_level":
+                    latest_assessment.risk_level,
+
+                "impact_score":
+                    latest_assessment.impact_score,
+
+                "decision_recommendation":
+                    latest_assessment.decision_recommendation,
+
+                "directly_affected_systems": from_json(
+                    latest_assessment.directly_affected_systems
+                ),
+
+                "indirectly_affected_systems": from_json(
+                    latest_assessment.indirectly_affected_systems
+                ),
+
+                "affected_departments": from_json(
+                    latest_assessment.affected_departments
+                ),
+
+                "system_owners": from_json(
+                    latest_assessment.system_owners
+                ),
+
+                "previous_incidents": from_json(
+                    latest_assessment.previous_incidents
+                ),
+
+                "risk_factors": from_json(
+                    latest_assessment.risk_factors
+                ),
+
+                "recommendations": from_json(
+                    latest_assessment.recommendations
+                ),
+
+                "rollback_plan": from_json(
+                    latest_assessment.rollback_plan
+                ),
+
+                "testing_checklist": from_json(
+                    latest_assessment.testing_checklist
+                ),
+
+                "ai_explanation":
+                    latest_assessment.ai_explanation,
+            }
+        ),
     }
-
-
 @router.post("/requests")
 def create_managed_change_request(
     payload: ManagedChangeCreate,
@@ -260,6 +333,19 @@ def create_managed_change_request(
         )
     )
 
+    notify_change_managers(
+        db,
+        organization_id=change_request.organization_id,
+        actor_id=current_user.id,
+        change_request_id=change_request.id,
+        notification_type="CHANGE_SUBMITTED",
+        title="New change request submitted",
+        message=(
+            f"{current_user.full_name} submitted change "
+            f"#{change_request.id}: {change_request.title}."
+        ),
+    )
+    
     db.commit()
     db.refresh(change_request)
 
@@ -426,6 +512,18 @@ def revise_and_resubmit_change_request(
         )
     )
 
+    notify_change_managers(
+        db,
+        organization_id=change_request.organization_id,
+        actor_id=current_user.id,
+        change_request_id=change_request.id,
+        notification_type="CHANGE_RESUBMITTED",
+        title="Change request resubmitted",
+        message=(
+            f"{current_user.full_name} revised and resubmitted "
+            f"change #{change_request.id}: {change_request.title}."
+        ),
+    )
     db.commit()
     db.refresh(change_request)
 
@@ -452,6 +550,226 @@ def get_managed_change_requests(
     ]
 
 
+@router.get(
+    "/requests/paged",
+    response_model=ManagedChangePageOutput,
+)
+def get_managed_change_requests_paged(
+    page: int = Query(
+        default=1,
+        ge=1,
+    ),
+    page_size: int = Query(
+        default=5,
+        ge=1,
+        le=100,
+    ),
+    search: str | None = Query(
+        default=None,
+    ),
+    status_filter: str | None = Query(
+        default=None,
+        alias="status",
+    ),
+    risk_level: str | None = Query(
+        default=None,
+    ),
+    change_type: str | None = Query(
+        default=None,
+    ),
+    requester_id: int | None = Query(
+        default=None,
+        ge=1,
+    ),
+    created_from: date | None = Query(
+        default=None,
+    ),
+    created_to: date | None = Query(
+        default=None,
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    latest_assessment = aliased(
+        ManagedImpactAssessment
+    )
+
+    latest_assessment_id = (
+        db.query(
+            func.max(
+                ManagedImpactAssessment.id
+            )
+        )
+        .filter(
+            ManagedImpactAssessment.change_request_id
+            == ManagedChangeRequest.id
+        )
+        .correlate(
+            ManagedChangeRequest
+        )
+        .scalar_subquery()
+    )
+
+    query = (
+        db.query(
+            ManagedChangeRequest
+        )
+        .outerjoin(
+            latest_assessment,
+            latest_assessment.id
+            == latest_assessment_id,
+        )
+    )
+
+    query = restrict_change_query(
+        query,
+        current_user,
+    )
+
+    if search and search.strip():
+        search_value = (
+            f"%{search.strip().lower()}%"
+        )
+
+        query = query.filter(
+            or_(
+                func.lower(
+                    ManagedChangeRequest.title
+                ).like(search_value),
+
+                func.lower(
+                    ManagedChangeRequest.description
+                ).like(search_value),
+
+                func.lower(
+                    ManagedChangeRequest.business_justification
+                ).like(search_value),
+
+                ManagedChangeRequest.requester.has(
+                    func.lower(
+                        User.full_name
+                    ).like(search_value)
+                ),
+
+                ManagedChangeRequest.requester.has(
+                    func.lower(
+                        User.email
+                    ).like(search_value)
+                ),
+            )
+        )
+
+    if (
+        status_filter
+        and status_filter.strip()
+    ):
+        query = query.filter(
+            ManagedChangeRequest.status
+            == status_filter.strip()
+        )
+
+    if risk_level and risk_level.strip():
+        query = query.filter(
+            latest_assessment.risk_level
+            == risk_level.strip()
+        )
+
+    if (
+        change_type
+        and change_type.strip()
+    ):
+        query = query.filter(
+            ManagedChangeRequest.change_type
+            == change_type.strip()
+        )
+
+    if requester_id is not None:
+        role_name = get_user_role_name(
+            current_user
+        )
+
+        if role_name == "Requester":
+            if requester_id != current_user.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Requesters can only view "
+                        "their own change records."
+                    ),
+                )
+
+        query = query.filter(
+            ManagedChangeRequest.requester_id
+            == requester_id
+        )
+
+    if created_from is not None:
+        query = query.filter(
+            ManagedChangeRequest.created_at
+            >= datetime.combine(
+                created_from,
+                time.min,
+            )
+        )
+
+    if created_to is not None:
+        query = query.filter(
+            ManagedChangeRequest.created_at
+            <= datetime.combine(
+                created_to,
+                time.max,
+            )
+        )
+
+    if (
+        created_from is not None
+        and created_to is not None
+        and created_to < created_from
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Created-to date cannot be "
+                "earlier than created-from date."
+            ),
+        )
+
+    total = query.count()
+
+    change_requests = (
+        query
+        .order_by(
+            ManagedChangeRequest.created_at.desc(),
+            ManagedChangeRequest.id.desc(),
+        )
+        .offset(
+            (page - 1) * page_size
+        )
+        .limit(page_size)
+        .all()
+    )
+
+    total_pages = max(
+        1,
+        (
+            total
+            + page_size
+            - 1
+        ) // page_size,
+    )
+
+    return ManagedChangePageOutput(
+        items=[
+            build_change_response(change)
+            for change in change_requests
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 @router.get("/requests/{change_request_id}")
 def get_managed_change_request(
     change_request_id: int,
@@ -627,6 +945,40 @@ def create_change_approval(
                 f"Comments: {payload.comments or 'No comments'}"
             ),
         )
+    )
+
+    notification_titles = {
+        "Approved": "Change request approved",
+        "Rejected": "Change request rejected",
+        "Needs More Information": "More information required",
+    }
+
+    notification_types = {
+        "Approved": "CHANGE_APPROVED",
+        "Rejected": "CHANGE_REJECTED",
+        "Needs More Information": "CHANGE_INFORMATION_REQUESTED",
+    }  
+
+    notify_requester(
+        db,
+        organization_id=change_request.organization_id,
+        requester_id=change_request.requester_id,
+        actor_id=current_user.id,
+        change_request_id=change_request.id,
+        notification_type=notification_types.get(
+            payload.decision,
+            "CHANGE_DECISION_RECORDED",
+        ),
+        title=notification_titles.get(
+            payload.decision,
+            "Change decision recorded",
+        ),
+        message=(
+            f"Decision for change #{change_request.id} "
+            f"'{change_request.title}': "
+            f"{payload.decision}. "
+            f"{payload.comments or 'No additional comments.'}"
+        ),
     )
 
     db.commit()

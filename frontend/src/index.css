@@ -15,33 +15,3 @@ body,
 body {
   background: #f4f6f9;
 }
-.record-item {
-  margin-bottom: 16px;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #ffffff;
-  list-style: none;
-}
-
-.record-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.record-header span {
-  color: #64748b;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.record-item p {
-  margin: 8px 0 0;
-}
-
-.record-comment {
-  color: #475569;
-  line-height: 1.6;
-}

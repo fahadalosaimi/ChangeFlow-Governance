@@ -12,6 +12,7 @@ class ManagedChangeRequest(Base):
 
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     requester_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    requester = relationship("User",foreign_keys=[requester_id],)
 
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)

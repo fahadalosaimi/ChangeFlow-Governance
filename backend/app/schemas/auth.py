@@ -62,3 +62,40 @@ class AdminUserUpdate(BaseModel):
     is_active: Optional[
         Literal["active", "inactive"]
     ] = None
+
+
+class UserAdministrationAuditOutput(BaseModel):
+    id: int
+
+    action: str
+
+    actor_id: int
+    actor_name: str
+
+    target_user_id: int
+    target_user_name: str
+    target_user_email: str
+
+    old_role: Optional[str] = None
+    new_role: Optional[str] = None
+
+    old_status: Optional[str] = None
+    new_status: Optional[str] = None
+
+    details: Optional[str] = None
+    created_at: datetime
+
+class AdminUserPageOutput(BaseModel):
+    items: list[AdminUserOutput]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class UserAdministrationAuditPageOutput(BaseModel):
+    items: list[UserAdministrationAuditOutput]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

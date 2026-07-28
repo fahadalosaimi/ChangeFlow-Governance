@@ -45,6 +45,14 @@ type Department = {
   description?: string;
 };
 
+type FoundationUser = {
+  id: number;
+  full_name: string;
+  email: string;
+  role_id: number;
+  is_active?: string | null;
+};
+
 type SystemDependency = {
   id: number;
   source_system_id: number;
@@ -93,6 +101,9 @@ type LatestAssessment = {
 
 type ManagedChange = {
   id: number;
+  requester_id?: number | null;
+  requester_name?: string | null;
+  requester_email?: string | null;
   title: string;
   description: string;
   change_type: string;
@@ -105,6 +116,8 @@ type ManagedChange = {
   business_justification?: string;
   planned_start?: string;
   planned_end?: string;
+  created_at?: string;
+  updated_at?: string;
   affected_system_ids: number[];
   latest_assessment: LatestAssessment | null;
 };
@@ -201,6 +214,60 @@ type UserEdit = {
   is_active: "active" | "inactive";
 };
 
+
+type UserAdministrationAudit = {
+  id: number;
+  action: string;
+  actor_id: number;
+  actor_name: string;
+  target_user_id: number;
+  target_user_name: string;
+  target_user_email: string;
+  old_role?: string | null;
+  new_role?: string | null;
+  old_status?: string | null;
+  new_status?: string | null;
+  details?: string | null;
+  created_at: string;
+};
+
+type NotificationItem = {
+  id: number;
+  organization_id: number;
+  recipient_id: number;
+  actor_id?: number | null;
+  actor_name: string;
+  change_request_id?: number | null;
+  notification_type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  read_at?: string | null;
+};
+
+type NotificationUnreadCount = {
+  unread_count: number;
+};
+
+type NotificationReadAllResult = {
+  updated_count: number;
+};
+
+type PagedResponse<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+type UserAccountSummary = {
+  total: number;
+  active: number;
+  inactive: number;
+};
+
 const riskRuleValueOptions: Record<string, string[]> = {
   change_type: [
     "database",
@@ -288,6 +355,21 @@ function App() {
   const [riskRules, setRiskRules] = useState<RiskRule[]>([]);
   const [dependencies, setDependencies] = useState<SystemDependency[]>([]);
   const [changes, setChanges] = useState<ManagedChange[]>([]);
+  const [changeRequesterOptions, setChangeRequesterOptions] =
+    useState<FoundationUser[]>([]);
+  const [changeSearch, setChangeSearch] = useState("");
+  const [changeStatusFilter, setChangeStatusFilter] = useState("");
+  const [changeRiskFilter, setChangeRiskFilter] = useState("");
+  const [changeTypeFilter, setChangeTypeFilter] = useState("");
+  const [changeRequesterFilter, setChangeRequesterFilter] = useState("");
+  const [changeCreatedFrom, setChangeCreatedFrom] = useState("");
+  const [changeCreatedTo, setChangeCreatedTo] = useState("");
+  const [changePage, setChangePage] = useState(1);
+  const [changePageSize, setChangePageSize] = useState(5);
+  const [changeTotal, setChangeTotal] = useState(0);
+  const [changeTotalPages, setChangeTotalPages] = useState(1);
+  const [changeRecordsLoading, setChangeRecordsLoading] = useState(false);
+  const [changeRecordsError, setChangeRecordsError] = useState("");
   const [selectedChange, setSelectedChange] = useState<ManagedChange | null>(null);
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
@@ -299,6 +381,7 @@ function App() {
     | "details"
     | "foundation"
     | "users"
+    | "notifications"
   >("dashboard");
   const [loading, setLoading] = useState(false);
   const [revisionComment, setRevisionComment] = useState("");
@@ -306,10 +389,49 @@ function App() {
   const [systemSearch, setSystemSearch] = useState("");
   const [managedUsers, setManagedUsers] = useState<AdminUser[]>([]);
   const [managedRoles, setManagedRoles] = useState<RoleOption[]>([]);
+  const [userAdministrationAuditLogs, setUserAdministrationAuditLogs] =
+    useState<UserAdministrationAudit[]>([]);
   const [userEdits, setUserEdits] = useState<Record<number, UserEdit>>({});
   const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(5);
+  const [userTotal, setUserTotal] = useState(0);
+  const [userTotalPages, setUserTotalPages] = useState(1);
+  const [userAuditSearch, setUserAuditSearch] = useState("");
+  const [userAuditActionFilter, setUserAuditActionFilter] = useState("");
+  const [userAuditPage, setUserAuditPage] = useState(1);
+  const [userAuditPageSize, setUserAuditPageSize] = useState(5);
+  const [userAuditTotal, setUserAuditTotal] = useState(0);
+  const [userAuditTotalPages, setUserAuditTotalPages] = useState(1);
+  const [userAccountSummary, setUserAccountSummary] =
+    useState<UserAccountSummary>({
+      total: 0,
+      active: 0,
+      inactive: 0,
+    });
   const [userManagementLoading, setUserManagementLoading] = useState(false);
+  const [usersPageLoading, setUsersPageLoading] = useState(false);
+  const [userAuditPageLoading, setUserAuditPageLoading] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
+  const [notificationSearch, setNotificationSearch] = useState("");
+  const [notificationTypeFilter, setNotificationTypeFilter] = useState("");
+  const [notificationUnreadOnly, setNotificationUnreadOnly] = useState(false);
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [notificationPageSize, setNotificationPageSize] = useState(10);
+  const [notificationTotal, setNotificationTotal] = useState(0);
+  const [notificationTotalPages, setNotificationTotalPages] = useState(1);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState("");
+  const [notificationActionId, setNotificationActionId] = useState<number | null>(null);
+  const [markingAllNotifications, setMarkingAllNotifications] = useState(false);
+  const [detailsReturnView, setDetailsReturnView] = useState<
+    "dashboard" | "notifications"
+  >("dashboard");
 
   const [newRiskRule, setNewRiskRule] = useState({
     name: "",
@@ -373,10 +495,55 @@ function App() {
     setToken("");
     setCurrentUser(null);
     setSelectedChange(null);
+    setChanges([]);
+    setChangeRequesterOptions([]);
+    setChangeSearch("");
+    setChangeStatusFilter("");
+    setChangeRiskFilter("");
+    setChangeTypeFilter("");
+    setChangeRequesterFilter("");
+    setChangeCreatedFrom("");
+    setChangeCreatedTo("");
+    setChangePage(1);
+    setChangePageSize(5);
+    setChangeTotal(0);
+    setChangeTotalPages(1);
+    setChangeRecordsError("");
     setManagedUsers([]);
     setManagedRoles([]);
+    setUserAdministrationAuditLogs([]);
     setUserEdits({});
     setUserSearch("");
+    setUserRoleFilter("");
+    setUserStatusFilter("");
+    setUserPage(1);
+    setUserPageSize(5);
+    setUserTotal(0);
+    setUserTotalPages(1);
+    setUserAuditSearch("");
+    setUserAuditActionFilter("");
+    setUserAuditPage(1);
+    setUserAuditPageSize(5);
+    setUserAuditTotal(0);
+    setUserAuditTotalPages(1);
+    setUserAccountSummary({
+      total: 0,
+      active: 0,
+      inactive: 0,
+    });
+    setNotifications([]);
+    setNotificationUnreadCount(0);
+    setNotificationSearch("");
+    setNotificationTypeFilter("");
+    setNotificationUnreadOnly(false);
+    setNotificationPage(1);
+    setNotificationPageSize(10);
+    setNotificationTotal(0);
+    setNotificationTotalPages(1);
+    setNotificationError("");
+    setNotificationActionId(null);
+    setMarkingAllNotifications(false);
+    setDetailsReturnView("dashboard");
     setView("dashboard");
   }
 
@@ -440,8 +607,8 @@ function App() {
         departmentsData,
         dependenciesData,
         incidentsData,
-        changesData,
         riskRulesData,
+        requesterOptionsData,
       ] = await Promise.all([
         apiFetch("/foundation/overview", {}, accessToken).then((response) =>
           readResponse<FoundationOverview>(response)
@@ -461,11 +628,11 @@ function App() {
         apiFetch("/foundation/incidents", {}, accessToken).then((response) =>
           readResponse<HistoricalIncident[]>(response)
         ),
-        apiFetch("/change-management/requests", {}, accessToken).then(
-          (response) => readResponse<ManagedChange[]>(response)
-        ),
         apiFetch("/foundation/risk-rules", {}, accessToken).then((response) =>
           readResponse<RiskRule[]>(response)
+        ),
+        apiFetch("/foundation/users", {}, accessToken).then((response) =>
+          readResponse<FoundationUser[]>(response)
         ),
       ]);
 
@@ -475,10 +642,248 @@ function App() {
       setDepartments(departmentsData);
       setDependencies(dependenciesData);
       setIncidents(incidentsData);
-      setChanges(changesData);
       setRiskRules(riskRulesData);
+      setChangeRequesterOptions(requesterOptionsData);
+
+      await loadChangeRecordsPage(accessToken, changePage);
     } catch (error) {
       console.error(error);
+    }
+  }
+
+  async function loadChangeRecordsPage(
+    accessToken: string = token,
+    requestedPage: number = changePage
+  ) {
+    setChangeRecordsLoading(true);
+    setChangeRecordsError("");
+
+    try {
+      if (
+        changeCreatedFrom &&
+        changeCreatedTo &&
+        changeCreatedTo < changeCreatedFrom
+      ) {
+        throw new Error(
+          "The end date cannot be earlier than the start date."
+        );
+      }
+
+      const params = new URLSearchParams({
+        page: String(requestedPage),
+        page_size: String(changePageSize),
+      });
+
+      if (changeSearch.trim()) {
+        params.set("search", changeSearch.trim());
+      }
+
+      if (changeStatusFilter) {
+        params.set("status", changeStatusFilter);
+      }
+
+      if (changeRiskFilter) {
+        params.set("risk_level", changeRiskFilter);
+      }
+
+      if (changeTypeFilter) {
+        params.set("change_type", changeTypeFilter);
+      }
+
+      if (changeRequesterFilter && !isRequester) {
+        params.set("requester_id", changeRequesterFilter);
+      }
+
+      if (changeCreatedFrom) {
+        params.set("created_from", changeCreatedFrom);
+      }
+
+      if (changeCreatedTo) {
+        params.set("created_to", changeCreatedTo);
+      }
+
+      const response = await apiFetch(
+        `/change-management/requests/paged?${params.toString()}`,
+        {},
+        accessToken
+      );
+
+      const data = await readResponse<PagedResponse<ManagedChange>>(response);
+
+      setChanges(data.items);
+      setChangeTotal(data.total);
+      setChangeTotalPages(data.total_pages);
+
+      if (requestedPage > data.total_pages) {
+        setChangePage(data.total_pages);
+      }
+    } catch (error) {
+      setChanges([]);
+      setChangeTotal(0);
+      setChangeTotalPages(1);
+      setChangeRecordsError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load change records."
+      );
+    } finally {
+      setChangeRecordsLoading(false);
+    }
+  }
+
+  async function loadNotificationUnreadCount(
+    accessToken: string = token
+  ) {
+    try {
+      const response = await apiFetch(
+        "/notifications/unread-count",
+        {},
+        accessToken
+      );
+      const data = await readResponse<NotificationUnreadCount>(response);
+      setNotificationUnreadCount(data.unread_count);
+    } catch (error) {
+      console.error("Unable to load notification count.", error);
+    }
+  }
+
+  async function loadNotificationsPage(
+    accessToken: string = token,
+    requestedPage: number = notificationPage
+  ) {
+    setNotificationLoading(true);
+    setNotificationError("");
+
+    try {
+      const params = new URLSearchParams({
+        page: String(requestedPage),
+        page_size: String(notificationPageSize),
+        unread_only: String(notificationUnreadOnly),
+      });
+
+      if (notificationSearch.trim()) {
+        params.set("search", notificationSearch.trim());
+      }
+
+      if (notificationTypeFilter) {
+        params.set("notification_type", notificationTypeFilter);
+      }
+
+      const response = await apiFetch(
+        `/notifications/paged?${params.toString()}`,
+        {},
+        accessToken
+      );
+      const data = await readResponse<PagedResponse<NotificationItem>>(response);
+
+      setNotifications(data.items);
+      setNotificationTotal(data.total);
+      setNotificationTotalPages(data.total_pages);
+
+      if (requestedPage > data.total_pages) {
+        setNotificationPage(data.total_pages);
+      }
+    } catch (error) {
+      setNotifications([]);
+      setNotificationTotal(0);
+      setNotificationTotalPages(1);
+      setNotificationError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load notifications."
+      );
+    } finally {
+      setNotificationLoading(false);
+    }
+  }
+
+  function openNotificationCenter() {
+    setNotificationPage(1);
+    setNotificationError("");
+    setView("notifications");
+  }
+
+  async function markNotificationAsRead(notificationId: number) {
+    setNotificationActionId(notificationId);
+
+    try {
+      const response = await apiFetch(
+        `/notifications/${notificationId}/read`,
+        { method: "PATCH" }
+      );
+      const updatedNotification =
+        await readResponse<NotificationItem>(response);
+
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) =>
+          notification.id === notificationId
+            ? updatedNotification
+            : notification
+        )
+      );
+      await loadNotificationUnreadCount();
+
+      return updatedNotification;
+    } finally {
+      setNotificationActionId(null);
+    }
+  }
+
+  async function openNotificationItem(notification: NotificationItem) {
+    setNotificationError("");
+
+    try {
+      if (!notification.is_read) {
+        await markNotificationAsRead(notification.id);
+      }
+
+      if (notification.change_request_id) {
+        await openChangeDetails(
+          notification.change_request_id,
+          "notifications"
+        );
+      }
+    } catch (error) {
+      setNotificationError(
+        error instanceof Error
+          ? error.message
+          : "Unable to open this notification."
+      );
+    }
+  }
+
+  async function markAllNotificationsAsRead() {
+    setMarkingAllNotifications(true);
+    setNotificationError("");
+
+    try {
+      const response = await apiFetch(
+        "/notifications/read-all",
+        { method: "PATCH" }
+      );
+      await readResponse<NotificationReadAllResult>(response);
+
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) => ({
+          ...notification,
+          is_read: true,
+          read_at: notification.read_at || new Date().toISOString(),
+        }))
+      );
+      setNotificationUnreadCount(0);
+
+      if (notificationUnreadOnly) {
+        await loadNotificationsPage(token, 1);
+        setNotificationPage(1);
+      }
+    } catch (error) {
+      setNotificationError(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark notifications as read."
+      );
+    } finally {
+      setMarkingAllNotifications(false);
     }
   }
 
@@ -486,24 +891,98 @@ function App() {
     setUserManagementLoading(true);
 
     try {
-      const [usersData, rolesData, overviewData] = await Promise.all([
-        apiFetch("/auth/admin/users", {}, accessToken).then((response) =>
-          readResponse<AdminUser[]>(response)
-        ),
+      const [
+        rolesData,
+        totalData,
+        activeData,
+        inactiveData,
+      ] = await Promise.all([
         apiFetch("/auth/admin/roles", {}, accessToken).then((response) =>
           readResponse<RoleOption[]>(response)
         ),
-        apiFetch("/foundation/overview", {}, accessToken).then((response) =>
-          readResponse<FoundationOverview>(response)
+        apiFetch(
+          "/auth/admin/users/paged?page=1&page_size=1",
+          {},
+          accessToken
+        ).then((response) =>
+          readResponse<PagedResponse<AdminUser>>(response)
+        ),
+        apiFetch(
+          "/auth/admin/users/paged?page=1&page_size=1&is_active=active",
+          {},
+          accessToken
+        ).then((response) =>
+          readResponse<PagedResponse<AdminUser>>(response)
+        ),
+        apiFetch(
+          "/auth/admin/users/paged?page=1&page_size=1&is_active=inactive",
+          {},
+          accessToken
+        ).then((response) =>
+          readResponse<PagedResponse<AdminUser>>(response)
         ),
       ]);
 
-      setManagedUsers(usersData);
       setManagedRoles(rolesData);
-      setFoundationOverview(overviewData);
+      setUserAccountSummary({
+        total: totalData.total,
+        active: activeData.total,
+        inactive: inactiveData.total,
+      });
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to load user administration summary."
+      );
+    } finally {
+      setUserManagementLoading(false);
+    }
+  }
+
+  async function loadManagedUsersPage(
+    accessToken: string = token,
+    requestedPage: number = userPage
+  ) {
+    setUsersPageLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        page: String(requestedPage),
+        page_size: String(userPageSize),
+      });
+
+      if (userSearch.trim()) {
+        params.set("search", userSearch.trim());
+      }
+
+      if (userRoleFilter) {
+        params.set("role_name", userRoleFilter);
+      }
+
+      if (userStatusFilter) {
+        params.set("is_active", userStatusFilter);
+      }
+
+      const response = await apiFetch(
+        `/auth/admin/users/paged?${params.toString()}`,
+        {},
+        accessToken
+      );
+
+      const data = await readResponse<PagedResponse<AdminUser>>(response);
+
+      setManagedUsers(data.items);
+      setUserTotal(data.total);
+      setUserTotalPages(data.total_pages);
+
+      if (requestedPage > data.total_pages) {
+        setUserPage(data.total_pages);
+      }
+
       setUserEdits(
         Object.fromEntries(
-          usersData.map((user) => [
+          data.items.map((user) => [
             user.id,
             {
               role_name: user.role_name,
@@ -516,11 +995,66 @@ function App() {
       alert(
         error instanceof Error
           ? error.message
-          : "Unable to load user management data."
+          : "Unable to load user accounts."
       );
     } finally {
-      setUserManagementLoading(false);
+      setUsersPageLoading(false);
     }
+  }
+
+  async function loadUserAdministrationAuditPage(
+    accessToken: string = token,
+    requestedPage: number = userAuditPage
+  ) {
+    setUserAuditPageLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        page: String(requestedPage),
+        page_size: String(userAuditPageSize),
+      });
+
+      if (userAuditSearch.trim()) {
+        params.set("search", userAuditSearch.trim());
+      }
+
+      if (userAuditActionFilter) {
+        params.set("action", userAuditActionFilter);
+      }
+
+      const response = await apiFetch(
+        `/auth/admin/audit-logs/paged?${params.toString()}`,
+        {},
+        accessToken
+      );
+
+      const data =
+        await readResponse<PagedResponse<UserAdministrationAudit>>(response);
+
+      setUserAdministrationAuditLogs(data.items);
+      setUserAuditTotal(data.total);
+      setUserAuditTotalPages(data.total_pages);
+
+      if (requestedPage > data.total_pages) {
+        setUserAuditPage(data.total_pages);
+      }
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to load access administration records."
+      );
+    } finally {
+      setUserAuditPageLoading(false);
+    }
+  }
+
+  async function refreshUserManagement() {
+    await Promise.all([
+      loadUserManagementData(),
+      loadManagedUsersPage(),
+      loadUserAdministrationAuditPage(),
+    ]);
   }
 
   async function initializeSession(accessToken: string) {
@@ -538,6 +1072,8 @@ function App() {
     } else {
       await loadData(accessToken);
     }
+
+    await loadNotificationUnreadCount(accessToken);
   }
 
   useEffect(() => {
@@ -571,6 +1107,105 @@ function App() {
       isCancelled = true;
     };
   }, [token]);
+
+  useEffect(() => {
+    if (!token || isSystemAdministrator || view !== "dashboard") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      loadChangeRecordsPage();
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    token,
+    isSystemAdministrator,
+    view,
+    changePage,
+    changePageSize,
+    changeSearch,
+    changeStatusFilter,
+    changeRiskFilter,
+    changeTypeFilter,
+    changeRequesterFilter,
+    changeCreatedFrom,
+    changeCreatedTo,
+  ]);
+
+  useEffect(() => {
+    if (!token || !isSystemAdministrator || view !== "users") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      loadManagedUsersPage();
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    token,
+    isSystemAdministrator,
+    view,
+    userPage,
+    userPageSize,
+    userSearch,
+    userRoleFilter,
+    userStatusFilter,
+  ]);
+
+  useEffect(() => {
+    if (!token || !isSystemAdministrator || view !== "users") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      loadUserAdministrationAuditPage();
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    token,
+    isSystemAdministrator,
+    view,
+    userAuditPage,
+    userAuditPageSize,
+    userAuditSearch,
+    userAuditActionFilter,
+  ]);
+
+  useEffect(() => {
+    if (!token || !currentUser) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      loadNotificationUnreadCount();
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [token, currentUser?.id]);
+
+  useEffect(() => {
+    if (!token || !currentUser || view !== "notifications") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      loadNotificationsPage();
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    token,
+    currentUser?.id,
+    view,
+    notificationPage,
+    notificationPageSize,
+    notificationSearch,
+    notificationTypeFilter,
+    notificationUnreadOnly,
+  ]);
 
   async function authenticate(email: string, password: string) {
     const formBody = new URLSearchParams();
@@ -662,7 +1297,10 @@ function App() {
     }
   }
 
-  async function openChangeDetails(changeId: number) {
+  async function openChangeDetails(
+    changeId: number,
+    returnView: "dashboard" | "notifications" = "dashboard"
+  ) {
     try {
       const [changeData, historyData, auditData, approvalsData] =
         await Promise.all([
@@ -684,6 +1322,7 @@ function App() {
       setStatusHistory(historyData);
       setAuditLogs(auditData);
       setApprovals(approvalsData);
+      setDetailsReturnView(returnView);
       setView("details");
     } catch (error) {
       alert(error instanceof Error ? error.message : "Unable to load change details.");
@@ -1240,6 +1879,8 @@ async function reviseManagedChange() {
       return;
     }
 
+    setUserPage(1);
+    setUserAuditPage(1);
     await loadUserManagementData();
     setView("users");
   }
@@ -1313,6 +1954,11 @@ async function reviseManagedChange() {
         },
       }));
 
+      await Promise.all([
+        loadUserManagementData(),
+        loadManagedUsersPage(),
+        loadUserAdministrationAuditPage(),
+      ]);
       alert("User account updated successfully.");
     } catch (error) {
       setUserEdits((current) => ({
@@ -1332,13 +1978,29 @@ async function reviseManagedChange() {
     }
   }
 
-  const filteredManagedUsers = managedUsers.filter((user) =>
-    `${user.full_name} ${user.email} ${user.job_title || ""} ${
-      user.department_name || ""
-    } ${user.role_name} ${user.is_active}`
-      .toLowerCase()
-      .includes(userSearch.toLowerCase())
-  );
+  function getVisiblePageNumbers(
+    currentPage: number,
+    totalPages: number
+  ) {
+    if (totalPages <= 1) return [1];
+
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+
+    startPage = Math.max(1, endPage - 4);
+
+    return Array.from(
+      { length: endPage - startPage + 1 },
+      (_, index) => startPage + index
+    );
+  }
+
+  function getUserAuditActionLabel(action: string) {
+    if (action === "ROLE_CHANGED") return "Role Changed";
+    if (action === "ACCOUNT_ACTIVATED") return "Account Activated";
+    if (action === "ACCOUNT_DEACTIVATED") return "Account Deactivated";
+    return action.replaceAll("_", " ");
+  }
 
   function renderAccessDenied(message: string) {
     return (
@@ -1506,13 +2168,52 @@ async function reviseManagedChange() {
     );
   }
 
+  function renderNotificationButton() {
+    const displayCount =
+      notificationUnreadCount > 99
+        ? "99+"
+        : String(notificationUnreadCount);
+
+    return (
+      <button
+        type="button"
+        className="secondary-button notification-bell-button"
+        onClick={openNotificationCenter}
+        aria-label={`Notifications. ${notificationUnreadCount} unread.`}
+      >
+        <svg
+          className="notification-bell-icon"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M10 21h4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+        <span>Notifications</span>
+        {notificationUnreadCount > 0 && (
+          <span className="notification-count-badge">
+            {displayCount}
+          </span>
+        )}
+      </button>
+    );
+  }
+
   function renderDashboard() {
     if (isSystemAdministrator) {
-      const activeUsers = managedUsers.filter(
-        (user) => user.is_active === "active"
-      ).length;
-      const inactiveUsers = managedUsers.length - activeUsers;
-
       return (
         <>
           <header className="app-header">
@@ -1536,6 +2237,7 @@ async function reviseManagedChange() {
               </div>
 
               <div className="actions">
+                {renderNotificationButton()}
                 <button className="primary-button" onClick={openUserManagement}>
                   User Management
                 </button>
@@ -1549,15 +2251,15 @@ async function reviseManagedChange() {
           <section className="stats-grid system-admin-stats">
             <div className="stat-card">
               <span>Total Users</span>
-              <strong>{managedUsers.length}</strong>
+              <strong>{userAccountSummary.total}</strong>
             </div>
             <div className="stat-card">
               <span>Active Accounts</span>
-              <strong>{activeUsers}</strong>
+              <strong>{userAccountSummary.active}</strong>
             </div>
             <div className="stat-card">
               <span>Inactive Accounts</span>
-              <strong>{inactiveUsers}</strong>
+              <strong>{userAccountSummary.inactive}</strong>
             </div>
             <div className="stat-card">
               <span>Managed Roles</span>
@@ -1569,8 +2271,8 @@ async function reviseManagedChange() {
             <strong>Access Governance</strong>
             <p>
               System Administrators manage account status and role assignments.
-              Passwords are never displayed, and protected administrator safeguards
-              are enforced by the backend.
+              Passwords remain protected, while privileged-access safeguards preserve
+              account continuity and administrative control.
             </p>
           </section>
 
@@ -1615,6 +2317,8 @@ async function reviseManagedChange() {
             </div>
 
             <div className="actions">
+              {renderNotificationButton()}
+
               {isCmdbManager && (
                 <button
                   className="secondary-button"
@@ -1681,59 +2385,578 @@ async function reviseManagedChange() {
           </div>
         </section>
 
-        <section className="panel">
-          <h2>Change Records</h2>
+        <section className="panel change-records-panel">
+          <div className="section-header compact-section-header">
+            <div>
+              <h2>Change Records</h2>
+              <p>
+                {changeTotal} matching record(s). Search and filtering are
+                applied to the authorized change records available to your role.
+              </p>
+            </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Change Title</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Risk</th>
-                <th>Impact</th>
-                <th>Authorization Path</th>
-                <th>Action</th>
-              </tr>
-            </thead>
+            <button
+              className="secondary-button"
+              onClick={() => loadChangeRecordsPage()}
+              disabled={changeRecordsLoading}
+            >
+              {changeRecordsLoading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
 
-            <tbody>
-              {changes.map((change) => (
-                <tr key={change.id}>
-                  <td>{change.id}</td>
-                  <td>{change.title}</td>
-                  <td>{change.change_type}</td>
-                  <td>
-                    <span className="status-badge">{change.status}</span>
-                  </td>
-                  <td>
-                    <span
-                      className={`risk-badge ${getRiskClass(
-                        change.latest_assessment?.risk_level
-                      )}`}
-                    >
-                      {change.latest_assessment?.risk_level ?? "N/A"}
-                    </span>
-                  </td>
-                  <td>{change.latest_assessment?.impact_score ?? 0}%</td>
-                  <td>
-                    {getDecisionLabel(change.latest_assessment?.decision_recommendation)}
-                  </td>
-                  <td>
+          <div className="change-records-toolbar">
+            <input
+              value={changeSearch}
+              onChange={(event) => {
+                setChangeSearch(event.target.value);
+                setChangePage(1);
+              }}
+              placeholder="Search by title, description, justification, or requester..."
+            />
+
+            <select
+              value={changeStatusFilter}
+              onChange={(event) => {
+                setChangeStatusFilter(event.target.value);
+                setChangePage(1);
+              }}
+            >
+              <option value="">All statuses</option>
+              <option value="Pending Approval">Pending Approval</option>
+              <option value="Needs More Information">
+                Needs More Information
+              </option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+
+            <select
+              value={changeRiskFilter}
+              onChange={(event) => {
+                setChangeRiskFilter(event.target.value);
+                setChangePage(1);
+              }}
+            >
+              <option value="">All risk levels</option>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
+            </select>
+
+            <select
+              value={changeTypeFilter}
+              onChange={(event) => {
+                setChangeTypeFilter(event.target.value);
+                setChangePage(1);
+              }}
+            >
+              <option value="">All change types</option>
+              <option value="application">Application</option>
+              <option value="database">Database</option>
+              <option value="network">Network</option>
+              <option value="security">Security</option>
+              <option value="documentation">Documentation</option>
+            </select>
+
+            {!isRequester && (
+              <select
+                value={changeRequesterFilter}
+                onChange={(event) => {
+                  setChangeRequesterFilter(event.target.value);
+                  setChangePage(1);
+                }}
+              >
+                <option value="">All requesters</option>
+                {changeRequesterOptions
+                  .filter((user) => user.is_active !== "inactive")
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name}
+                    </option>
+                  ))}
+              </select>
+            )}
+
+            <label className="page-size-control">
+              <span>Rows</span>
+              <select
+                value={changePageSize}
+                onChange={(event) => {
+                  setChangePageSize(Number(event.target.value));
+                  setChangePage(1);
+                }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="change-date-filters">
+            <label>
+              <span>Created From</span>
+              <input
+                type="date"
+                value={changeCreatedFrom}
+                onChange={(event) => {
+                  setChangeCreatedFrom(event.target.value);
+                  setChangePage(1);
+                }}
+              />
+            </label>
+
+            <label>
+              <span>Created To</span>
+              <input
+                type="date"
+                value={changeCreatedTo}
+                onChange={(event) => {
+                  setChangeCreatedTo(event.target.value);
+                  setChangePage(1);
+                }}
+              />
+            </label>
+
+            <button
+              className="secondary-button clear-change-filters"
+              onClick={() => {
+                setChangeSearch("");
+                setChangeStatusFilter("");
+                setChangeRiskFilter("");
+                setChangeTypeFilter("");
+                setChangeRequesterFilter("");
+                setChangeCreatedFrom("");
+                setChangeCreatedTo("");
+                setChangePage(1);
+              }}
+              disabled={
+                !changeSearch &&
+                !changeStatusFilter &&
+                !changeRiskFilter &&
+                !changeTypeFilter &&
+                !changeRequesterFilter &&
+                !changeCreatedFrom &&
+                !changeCreatedTo
+              }
+            >
+              Clear Filters
+            </button>
+          </div>
+
+          {changeRecordsError && (
+            <p className="change-records-error">{changeRecordsError}</p>
+          )}
+
+          {changeRecordsLoading && changes.length === 0 ? (
+            <p>Loading change records...</p>
+          ) : changes.length === 0 ? (
+            <p>No change records match the current filters.</p>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table className="change-records-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Change</th>
+                      {!isRequester && <th>Requester</th>}
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Risk</th>
+                      <th>Impact</th>
+                      <th>Created</th>
+                      <th>Authorization Path</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {changes.map((change) => (
+                      <tr key={change.id}>
+                        <td>{change.id}</td>
+                        <td>
+                          <strong>{change.title}</strong>
+                          <br />
+                          <span className="table-description">
+                            {change.description}
+                          </span>
+                        </td>
+                        {!isRequester && (
+                          <td>
+                            <strong>
+                              {change.requester_name || "Unknown requester"}
+                            </strong>
+                            <br />
+                            <span className="table-description">
+                              {change.requester_email || "No email available"}
+                            </span>
+                          </td>
+                        )}
+                        <td>{change.change_type}</td>
+                        <td>
+                          <span className="status-badge">{change.status}</span>
+                        </td>
+                        <td>
+                          <span
+                            className={`risk-badge ${getRiskClass(
+                              change.latest_assessment?.risk_level
+                            )}`}
+                          >
+                            {change.latest_assessment?.risk_level ?? "N/A"}
+                          </span>
+                        </td>
+                        <td>
+                          {change.latest_assessment?.impact_score ?? 0}%
+                        </td>
+                        <td>{formatDateTime(change.created_at)}</td>
+                        <td>
+                          {getDecisionLabel(
+                            change.latest_assessment?.decision_recommendation
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            className="table-button"
+                            onClick={() => openChangeDetails(change.id)}
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pagination-bar">
+                <span>
+                  Page {changePage} of {changeTotalPages}
+                </span>
+
+                <div className="pagination-actions">
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      setChangePage((current) => Math.max(1, current - 1))
+                    }
+                    disabled={changePage <= 1 || changeRecordsLoading}
+                  >
+                    Previous
+                  </button>
+
+                  {getVisiblePageNumbers(
+                    changePage,
+                    changeTotalPages
+                  ).map((pageNumber) => (
                     <button
-                      className="table-button"
-                      onClick={() => openChangeDetails(change.id)}
+                      key={pageNumber}
+                      className={`page-number-button ${
+                        pageNumber === changePage ? "active" : ""
+                      }`}
+                      onClick={() => setChangePage(pageNumber)}
+                      disabled={changeRecordsLoading}
                     >
-                      View
+                      {pageNumber}
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  ))}
+
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      setChangePage((current) =>
+                        Math.min(changeTotalPages, current + 1)
+                      )
+                    }
+                    disabled={
+                      changePage >= changeTotalPages ||
+                      changeRecordsLoading
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </section>
       </>
+    );
+  }
+
+  function renderNotificationCenter() {
+    const notificationTypes = [
+      ["CHANGE_SUBMITTED", "Change submitted"],
+      ["CHANGE_RESUBMITTED", "Change resubmitted"],
+      ["CHANGE_APPROVED", "Change approved"],
+      ["CHANGE_REJECTED", "Change rejected"],
+      ["CHANGE_INFORMATION_REQUESTED", "Information requested"],
+      ["CHANGE_STATUS_UPDATED", "Status updated"],
+      ["CHANGE_DECISION_RECORDED", "Decision recorded"],
+    ];
+
+    return (
+      <section className="panel form-panel notification-center-page">
+        <div className="section-header">
+          <div>
+            <h2>Notification Center</h2>
+            <p>
+              Review workflow events assigned to your account and open the
+              related change record directly from each notification.
+            </p>
+          </div>
+
+          <div className="actions">
+            <button
+              className="secondary-button"
+              onClick={() => {
+                loadNotificationsPage();
+                loadNotificationUnreadCount();
+              }}
+              disabled={notificationLoading}
+            >
+              {notificationLoading ? "Refreshing..." : "Refresh"}
+            </button>
+            <button
+              className="secondary-button"
+              onClick={() => setView("dashboard")}
+            >
+              Back
+            </button>
+          </div>
+        </div>
+
+        <section className="notification-summary-grid">
+          <div>
+            <span>Unread</span>
+            <strong>{notificationUnreadCount}</strong>
+          </div>
+          <div>
+            <span>Matching Notifications</span>
+            <strong>{notificationTotal}</strong>
+          </div>
+          <div>
+            <span>Current Page</span>
+            <strong>
+              {notificationPage} / {notificationTotalPages}
+            </strong>
+          </div>
+        </section>
+
+        <div className="notification-toolbar">
+          <input
+            value={notificationSearch}
+            onChange={(event) => {
+              setNotificationSearch(event.target.value);
+              setNotificationPage(1);
+            }}
+            placeholder="Search notification title or message..."
+          />
+
+          <select
+            value={notificationTypeFilter}
+            onChange={(event) => {
+              setNotificationTypeFilter(event.target.value);
+              setNotificationPage(1);
+            }}
+          >
+            <option value="">All notification types</option>
+            {notificationTypes.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={notificationUnreadOnly ? "unread" : "all"}
+            onChange={(event) => {
+              setNotificationUnreadOnly(event.target.value === "unread");
+              setNotificationPage(1);
+            }}
+          >
+            <option value="all">All notifications</option>
+            <option value="unread">Unread only</option>
+          </select>
+
+          <label className="page-size-control notification-page-size">
+            <span>Rows</span>
+            <select
+              value={notificationPageSize}
+              onChange={(event) => {
+                setNotificationPageSize(Number(event.target.value));
+                setNotificationPage(1);
+              }}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </select>
+          </label>
+
+          <button
+            className="primary-button"
+            onClick={markAllNotificationsAsRead}
+            disabled={
+              markingAllNotifications || notificationUnreadCount === 0
+            }
+          >
+            {markingAllNotifications ? "Updating..." : "Mark All as Read"}
+          </button>
+        </div>
+
+        {notificationError && (
+          <p className="notification-error">{notificationError}</p>
+        )}
+
+        {notificationLoading ? (
+          <div className="notification-empty-state">
+            Loading notifications...
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="notification-empty-state">
+            <strong>No notifications found.</strong>
+            <span>
+              Workflow notifications will appear here when a change is
+              submitted, resubmitted, approved, rejected, or returned for
+              additional information.
+            </span>
+          </div>
+        ) : (
+          <div className="notification-list">
+            {notifications.map((notification) => (
+              <article
+                key={notification.id}
+                className={`notification-card ${
+                  notification.is_read ? "is-read" : "is-unread"
+                }`}
+              >
+                <div className="notification-status-column">
+                  <span
+                    className="notification-unread-dot"
+                    aria-label={
+                      notification.is_read ? "Read" : "Unread"
+                    }
+                  />
+                </div>
+
+                <div className="notification-card-content">
+                  <div className="notification-card-heading">
+                    <div>
+                      <span className="notification-type-pill">
+                        {notification.notification_type
+                          .replaceAll("_", " ")
+                          .toLowerCase()
+                          .replace(/\b\w/g, (letter) =>
+                            letter.toUpperCase()
+                          )}
+                      </span>
+                      <h3>{notification.title}</h3>
+                    </div>
+                    <span className="notification-date">
+                      {formatDateTime(notification.created_at)}
+                    </span>
+                  </div>
+
+                  <p>{notification.message}</p>
+
+                  <div className="notification-card-meta">
+                    <span>
+                      Actor: <strong>{notification.actor_name}</strong>
+                    </span>
+                    {notification.change_request_id && (
+                      <span>
+                        Change: <strong>#{notification.change_request_id}</strong>
+                      </span>
+                    )}
+                    <span>
+                      Status: <strong>{notification.is_read ? "Read" : "Unread"}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="notification-card-actions">
+                  {notification.change_request_id ? (
+                    <button
+                      className="primary-button"
+                      onClick={() => openNotificationItem(notification)}
+                      disabled={notificationActionId === notification.id}
+                    >
+                      {notificationActionId === notification.id
+                        ? "Opening..."
+                        : "Open Change"}
+                    </button>
+                  ) : !notification.is_read ? (
+                    <button
+                      className="secondary-button"
+                      onClick={() => markNotificationAsRead(notification.id)}
+                      disabled={notificationActionId === notification.id}
+                    >
+                      {notificationActionId === notification.id
+                        ? "Updating..."
+                        : "Mark as Read"}
+                    </button>
+                  ) : (
+                    <span className="notification-read-label">Read</span>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <div className="pagination-bar notification-pagination">
+          <strong>
+            Page {notificationPage} of {notificationTotalPages}
+          </strong>
+
+          <div className="pagination-actions">
+            <button
+              className="secondary-button"
+              onClick={() =>
+                setNotificationPage((currentPage) =>
+                  Math.max(1, currentPage - 1)
+                )
+              }
+              disabled={notificationPage <= 1 || notificationLoading}
+            >
+              Previous
+            </button>
+
+            {getVisiblePageNumbers(
+              notificationPage,
+              notificationTotalPages
+            ).map((pageNumber) => (
+              <button
+                key={pageNumber}
+                className={`page-number-button ${
+                  pageNumber === notificationPage ? "active" : ""
+                }`}
+                onClick={() => setNotificationPage(pageNumber)}
+                disabled={notificationLoading}
+              >
+                {pageNumber}
+              </button>
+            ))}
+
+            <button
+              className="secondary-button"
+              onClick={() =>
+                setNotificationPage((currentPage) =>
+                  Math.min(notificationTotalPages, currentPage + 1)
+                )
+              }
+              disabled={
+                notificationPage >= notificationTotalPages ||
+                notificationLoading
+              }
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </section>
     );
   }
 
@@ -2030,8 +3253,8 @@ async function reviseManagedChange() {
           <div>
             <h2>User Management</h2>
             <p>
-              Manage organizational access, account status, and role assignments.
-              Sensitive administrator safeguards are enforced by the backend.
+              Manage organizational access, account status, and role assignments
+              through controlled administrative workflows.
             </p>
           </div>
           <button
@@ -2045,43 +3268,24 @@ async function reviseManagedChange() {
         <section className="admin-note">
           <strong>Security Controls</strong>
           <p>
-            You cannot deactivate your own account, remove your own System
-            Administrator role, or remove access from the last active System
-            Administrator.
+            Administrator safeguards prevent self-deactivation, removal of the
+            current administrator role, and loss of the final active System
+            Administrator account.
           </p>
         </section>
-
-        <div className="user-management-toolbar">
-          <input
-            value={userSearch}
-            onChange={(event) => setUserSearch(event.target.value)}
-            placeholder="Search users by name, email, department, role, or status..."
-          />
-          <button
-            className="secondary-button"
-            onClick={() => loadUserManagementData()}
-            disabled={userManagementLoading}
-          >
-            {userManagementLoading ? "Refreshing..." : "Refresh"}
-          </button>
-        </div>
 
         <section className="user-summary-grid">
           <div>
             <span>Total Accounts</span>
-            <strong>{managedUsers.length}</strong>
+            <strong>{userAccountSummary.total}</strong>
           </div>
           <div>
             <span>Active</span>
-            <strong>
-              {managedUsers.filter((user) => user.is_active === "active").length}
-            </strong>
+            <strong>{userAccountSummary.active}</strong>
           </div>
           <div>
             <span>Inactive</span>
-            <strong>
-              {managedUsers.filter((user) => user.is_active === "inactive").length}
-            </strong>
+            <strong>{userAccountSummary.inactive}</strong>
           </div>
           <div>
             <span>Roles</span>
@@ -2093,121 +3297,401 @@ async function reviseManagedChange() {
           <div className="section-header compact-section-header">
             <div>
               <h3>Registered Users</h3>
-              <p>{filteredManagedUsers.length} account(s) shown.</p>
+              <p>
+                Showing {managedUsers.length} of {userTotal} matching account(s).
+              </p>
             </div>
+
+            <button
+              className="secondary-button"
+              onClick={refreshUserManagement}
+              disabled={
+                userManagementLoading ||
+                usersPageLoading ||
+                userAuditPageLoading
+              }
+            >
+              {userManagementLoading ? "Refreshing..." : "Refresh"}
+            </button>
           </div>
 
-          {userManagementLoading && managedUsers.length === 0 ? (
-            <p>Loading user accounts...</p>
-          ) : filteredManagedUsers.length === 0 ? (
-            <p>No user accounts match the current search.</p>
-          ) : (
-            <div className="table-scroll">
-              <table className="user-management-table">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Job & Department</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredManagedUsers.map((user) => {
-                    const edit = userEdits[user.id] || {
-                      role_name: user.role_name,
-                      is_active: user.is_active,
-                    };
-                    const isCurrentAdministrator = user.id === currentUser?.id;
-                    const hasChanges =
-                      edit.role_name !== user.role_name ||
-                      edit.is_active !== user.is_active;
+          <div className="user-filter-grid">
+            <input
+              value={userSearch}
+              onChange={(event) => {
+                setUserSearch(event.target.value);
+                setUserPage(1);
+              }}
+              placeholder="Search by name, email, department, role, or status..."
+            />
 
-                    return (
-                      <tr key={user.id}>
-                        <td>
-                          <div className="managed-user-cell">
-                            <div className="managed-user-avatar" aria-hidden="true">
-                              {user.full_name.charAt(0).toUpperCase()}
+            <select
+              value={userRoleFilter}
+              onChange={(event) => {
+                setUserRoleFilter(event.target.value);
+                setUserPage(1);
+              }}
+            >
+              <option value="">All roles</option>
+              {managedRoles.map((role) => (
+                <option key={role.id} value={role.name}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={userStatusFilter}
+              onChange={(event) => {
+                setUserStatusFilter(event.target.value);
+                setUserPage(1);
+              }}
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
+            <select
+              value={userPageSize}
+              onChange={(event) => {
+                setUserPageSize(Number(event.target.value));
+                setUserPage(1);
+              }}
+              aria-label="User records per page"
+            >
+              <option value={5}>5 per page</option>
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+            </select>
+          </div>
+
+          {usersPageLoading && managedUsers.length === 0 ? (
+            <p>Loading user accounts...</p>
+          ) : managedUsers.length === 0 ? (
+            <p>No user accounts match the selected filters.</p>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table className="user-management-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Job & Department</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {managedUsers.map((user) => {
+                      const edit = userEdits[user.id] || {
+                        role_name: user.role_name,
+                        is_active: user.is_active,
+                      };
+                      const isCurrentAdministrator =
+                        user.id === currentUser?.id;
+                      const hasChanges =
+                        edit.role_name !== user.role_name ||
+                        edit.is_active !== user.is_active;
+
+                      return (
+                        <tr key={user.id}>
+                          <td>
+                            <div className="managed-user-cell">
+                              <div
+                                className="managed-user-avatar"
+                                aria-hidden="true"
+                              >
+                                {user.full_name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <strong>{user.full_name}</strong>
+                                <span>{user.email}</span>
+                                {isCurrentAdministrator && (
+                                  <small>Current administrator</small>
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <strong>{user.full_name}</strong>
-                              <span>{user.email}</span>
-                              {isCurrentAdministrator && (
-                                <small>Current administrator</small>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <strong>{user.job_title || "Not specified"}</strong>
-                          <br />
-                          <span className="table-description">
-                            {user.department_name || "Unassigned department"}
-                          </span>
-                        </td>
-                        <td>
-                          <select
-                            value={edit.role_name}
-                            onChange={(event) =>
-                              updateUserEdit(
-                                user.id,
-                                "role_name",
-                                event.target.value
-                              )
-                            }
-                            disabled={isCurrentAdministrator}
-                          >
-                            {managedRoles.map((role) => (
-                              <option key={role.id} value={role.name}>
-                                {role.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <select
-                            value={edit.is_active}
-                            onChange={(event) =>
-                              updateUserEdit(
-                                user.id,
-                                "is_active",
-                                event.target.value
-                              )
-                            }
-                            disabled={isCurrentAdministrator}
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                          <span className={`account-status ${user.is_active}`}>
-                            Current: {user.is_active}
-                          </span>
-                        </td>
-                        <td>{formatDateTime(user.created_at)}</td>
-                        <td>
-                          <button
-                            className="table-button"
-                            onClick={() => saveManagedUser(user)}
-                            disabled={
-                              isCurrentAdministrator ||
-                              !hasChanges ||
-                              updatingUserId === user.id
-                            }
-                          >
-                            {updatingUserId === user.id
-                              ? "Saving..."
-                              : "Save Changes"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                          <td>
+                            <strong>{user.job_title || "Not specified"}</strong>
+                            <br />
+                            <span className="table-description">
+                              {user.department_name ||
+                                "Unassigned department"}
+                            </span>
+                          </td>
+                          <td>
+                            <select
+                              value={edit.role_name}
+                              onChange={(event) =>
+                                updateUserEdit(
+                                  user.id,
+                                  "role_name",
+                                  event.target.value
+                                )
+                              }
+                              disabled={isCurrentAdministrator}
+                            >
+                              {managedRoles.map((role) => (
+                                <option key={role.id} value={role.name}>
+                                  {role.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>
+                            <select
+                              value={edit.is_active}
+                              onChange={(event) =>
+                                updateUserEdit(
+                                  user.id,
+                                  "is_active",
+                                  event.target.value
+                                )
+                              }
+                              disabled={isCurrentAdministrator}
+                            >
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
+                            </select>
+                            <span
+                              className={`account-status ${user.is_active}`}
+                            >
+                              Current: {user.is_active}
+                            </span>
+                          </td>
+                          <td>{formatDateTime(user.created_at)}</td>
+                          <td>
+                            <button
+                              className="table-button"
+                              onClick={() => saveManagedUser(user)}
+                              disabled={
+                                isCurrentAdministrator ||
+                                !hasChanges ||
+                                updatingUserId === user.id
+                              }
+                            >
+                              {updatingUserId === user.id
+                                ? "Saving..."
+                                : "Save Changes"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pagination-bar">
+                <span>
+                  Page {userPage} of {userTotalPages}
+                </span>
+
+                <div className="pagination-actions">
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      setUserPage((current) => Math.max(1, current - 1))
+                    }
+                    disabled={userPage <= 1 || usersPageLoading}
+                  >
+                    Previous
+                  </button>
+
+                  {getVisiblePageNumbers(userPage, userTotalPages).map(
+                    (pageNumber) => (
+                      <button
+                        key={pageNumber}
+                        className={`page-number-button ${
+                          pageNumber === userPage ? "active" : ""
+                        }`}
+                        onClick={() => setUserPage(pageNumber)}
+                        disabled={usersPageLoading}
+                      >
+                        {pageNumber}
+                      </button>
+                    )
+                  )}
+
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      setUserPage((current) =>
+                        Math.min(userTotalPages, current + 1)
+                      )
+                    }
+                    disabled={
+                      userPage >= userTotalPages || usersPageLoading
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="panel inner-panel access-audit-panel">
+          <div className="section-header compact-section-header">
+            <div>
+              <h3>Access Administration Audit Trail</h3>
+              <p>
+                Recorded history of role assignments and account-status changes
+                performed by System Administrators.
+              </p>
             </div>
+
+            <span>{userAuditTotal} matching record(s)</span>
+          </div>
+
+          <div className="audit-filter-grid">
+            <input
+              value={userAuditSearch}
+              onChange={(event) => {
+                setUserAuditSearch(event.target.value);
+                setUserAuditPage(1);
+              }}
+              placeholder="Search by administrator, user, role, status, or email..."
+            />
+
+            <select
+              value={userAuditActionFilter}
+              onChange={(event) => {
+                setUserAuditActionFilter(event.target.value);
+                setUserAuditPage(1);
+              }}
+            >
+              <option value="">All actions</option>
+              <option value="ROLE_CHANGED">Role Changed</option>
+              <option value="ACCOUNT_ACTIVATED">Account Activated</option>
+              <option value="ACCOUNT_DEACTIVATED">
+                Account Deactivated
+              </option>
+            </select>
+
+            <select
+              value={userAuditPageSize}
+              onChange={(event) => {
+                setUserAuditPageSize(Number(event.target.value));
+                setUserAuditPage(1);
+              }}
+              aria-label="Audit records per page"
+            >
+              <option value={5}>5 per page</option>
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+            </select>
+          </div>
+
+          {userAuditPageLoading &&
+          userAdministrationAuditLogs.length === 0 ? (
+            <p>Loading access administration records...</p>
+          ) : userAdministrationAuditLogs.length === 0 ? (
+            <p>No audit records match the selected filters.</p>
+          ) : (
+            <>
+              <div className="access-audit-list">
+                {userAdministrationAuditLogs.map((log) => (
+                  <article key={log.id} className="access-audit-card">
+                    <div className="access-audit-header">
+                      <div>
+                        <span
+                          className={`access-audit-action ${log.action.toLowerCase()}`}
+                        >
+                          {getUserAuditActionLabel(log.action)}
+                        </span>
+                        <strong>{log.target_user_name}</strong>
+                        <small>{log.target_user_email}</small>
+                      </div>
+                      <time>{formatDateTime(log.created_at)}</time>
+                    </div>
+
+                    <p>
+                      Performed by <strong>{log.actor_name}</strong>
+                    </p>
+
+                    {log.action === "ROLE_CHANGED" && (
+                      <div className="access-audit-change">
+                        <span>{log.old_role || "Unknown role"}</span>
+                        <strong>→</strong>
+                        <span>{log.new_role || "Unknown role"}</span>
+                      </div>
+                    )}
+
+                    {(log.action === "ACCOUNT_ACTIVATED" ||
+                      log.action === "ACCOUNT_DEACTIVATED") && (
+                      <div className="access-audit-change">
+                        <span>{log.old_status || "Unknown status"}</span>
+                        <strong>→</strong>
+                        <span>{log.new_status || "Unknown status"}</span>
+                      </div>
+                    )}
+
+                    {log.details && (
+                      <p className="access-audit-details">{log.details}</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+
+              <div className="pagination-bar">
+                <span>
+                  Page {userAuditPage} of {userAuditTotalPages}
+                </span>
+
+                <div className="pagination-actions">
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      setUserAuditPage((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                    disabled={
+                      userAuditPage <= 1 || userAuditPageLoading
+                    }
+                  >
+                    Previous
+                  </button>
+
+                  {getVisiblePageNumbers(
+                    userAuditPage,
+                    userAuditTotalPages
+                  ).map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      className={`page-number-button ${
+                        pageNumber === userAuditPage ? "active" : ""
+                      }`}
+                      onClick={() => setUserAuditPage(pageNumber)}
+                      disabled={userAuditPageLoading}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      setUserAuditPage((current) =>
+                        Math.min(userAuditTotalPages, current + 1)
+                      )
+                    }
+                    disabled={
+                      userAuditPage >= userAuditTotalPages ||
+                      userAuditPageLoading
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </section>
       </section>
@@ -3023,7 +4507,10 @@ async function reviseManagedChange() {
           </div>
 
           <div className="actions">
-            <button className="secondary-button" onClick={() => setView("dashboard")}>
+            <button
+              className="secondary-button"
+              onClick={() => setView(detailsReturnView)}
+            >
               Back
             </button>
             <button className="secondary-button" onClick={() => window.print()}>
@@ -3376,6 +4863,7 @@ async function reviseManagedChange() {
       {view === "details" && renderDetails()}
       {view === "foundation" && renderFoundationManagement()}
       {view === "users" && renderUserManagement()}
+      {view === "notifications" && renderNotificationCenter()}
     </main>
   );
 }
