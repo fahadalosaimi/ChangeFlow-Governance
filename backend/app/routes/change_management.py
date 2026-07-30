@@ -14,9 +14,9 @@ from app.database import get_db
 from app.schemas.change_management import (
     ManagedChangeCreate,
     ManagedChangeRevision,
-    ChangeStatusUpdate,
     ApprovalDecisionCreate,
     ManagedChangePageOutput,
+    ChangeWorkQueueOverview,
 )
 from app.schemas.foundation_analysis import FoundationImpactAnalysisInput
 from app.services.foundation_risk_engine import analyze_foundation_change
@@ -38,6 +38,10 @@ from app.services.auth_service import (
 from app.services.notification_service import (
     notify_change_managers,
     notify_requester,
+)
+
+from app.services.change_state_service import (
+    ensure_change_transition,
 )
 
 router = APIRouter(
@@ -87,6 +91,7 @@ def get_user_role_name(current_user: User) -> str | None:
     return current_user.role.name
 
 
+
 def restrict_change_query(query, current_user: User):
     role_name = get_user_role_name(current_user)
 
@@ -96,13 +101,19 @@ def restrict_change_query(query, current_user: User):
             detail="You do not have permission to view change records.",
         )
 
+    # Every supported role is restricted to its own organization.
+    query = query.filter(
+        ManagedChangeRequest.organization_id
+        == current_user.organization_id
+    )
+
     if role_name == "Requester":
         query = query.filter(
-            ManagedChangeRequest.requester_id == current_user.id
+            ManagedChangeRequest.requester_id
+            == current_user.id
         )
 
     return query
-
 
 def get_accessible_change_request(
     db: Session,
@@ -363,9 +374,11 @@ def revise_and_resubmit_change_request(
         .filter(
             ManagedChangeRequest.id == change_request_id,
             ManagedChangeRequest.requester_id == current_user.id,
+            ManagedChangeRequest.organization_id == current_user.organization_id,
         )
-        .first()
+    .first()
     )
+
 
     if not change_request:
         raise HTTPException(
@@ -411,6 +424,11 @@ def revise_and_resubmit_change_request(
         )
 
     old_status = change_request.status
+
+    ensure_change_transition(
+        old_status,
+        "Pending Approval",
+    )
 
     change_request.title = payload.title
     change_request.description = payload.description
@@ -785,52 +803,6 @@ def get_managed_change_request(
     return build_change_response(change_request)
 
 
-@router.patch("/requests/{change_request_id}/status")
-def update_change_request_status(
-    change_request_id: int,
-    payload: ChangeStatusUpdate,
-    current_user: User = Depends(require_roles("Change Manager")),
-    db: Session = Depends(get_db),
-):
-    change_request = (
-        db.query(ManagedChangeRequest)
-        .filter(ManagedChangeRequest.id == change_request_id)
-        .first()
-    )
-
-    if not change_request:
-        raise HTTPException(status_code=404, detail="Change request not found")
-
-    old_status = change_request.status
-    change_request.status = payload.new_status
-
-    db.add(
-        ChangeStatusHistory(
-            change_request_id=change_request.id,
-            old_status=old_status,
-            new_status=payload.new_status,
-            changed_by=current_user.id,
-            comment=payload.comment,
-        )
-    )
-
-    db.add(
-        AuditLog(
-            change_request_id=change_request.id,
-            actor_id=current_user.id,
-            action="UPDATE_CHANGE_STATUS",
-            entity_type="ManagedChangeRequest",
-            entity_id=change_request.id,
-            details=f"Status changed from {old_status} to {payload.new_status}.",
-        )
-    )
-
-    db.commit()
-    db.refresh(change_request)
-
-    return build_change_response(change_request)
-
-
 @router.get("/requests/{change_request_id}/history")
 def get_change_request_history(
     change_request_id: int,
@@ -891,44 +863,109 @@ def get_change_request_audit_logs(
 def create_change_approval(
     change_request_id: int,
     payload: ApprovalDecisionCreate,
-    current_user: User = Depends(require_roles("Change Manager")),
+    current_user: User = Depends(
+        require_roles("Change Manager")
+    ),
     db: Session = Depends(get_db),
 ):
+    allowed_decisions = {
+        "Approved",
+        "Rejected",
+        "Needs More Information",
+    }
+
+    if payload.decision not in allowed_decisions:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Decision must be Approved, Rejected, "
+                "or Needs More Information."
+            ),
+        )
+
+    normalized_comments = (
+        payload.comments.strip()
+        if payload.comments
+        and payload.comments.strip()
+        else None
+    )
+
+    if (
+        payload.decision
+        in {
+            "Rejected",
+            "Needs More Information",
+        }
+        and not normalized_comments
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Comments are required when rejecting "
+                "a change or requesting more information."
+            ),
+        )
+
     change_request = (
         db.query(ManagedChangeRequest)
-        .filter(ManagedChangeRequest.id == change_request_id)
+        .filter(
+            ManagedChangeRequest.id
+            == change_request_id,
+            ManagedChangeRequest.organization_id
+            == current_user.organization_id,
+        )
         .first()
     )
 
     if not change_request:
-        raise HTTPException(status_code=404, detail="Change request not found")
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Change request not found or access "
+                "is not permitted."
+            ),
+        )
+
+    if change_request.status != "Pending Approval":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "An approval decision can be recorded "
+                "only while the change is Pending Approval."
+            ),
+        )
+
+    old_status = change_request.status
+    new_status = payload.decision
+
+    ensure_change_transition(
+        old_status,
+        new_status,
+    )
 
     approval = ChangeApproval(
         change_request_id=change_request.id,
         approver_id=current_user.id,
         approval_level=payload.approval_level,
         decision=payload.decision,
-        comments=payload.comments,
+        comments=normalized_comments,
     )
 
     db.add(approval)
+    db.flush()
 
-    old_status = change_request.status
-
-    if payload.decision == "Approved":
-        change_request.status = "Approved"
-    elif payload.decision == "Rejected":
-        change_request.status = "Rejected"
-    elif payload.decision == "Needs More Information":
-        change_request.status = "Needs More Information"
+    change_request.status = new_status
 
     db.add(
         ChangeStatusHistory(
             change_request_id=change_request.id,
             old_status=old_status,
-            new_status=change_request.status,
+            new_status=new_status,
             changed_by=current_user.id,
-            comment=f"Approval decision: {payload.decision}. {payload.comments or ''}",
+            comment=(
+                f"Approval decision: {payload.decision}. "
+                f"{normalized_comments or ''}"
+            ).strip(),
         )
     )
 
@@ -938,11 +975,13 @@ def create_change_approval(
             actor_id=current_user.id,
             action="CREATE_APPROVAL_DECISION",
             entity_type="ChangeApproval",
-            entity_id=change_request.id,
+            entity_id=approval.id,
             details=(
-                f"Approval level: {payload.approval_level}, "
+                f"Approval level: "
+                f"{payload.approval_level}, "
                 f"Decision: {payload.decision}, "
-                f"Comments: {payload.comments or 'No comments'}"
+                f"Comments: "
+                f"{normalized_comments or 'No comments'}"
             ),
         )
     )
@@ -950,14 +989,18 @@ def create_change_approval(
     notification_titles = {
         "Approved": "Change request approved",
         "Rejected": "Change request rejected",
-        "Needs More Information": "More information required",
+        "Needs More Information": (
+            "More information required"
+        ),
     }
 
     notification_types = {
         "Approved": "CHANGE_APPROVED",
         "Rejected": "CHANGE_REJECTED",
-        "Needs More Information": "CHANGE_INFORMATION_REQUESTED",
-    }  
+        "Needs More Information": (
+            "CHANGE_INFORMATION_REQUESTED"
+        ),
+    }
 
     notify_requester(
         db,
@@ -965,19 +1008,18 @@ def create_change_approval(
         requester_id=change_request.requester_id,
         actor_id=current_user.id,
         change_request_id=change_request.id,
-        notification_type=notification_types.get(
-            payload.decision,
-            "CHANGE_DECISION_RECORDED",
-        ),
-        title=notification_titles.get(
-            payload.decision,
-            "Change decision recorded",
-        ),
+        notification_type=notification_types[
+            payload.decision
+        ],
+        title=notification_titles[
+            payload.decision
+        ],
         message=(
-            f"Decision for change #{change_request.id} "
+            f"Decision for change "
+            f"#{change_request.id} "
             f"'{change_request.title}': "
             f"{payload.decision}. "
-            f"{payload.comments or 'No additional comments.'}"
+            f"{normalized_comments or 'No additional comments.'}"
         ),
     )
 
@@ -1034,6 +1076,83 @@ def get_change_approvals(
     for approval in approvals
 ]
 
+
+@router.get(
+    "/dashboard/work-queues",
+    response_model=ChangeWorkQueueOverview,
+)
+def get_change_manager_work_queues(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    latest_assessment = aliased(
+        ManagedImpactAssessment
+    )
+
+    latest_assessment_id = (
+        db.query(
+            func.max(
+                ManagedImpactAssessment.id
+            )
+        )
+        .filter(
+            ManagedImpactAssessment.change_request_id
+            == ManagedChangeRequest.id
+        )
+        .correlate(
+            ManagedChangeRequest
+        )
+        .scalar_subquery()
+    )
+
+    base_query = (
+        db.query(
+            ManagedChangeRequest
+        )
+        .outerjoin(
+            latest_assessment,
+            latest_assessment.id
+            == latest_assessment_id,
+        )
+    )
+
+    base_query = restrict_change_query(
+        base_query,
+        current_user,
+    )
+
+    pending_review = base_query.filter(
+        ManagedChangeRequest.status
+        == "Pending Approval"
+    ).count()
+
+    critical_pending = base_query.filter(
+        ManagedChangeRequest.status
+        == "Pending Approval",
+        latest_assessment.risk_level
+        == "Critical",
+    ).count()
+
+    high_pending = base_query.filter(
+        ManagedChangeRequest.status
+        == "Pending Approval",
+        latest_assessment.risk_level
+        == "High",
+    ).count()
+
+    awaiting_requester = base_query.filter(
+        ManagedChangeRequest.status
+        == "Needs More Information"
+    ).count()
+
+    return ChangeWorkQueueOverview(
+        pending_review=pending_review,
+        critical_pending=critical_pending,
+        high_pending=high_pending,
+        awaiting_requester=awaiting_requester,
+    )
+
+
 @router.get("/dashboard/overview")
 def get_change_management_dashboard(
     current_user: User = Depends(get_current_user),
@@ -1070,6 +1189,10 @@ def get_change_management_dashboard(
             ManagedChangeRequest,
             ManagedImpactAssessment.change_request_id
             == ManagedChangeRequest.id,
+        )
+        .filter(
+            ManagedChangeRequest.organization_id
+            == current_user.organization_id
         )
     )
 

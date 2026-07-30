@@ -29,6 +29,42 @@ type DashboardOverview = {
   average_impact_score: number;
 };
 
+type WorkQueueOverview = {
+  pending_review: number;
+  critical_pending: number;
+  high_pending: number;
+  awaiting_requester: number;
+};
+
+type DeliveryQueueOverview = {
+  approved_ready: number;
+  in_progress: number;
+  pending_pir: number;
+  failed: number;
+};
+
+type ChangeImplementation = {
+  id: number;
+  change_request_id: number;
+  coordinator_id: number | null;
+  coordinator_name: string;
+  implementation_status: string;
+  start_notes: string | null;
+  actual_start: string | null;
+  completion_summary: string | null;
+  validation_results: string | null;
+  actual_end: string | null;
+  failure_summary: string | null;
+  rollback_performed: boolean;
+  rollback_reason: string | null;
+  pir_result: string | null;
+  pir_summary: string | null;
+  follow_up_actions: string | null;
+  pir_completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type ITSystem = {
   id: number;
   name: string;
@@ -349,6 +385,10 @@ function App() {
     useState<FoundationOverview | null>(null);
   const [dashboardOverview, setDashboardOverview] =
     useState<DashboardOverview | null>(null);
+  const [workQueueOverview, setWorkQueueOverview] =
+    useState<WorkQueueOverview | null>(null);
+  const [deliveryQueueOverview, setDeliveryQueueOverview] =
+    useState<DeliveryQueueOverview | null>(null);
   const [systems, setSystems] = useState<ITSystem[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [incidents, setIncidents] = useState<HistoricalIncident[]>([]);
@@ -374,6 +414,19 @@ function App() {
   const [statusHistory, setStatusHistory] = useState<StatusHistoryItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [implementationRecord, setImplementationRecord] =
+    useState<ChangeImplementation | null>(null);
+  const [implementationStartNotes, setImplementationStartNotes] = useState("");
+  const [implementationOutcome, setImplementationOutcome] = useState("");
+  const [implementationValidation, setImplementationValidation] = useState("");
+  const [implementationFailure, setImplementationFailure] = useState("");
+  const [implementationRollbackReason, setImplementationRollbackReason] =
+    useState("");
+  const [pirResult, setPirResult] = useState("Successful");
+  const [pirSummary, setPirSummary] = useState("");
+  const [pirFollowUpActions, setPirFollowUpActions] = useState("");
+  const [implementationActionLoading, setImplementationActionLoading] =
+    useState(false);
   const [view, setView] = useState<
     | "dashboard"
     | "new"
@@ -494,7 +547,19 @@ function App() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken("");
     setCurrentUser(null);
+    setWorkQueueOverview(null);
+    setDeliveryQueueOverview(null);
     setSelectedChange(null);
+    setImplementationRecord(null);
+    setImplementationStartNotes("");
+    setImplementationOutcome("");
+    setImplementationValidation("");
+    setImplementationFailure("");
+    setImplementationRollbackReason("");
+    setPirResult("Successful");
+    setPirSummary("");
+    setPirFollowUpActions("");
+    setImplementationActionLoading(false);
     setChanges([]);
     setChangeRequesterOptions([]);
     setChangeSearch("");
@@ -603,6 +668,8 @@ function App() {
       const [
         foundationData,
         dashboardData,
+        workQueueData,
+        deliveryQueueData,
         systemsData,
         departmentsData,
         dependenciesData,
@@ -616,6 +683,16 @@ function App() {
         apiFetch("/change-management/dashboard/overview", {}, accessToken).then(
           (response) => readResponse<DashboardOverview>(response)
         ),
+        apiFetch(
+          "/change-management/dashboard/work-queues",
+          {},
+          accessToken
+        ).then((response) => readResponse<WorkQueueOverview>(response)),
+        apiFetch(
+          "/change-management/dashboard/delivery-queues",
+          {},
+          accessToken
+        ).then((response) => readResponse<DeliveryQueueOverview>(response)),
         apiFetch("/foundation/systems", {}, accessToken).then((response) =>
           readResponse<ITSystem[]>(response)
         ),
@@ -638,6 +715,8 @@ function App() {
 
       setFoundationOverview(foundationData);
       setDashboardOverview(dashboardData);
+      setWorkQueueOverview(workQueueData);
+      setDeliveryQueueOverview(deliveryQueueData);
       setSystems(systemsData);
       setDepartments(departmentsData);
       setDependencies(dependenciesData);
@@ -1302,8 +1381,13 @@ function App() {
     returnView: "dashboard" | "notifications" = "dashboard"
   ) {
     try {
-      const [changeData, historyData, auditData, approvalsData] =
-        await Promise.all([
+      const [
+        changeData,
+        historyData,
+        auditData,
+        approvalsData,
+        implementationData,
+      ] = await Promise.all([
           apiFetch(`/change-management/requests/${changeId}`).then((response) =>
             readResponse<ManagedChange>(response)
           ),
@@ -1316,12 +1400,26 @@ function App() {
           apiFetch(`/change-management/requests/${changeId}/approvals`).then(
             (response) => readResponse<ApprovalItem[]>(response)
           ),
+          apiFetch(
+            `/change-management/requests/${changeId}/implementation`
+          ).then((response) =>
+            readResponse<ChangeImplementation | null>(response)
+          ),
         ]);
 
       setSelectedChange(changeData);
       setStatusHistory(historyData);
       setAuditLogs(auditData);
       setApprovals(approvalsData);
+      setImplementationRecord(implementationData);
+      setImplementationStartNotes("");
+      setImplementationOutcome("");
+      setImplementationValidation("");
+      setImplementationFailure("");
+      setImplementationRollbackReason("");
+      setPirResult("Successful");
+      setPirSummary("");
+      setPirFollowUpActions("");
       setDetailsReturnView(returnView);
       setView("details");
     } catch (error) {
@@ -1567,6 +1665,102 @@ async function reviseManagedChange() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function submitImplementationAction(
+    endpoint: string,
+    payload: Record<string, unknown>
+  ) {
+    if (!selectedChange) return;
+
+    if (!isChangeManager) {
+      alert(
+        "Only users assigned the Change Manager role can manage implementation execution."
+      );
+      return;
+    }
+
+    setImplementationActionLoading(true);
+
+    try {
+      const response = await apiFetch(
+        `/change-management/requests/${selectedChange.id}/implementation/${endpoint}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      await readResponse<ChangeImplementation>(response);
+      await openChangeDetails(selectedChange.id, detailsReturnView);
+      await loadData();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to update the implementation lifecycle."
+      );
+    } finally {
+      setImplementationActionLoading(false);
+    }
+  }
+
+  async function startImplementation() {
+    await submitImplementationAction("start", {
+      start_notes: implementationStartNotes.trim() || null,
+    });
+  }
+
+  async function completeImplementation() {
+    if (!implementationOutcome.trim() || !implementationValidation.trim()) {
+      alert(
+        "Provide the implementation outcome and validation results before completion."
+      );
+      return;
+    }
+
+    await submitImplementationAction("complete", {
+      completion_summary: implementationOutcome.trim(),
+      validation_results: implementationValidation.trim(),
+    });
+  }
+
+  async function failImplementation() {
+    if (!implementationFailure.trim()) {
+      alert("Document the implementation failure before recording it.");
+      return;
+    }
+
+    await submitImplementationAction("fail", {
+      failure_summary: implementationFailure.trim(),
+    });
+  }
+
+  async function recordImplementationRollback() {
+    if (!implementationRollbackReason.trim()) {
+      alert("Document the rollback reason before recording the rollback.");
+      return;
+    }
+
+    await submitImplementationAction("rollback", {
+      rollback_reason: implementationRollbackReason.trim(),
+    });
+  }
+
+  async function completePostImplementationReview() {
+    if (!pirSummary.trim()) {
+      alert("Document the post-implementation review summary.");
+      return;
+    }
+
+    await submitImplementationAction("post-implementation-review", {
+      pir_result: pirResult,
+      pir_summary: pirSummary.trim(),
+      follow_up_actions: pirFollowUpActions.trim() || null,
+    });
   }
 
   function getRiskClass(risk?: string) {
@@ -2168,6 +2362,31 @@ async function reviseManagedChange() {
     );
   }
 
+  function openChangeQueue(
+    status: string,
+    riskLevel: string = ""
+  ) {
+    setChangeSearch("");
+    setChangeStatusFilter(status);
+    setChangeRiskFilter(riskLevel);
+    setChangeTypeFilter("");
+    setChangeRequesterFilter("");
+    setChangeCreatedFrom("");
+    setChangeCreatedTo("");
+    setChangePage(1);
+    setChangeRecordsError("");
+    setView("dashboard");
+
+    window.setTimeout(() => {
+      document
+        .getElementById("change-records-section")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 80);
+  }
+
   function renderNotificationButton() {
     const displayCount =
       notificationUnreadCount > 99
@@ -2368,6 +2587,142 @@ async function reviseManagedChange() {
           </div>
         </section>
 
+        {isChangeManager && (
+          <section className="panel manager-work-queue">
+            <div className="section-header compact-section-header">
+              <div>
+                <h2>Change Manager Work Queue</h2>
+                <p>
+                  Prioritized operational queues for reviews, elevated-risk
+                  changes, and records awaiting requester action.
+                </p>
+              </div>
+
+              <button
+                className="secondary-button"
+                onClick={() => loadData()}
+              >
+                Refresh Queues
+              </button>
+            </div>
+
+            <div className="work-queue-grid">
+              <button
+                type="button"
+                className="work-queue-card"
+                onClick={() => openChangeQueue("Pending Approval")}
+              >
+                <span className="work-queue-label">Pending Reviews</span>
+                <strong>{workQueueOverview?.pending_review ?? 0}</strong>
+                <small>Changes waiting for an authorization decision</small>
+                <span className="work-queue-link">Open queue →</span>
+              </button>
+
+              <button
+                type="button"
+                className="work-queue-card priority-critical"
+                onClick={() =>
+                  openChangeQueue("Pending Approval", "Critical")
+                }
+              >
+                <span className="work-queue-label">Critical Pending</span>
+                <strong>{workQueueOverview?.critical_pending ?? 0}</strong>
+                <small>Critical-risk changes requiring immediate review</small>
+                <span className="work-queue-link">Open queue →</span>
+              </button>
+
+              <button
+                type="button"
+                className="work-queue-card priority-high"
+                onClick={() => openChangeQueue("Pending Approval", "High")}
+              >
+                <span className="work-queue-label">High-Risk Pending</span>
+                <strong>{workQueueOverview?.high_pending ?? 0}</strong>
+                <small>High-risk changes currently awaiting review</small>
+                <span className="work-queue-link">Open queue →</span>
+              </button>
+
+              <button
+                type="button"
+                className="work-queue-card awaiting-requester"
+                onClick={() => openChangeQueue("Needs More Information")}
+              >
+                <span className="work-queue-label">Awaiting Requester</span>
+                <strong>{workQueueOverview?.awaiting_requester ?? 0}</strong>
+                <small>Records returned for additional information</small>
+                <span className="work-queue-link">Open queue →</span>
+              </button>
+            </div>
+          </section>
+        )}
+
+        {isChangeManager && (
+          <section className="panel manager-work-queue delivery-work-queue">
+            <div className="section-header compact-section-header">
+              <div>
+                <h2>Implementation Delivery Queue</h2>
+                <p>
+                  Approved changes moving through implementation, operational
+                  validation, exception handling, and post-implementation review.
+                </p>
+              </div>
+
+              <button
+                className="secondary-button"
+                onClick={() => loadData()}
+              >
+                Refresh Delivery Queue
+              </button>
+            </div>
+
+            <div className="work-queue-grid">
+              <button
+                type="button"
+                className="work-queue-card delivery-ready"
+                onClick={() => openChangeQueue("Approved")}
+              >
+                <span className="work-queue-label">Ready to Implement</span>
+                <strong>{deliveryQueueOverview?.approved_ready ?? 0}</strong>
+                <small>Approved changes ready for controlled execution</small>
+                <span className="work-queue-link">Open queue →</span>
+              </button>
+
+              <button
+                type="button"
+                className="work-queue-card delivery-active"
+                onClick={() => openChangeQueue("In Progress")}
+              >
+                <span className="work-queue-label">In Progress</span>
+                <strong>{deliveryQueueOverview?.in_progress ?? 0}</strong>
+                <small>Changes currently being implemented</small>
+                <span className="work-queue-link">Open queue →</span>
+              </button>
+
+              <button
+                type="button"
+                className="work-queue-card delivery-pir"
+                onClick={() => openChangeQueue("Implemented")}
+              >
+                <span className="work-queue-label">Pending PIR</span>
+                <strong>{deliveryQueueOverview?.pending_pir ?? 0}</strong>
+                <small>Implemented changes awaiting formal closure review</small>
+                <span className="work-queue-link">Open queue →</span>
+              </button>
+
+              <button
+                type="button"
+                className="work-queue-card delivery-failed"
+                onClick={() => openChangeQueue("Failed")}
+              >
+                <span className="work-queue-label">Failed Execution</span>
+                <strong>{deliveryQueueOverview?.failed ?? 0}</strong>
+                <small>Failed changes requiring rollback or remediation</small>
+                <span className="work-queue-link">Open queue →</span>
+              </button>
+            </div>
+          </section>
+        )}
+
         <section className="panel">
           <h2>Service & Configuration Data Foundation</h2>
           <p>
@@ -2385,7 +2740,10 @@ async function reviseManagedChange() {
           </div>
         </section>
 
-        <section className="panel change-records-panel">
+        <section
+          id="change-records-section"
+          className="panel change-records-panel"
+        >
           <div className="section-header compact-section-header">
             <div>
               <h2>Change Records</h2>
@@ -2427,6 +2785,11 @@ async function reviseManagedChange() {
                 Needs More Information
               </option>
               <option value="Approved">Approved</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Implemented">Implemented</option>
+              <option value="Failed">Failed</option>
+              <option value="Rolled Back">Rolled Back</option>
+              <option value="Closed">Closed</option>
               <option value="Rejected">Rejected</option>
             </select>
 
@@ -4730,6 +5093,272 @@ async function reviseManagedChange() {
               <strong>{selectedChange.status}</strong>. Authorization
               actions are locked because a final decision has already
               been recorded.
+            </p>
+          )}
+        </section>
+
+
+        <section className="panel inner-panel implementation-lifecycle-panel">
+          <div className="section-header compact-section-header">
+            <div>
+              <h3>Implementation Lifecycle</h3>
+              <p>
+                Controlled execution, validation, rollback handling, and
+                post-implementation review for the authorized change.
+              </p>
+            </div>
+
+            <span
+              className={`implementation-status-pill status-${(
+                implementationRecord?.implementation_status ||
+                selectedChange.status
+              )
+                .toLowerCase()
+                .replaceAll(" ", "-")}`}
+            >
+              {implementationRecord?.implementation_status ||
+                selectedChange.status}
+            </span>
+          </div>
+
+          {implementationRecord && (
+            <div className="implementation-summary-grid">
+              <div>
+                <span>Coordinator</span>
+                <strong>{implementationRecord.coordinator_name}</strong>
+              </div>
+              <div>
+                <span>Actual Start</span>
+                <strong>
+                  {implementationRecord.actual_start
+                    ? formatDateTime(implementationRecord.actual_start)
+                    : "Not started"}
+                </strong>
+              </div>
+              <div>
+                <span>Actual End</span>
+                <strong>
+                  {implementationRecord.actual_end
+                    ? formatDateTime(implementationRecord.actual_end)
+                    : "Not completed"}
+                </strong>
+              </div>
+              <div>
+                <span>Rollback</span>
+                <strong>
+                  {implementationRecord.rollback_performed ? "Recorded" : "No"}
+                </strong>
+              </div>
+            </div>
+          )}
+
+          {implementationRecord?.start_notes && (
+            <div className="implementation-record-note">
+              <strong>Execution Notes</strong>
+              <p>{implementationRecord.start_notes}</p>
+            </div>
+          )}
+
+          {implementationRecord?.completion_summary && (
+            <div className="implementation-record-note">
+              <strong>Implementation Outcome</strong>
+              <p>{implementationRecord.completion_summary}</p>
+            </div>
+          )}
+
+          {implementationRecord?.validation_results && (
+            <div className="implementation-record-note">
+              <strong>Validation Results</strong>
+              <p>{implementationRecord.validation_results}</p>
+            </div>
+          )}
+
+          {implementationRecord?.failure_summary && (
+            <div className="implementation-record-note failure-note">
+              <strong>Failure Summary</strong>
+              <p>{implementationRecord.failure_summary}</p>
+            </div>
+          )}
+
+          {implementationRecord?.rollback_reason && (
+            <div className="implementation-record-note rollback-note">
+              <strong>Rollback Reason</strong>
+              <p>{implementationRecord.rollback_reason}</p>
+            </div>
+          )}
+
+          {implementationRecord?.pir_summary && (
+            <div className="implementation-record-note pir-note">
+              <strong>
+                Post-Implementation Review: {implementationRecord.pir_result}
+              </strong>
+              <p>{implementationRecord.pir_summary}</p>
+              {implementationRecord.follow_up_actions && (
+                <p>
+                  <strong>Follow-up Actions:</strong>{" "}
+                  {implementationRecord.follow_up_actions}
+                </p>
+              )}
+            </div>
+          )}
+
+          {!isChangeManager ? (
+            <p className="readonly-note">
+              Implementation lifecycle actions are managed by the assigned
+              <strong> Change Manager</strong>. This record remains available
+              for transparent requester tracking.
+            </p>
+          ) : selectedChange.status === "Approved" ? (
+            <div className="implementation-action-form">
+              <label>Implementation Start Notes</label>
+              <textarea
+                value={implementationStartNotes}
+                onChange={(event) =>
+                  setImplementationStartNotes(event.target.value)
+                }
+                placeholder="Document readiness checks, maintenance-window confirmation, and implementation coordination notes."
+              />
+
+              <button
+                className="primary-button"
+                onClick={startImplementation}
+                disabled={implementationActionLoading}
+              >
+                {implementationActionLoading
+                  ? "Starting..."
+                  : "Start Implementation"}
+              </button>
+            </div>
+          ) : selectedChange.status === "In Progress" ? (
+            <div className="implementation-action-grid">
+              <div className="implementation-action-form">
+                <h4>Complete Implementation</h4>
+
+                <label>Implementation Outcome</label>
+                <textarea
+                  value={implementationOutcome}
+                  onChange={(event) =>
+                    setImplementationOutcome(event.target.value)
+                  }
+                  placeholder="Summarize the implemented change and the resulting service condition."
+                />
+
+                <label>Validation Results</label>
+                <textarea
+                  value={implementationValidation}
+                  onChange={(event) =>
+                    setImplementationValidation(event.target.value)
+                  }
+                  placeholder="Document checklist results, monitoring evidence, integration checks, and business validation."
+                />
+
+                <button
+                  className="approve-button"
+                  onClick={completeImplementation}
+                  disabled={implementationActionLoading}
+                >
+                  Record Successful Implementation
+                </button>
+              </div>
+
+              <div className="implementation-action-form failure-action-form">
+                <h4>Record Execution Failure</h4>
+
+                <label>Failure Summary</label>
+                <textarea
+                  value={implementationFailure}
+                  onChange={(event) =>
+                    setImplementationFailure(event.target.value)
+                  }
+                  placeholder="Document the failure condition, observed impact, and immediate containment actions."
+                />
+
+                <button
+                  className="delete-button"
+                  onClick={failImplementation}
+                  disabled={implementationActionLoading}
+                >
+                  Record Failed Implementation
+                </button>
+              </div>
+            </div>
+          ) : selectedChange.status === "Failed" ? (
+            <div className="implementation-action-form">
+              <label>Rollback Reason and Outcome</label>
+              <textarea
+                value={implementationRollbackReason}
+                onChange={(event) =>
+                  setImplementationRollbackReason(event.target.value)
+                }
+                placeholder="Document why rollback was required and confirm the restored service condition."
+              />
+
+              <button
+                className="warning-button"
+                onClick={recordImplementationRollback}
+                disabled={implementationActionLoading}
+              >
+                Record Rollback
+              </button>
+            </div>
+          ) : selectedChange.status === "Implemented" ? (
+            <div className="implementation-action-form">
+              <h4>Post-Implementation Review</h4>
+
+              <label>PIR Result</label>
+              <select
+                value={pirResult}
+                onChange={(event) => setPirResult(event.target.value)}
+              >
+                <option value="Successful">Successful</option>
+                <option value="Successful with Issues">
+                  Successful with Issues
+                </option>
+                <option value="Unsuccessful">Unsuccessful</option>
+              </select>
+
+              <label>Review Summary</label>
+              <textarea
+                value={pirSummary}
+                onChange={(event) => setPirSummary(event.target.value)}
+                placeholder="Confirm objectives, service stability, business validation, incidents, and lessons learned."
+              />
+
+              <label>Follow-up Actions</label>
+              <textarea
+                value={pirFollowUpActions}
+                onChange={(event) =>
+                  setPirFollowUpActions(event.target.value)
+                }
+                placeholder="Optional remediation, monitoring, documentation, or improvement actions."
+              />
+
+              <button
+                className="primary-button"
+                onClick={completePostImplementationReview}
+                disabled={implementationActionLoading}
+              >
+                Complete PIR & Close Change
+              </button>
+            </div>
+          ) : selectedChange.status === "Closed" ? (
+            <p className="readonly-note">
+              This change completed implementation and post-implementation
+              review and is now formally closed.
+            </p>
+          ) : selectedChange.status === "Rolled Back" ? (
+            <p className="readonly-note">
+              The failed implementation was rolled back and the execution
+              lifecycle is complete.
+            </p>
+          ) : selectedChange.status === "Rejected" ? (
+            <p className="readonly-note">
+              Rejected changes cannot enter the implementation lifecycle.
+            </p>
+          ) : (
+            <p className="readonly-note">
+              Implementation actions unlock after the change receives an
+              Approved authorization decision.
             </p>
           )}
         </section>

@@ -109,3 +109,12 @@ class ManagedChangePageOutput(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+
+class ChangeWorkQueueOverview(BaseModel):
+    pending_review: int
+    critical_pending: int
+    high_pending: int
+    awaiting_requester: int
+

@@ -7,6 +7,7 @@ from app.models import (
     change_management,
     foundation,
     notification,
+    change_execution,
 )
 
 from app.routes import (
@@ -14,6 +15,7 @@ from app.routes import (
     change_management,
     foundation,
     notifications,
+    change_execution,
 )
 
 
@@ -43,6 +45,7 @@ app.include_router(foundation.router)
 app.include_router(change_management.router)
 app.include_router(notifications.router)
 app.include_router(auth.router)
+app.include_router(change_execution.router)
 
 
 @app.get("/")
