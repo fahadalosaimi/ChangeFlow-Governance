@@ -8,7 +8,7 @@ from fastapi import (
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
 from sqlalchemy.orm import Session,aliased
-
+from sqlalchemy import or_
 from app.database import get_db
 from app.models.foundation import (
     Department,
@@ -151,6 +151,7 @@ def build_user_admin_audit_output(
 
 def count_active_system_administrators(
     db: Session,
+    organization_id: int,
 ) -> int:
     return (
         db.query(User)
@@ -159,7 +160,10 @@ def count_active_system_administrators(
             User.role_id == Role.id,
         )
         .filter(
-            Role.name == "System Administrator",
+            User.organization_id
+            == organization_id,
+            Role.name
+            == "System Administrator",
             User.is_active == "active",
         )
         .count()
@@ -364,6 +368,10 @@ def get_managed_users(
 ):
     users = (
         db.query(User)
+        .filter(
+            User.organization_id
+            == current_user.organization_id
+        )
         .order_by(
             User.full_name.asc()
         )
@@ -400,6 +408,10 @@ def get_managed_users_paged(
         .outerjoin(
             Department,
             User.department_id == Department.id,
+        )
+        .filter(
+            User.organization_id
+            == current_user.organization_id
         )
     )
 
@@ -478,7 +490,11 @@ def update_managed_user(
 ):
     target_user = (
         db.query(User)
-        .filter(User.id == user_id)
+        .filter(
+            User.id == user_id,
+            User.organization_id
+            == current_user.organization_id,
+        )
         .first()
     )
 
@@ -560,7 +576,10 @@ def update_managed_user(
     if (
         target_is_active_system_admin
         and removes_system_admin_access
-        and count_active_system_administrators(db)
+        and count_active_system_administrators(
+            db,
+            current_user.organization_id,
+        )
         <= 1
     ):
         raise HTTPException(
@@ -663,6 +682,15 @@ def get_user_administration_audit_logs(
 ):
     audit_logs = (
         db.query(UserAdministrationAudit)
+        .join(
+            User,
+            UserAdministrationAudit.target_user_id
+            == User.id,
+        )
+        .filter(
+            User.organization_id
+            == current_user.organization_id
+        )
         .order_by(
             UserAdministrationAudit.created_at.desc(),
             UserAdministrationAudit.id.desc(),
@@ -706,6 +734,10 @@ def get_user_administration_audit_logs_paged(
             target_user,
             UserAdministrationAudit.target_user_id
             == target_user.id,
+        )
+        .filter(
+            target_user.organization_id
+            == current_user.organization_id
         )
     )
 

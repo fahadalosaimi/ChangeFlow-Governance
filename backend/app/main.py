@@ -1,41 +1,56 @@
+﻿from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import (
+    CORSMiddleware,
+)
 
 from app.database import Base, engine
 
 from app.models import (
+    change_execution,
     change_management,
     foundation,
     notification,
-    change_execution,
 )
 
 from app.routes import (
     auth,
+    change_execution,
     change_management,
     foundation,
     notifications,
-    change_execution,
 )
 
+from app.settings import settings
 
-Base.metadata.create_all(bind=engine)
+
+@asynccontextmanager
+async def lifespan(
+    app: FastAPI,
+):
+    if settings.create_tables_on_startup:
+        Base.metadata.create_all(
+            bind=engine
+        )
+
+    yield
+
 
 app = FastAPI(
-    title="ChangeFlow Governance",
+    title=settings.app_name,
     description=(
-        "Enterprise platform for IT change governance, "
-        "impact assessment, authorization, and auditability."
+        "Enterprise platform for IT change "
+        "governance, impact assessment, "
+        "authorization, and auditability."
     ),
-    version="0.2.0",
+    version=settings.app_version,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,15 +58,19 @@ app.add_middleware(
 
 app.include_router(foundation.router)
 app.include_router(change_management.router)
+app.include_router(change_execution.router)
 app.include_router(notifications.router)
 app.include_router(auth.router)
-app.include_router(change_execution.router)
 
 
 @app.get("/")
 def root():
     return {
-        "message": "ChangeFlow Governance API is running",
+        "message": (
+            f"{settings.app_name} API "
+            "is running"
+        ),
+        "version": settings.app_version,
     }
 
 
@@ -59,5 +78,7 @@ def root():
 def health_check():
     return {
         "status": "ok",
-        "service": "ChangeFlow Governance",
+        "service": settings.app_name,
+        "version": settings.app_version,
+        "environment": settings.environment,
     }

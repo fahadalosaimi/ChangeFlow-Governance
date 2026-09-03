@@ -2970,3 +2970,451 @@ td:nth-child(7) {
     width: 100%;
   }
 }
+
+/* ===== ChangeFlow UI Polish: Notifications and Governance History ===== */
+
+.section-eyebrow {
+  display: inline-flex;
+  margin-bottom: 7px;
+  color: #52627a;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.notification-center-page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 30px;
+  overflow: visible;
+}
+
+.notification-page-header {
+  align-items: flex-start;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.notification-page-heading {
+  min-width: 0;
+  max-width: 780px;
+}
+
+.notification-page-heading h2 {
+  font-size: clamp(1.7rem, 2.4vw, 2.15rem);
+}
+
+.notification-page-heading p {
+  max-width: 760px;
+  margin-bottom: 0;
+}
+
+.notification-header-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.notification-header-actions button {
+  min-width: 110px;
+}
+
+.notification-summary-grid {
+  gap: 14px;
+  margin: 22px 0;
+}
+
+.notification-summary-grid > .notification-summary-card {
+  min-height: 112px;
+  padding: 17px 19px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.045);
+}
+
+.notification-summary-card span {
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.notification-summary-card strong {
+  font-size: 1.85rem;
+  line-height: 1;
+}
+
+.notification-summary-card small {
+  color: #7b8ba3;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.notification-toolbar {
+  grid-template-columns:
+    minmax(260px, 2fr)
+    minmax(185px, 1fr)
+    minmax(165px, 0.9fr)
+    minmax(108px, 0.5fr)
+    minmax(170px, auto);
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.notification-search-control,
+.notification-filter-control,
+.notification-page-size {
+  min-width: 0;
+}
+
+.notification-search-control,
+.notification-filter-control {
+  display: grid;
+  gap: 7px;
+}
+
+.notification-search-control label,
+.notification-filter-control label,
+.notification-page-size > span {
+  margin: 0;
+  color: #52627a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.notification-toolbar input,
+.notification-toolbar select,
+.notification-toolbar button {
+  min-height: 45px;
+}
+
+.notification-page-size {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.notification-page-size select {
+  min-width: 0;
+}
+
+.notification-mark-all-button {
+  min-width: 170px;
+  white-space: nowrap;
+}
+
+.notification-card {
+  padding: 18px 20px;
+  border-radius: 15px;
+}
+
+.notification-card-heading h3 {
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.notification-card-content > p {
+  margin: 9px 0 11px;
+}
+
+.notification-card-actions {
+  min-width: 140px;
+}
+
+.notification-pagination {
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Governance history: prevent equal-height stretching and show a real timeline. */
+
+.change-governance-history-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(300px, 0.82fr)
+    minmax(480px, 1.35fr);
+  gap: 20px;
+  align-items: start;
+  margin-top: 22px;
+}
+
+.change-governance-history-grid > .panel {
+  align-self: start;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.history-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.history-panel-header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.15rem;
+}
+
+.history-panel-header p {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.history-count {
+  display: inline-grid;
+  flex: 0 0 auto;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0 9px;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #20385f;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.record-list,
+.timeline-list,
+.audit-trail-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.record-list {
+  display: grid;
+  gap: 12px;
+}
+
+.authorization-record-item {
+  margin: 0;
+  padding: 15px 16px;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.035);
+}
+
+.record-header time {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.record-actor {
+  color: #52627a;
+  font-size: 0.87rem;
+}
+
+.decision-status,
+.audit-action-label {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+}
+
+.decision-status.approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.decision-status.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.decision-status.needs-more-information {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.timeline-list {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding-left: 30px;
+}
+
+.timeline-list::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 7px;
+  width: 2px;
+  border-radius: 999px;
+  background: #dbe5f2;
+}
+
+.timeline-item {
+  position: relative;
+  margin: 0;
+}
+
+.timeline-marker {
+  position: absolute;
+  top: 18px;
+  left: -29px;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #315c98;
+  box-shadow: 0 0 0 2px #b9cae1;
+}
+
+.timeline-card {
+  padding: 15px 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.035);
+}
+
+.timeline-card .record-header strong {
+  color: #172a49;
+  font-size: 0.91rem;
+  line-height: 1.45;
+}
+
+.audit-trail-panel {
+  margin-top: 20px;
+}
+
+.audit-trail-list {
+  display: grid;
+  gap: 10px;
+}
+
+.audit-trail-item {
+  margin: 0;
+  padding: 15px 17px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.audit-action-label {
+  border: 1px solid #d7e0ed;
+  background: #edf3fa;
+  color: #29486f;
+  text-transform: capitalize;
+}
+
+.history-empty-state {
+  padding: 24px 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #64748b;
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .notification-toolbar {
+    grid-template-columns:
+      minmax(230px, 1.4fr)
+      minmax(180px, 1fr)
+      minmax(150px, 0.9fr);
+  }
+
+  .notification-search-control {
+    grid-column: 1 / -1;
+  }
+
+  .notification-mark-all-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 960px) {
+  .change-governance-history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-page-header {
+    flex-direction: column;
+  }
+
+  .notification-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .notification-center-page {
+    padding: 20px;
+  }
+
+  .notification-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-search-control {
+    grid-column: auto;
+  }
+
+  .notification-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .notification-header-actions button {
+    flex: 1 1 130px;
+  }
+
+  .notification-card {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  .notification-card-actions {
+    grid-column: 2;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .notification-card-actions button {
+    width: 100%;
+  }
+
+  .record-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .record-header time {
+    white-space: normal;
+  }
+}
+
+@media print {
+  .notification-center-page {
+    max-width: none;
+  }
+
+  .change-governance-history-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .timeline-card,
+  .authorization-record-item,
+  .audit-trail-item {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+}

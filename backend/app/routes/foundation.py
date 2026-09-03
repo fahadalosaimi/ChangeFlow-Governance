@@ -1,198 +1,480 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+)
 from sqlalchemy.orm import Session
-from app.services.auth_service import require_roles
+
 from app.database import get_db
 from app.models.foundation import (
-    Organization,
-    Role,
     Department,
-    User,
+    Incident,
     ITService,
     ITSystem,
-    SystemDependency,
-    Incident,
+    Organization,
     RiskRule,
+    Role,
+    SystemDependency,
+    User,
 )
-
 from app.schemas.foundation import (
-    OrganizationOutput,
-    RoleOutput,
-    DepartmentOutput,
-    UserOutput,
-    ITServiceOutput,
-    ITSystemOutput,
-    SystemDependencyOutput,
-    IncidentOutput,
-    RiskRuleOutput,
-    IncidentCreate,
-    RiskRuleCreate,
-    RiskRuleUpdate,
-    SystemImpactProfileOutput,
     DepartmentCreate,
+    DepartmentOutput,
+    IncidentCreate,
+    IncidentOutput,
+    ITServiceOutput,
     ITSystemCreate,
+    ITSystemOutput,
+    OrganizationOutput,
+    RiskRuleCreate,
+    RiskRuleOutput,
+    RiskRuleUpdate,
+    RoleOutput,
     SystemDependencyCreate,
+    SystemDependencyOutput,
+    SystemImpactProfileOutput,
+    UserOutput,
+)
+from app.services.auth_service import (
+    get_current_user,
+    require_roles,
 )
 
 
-router = APIRouter(prefix="/foundation", tags=["Foundation Data"])
+router = APIRouter(
+    prefix="/foundation",
+    tags=["Foundation Data"],
+)
 
 
-@router.get("/overview")
-def get_foundation_overview(db: Session = Depends(get_db)):
-    return {
-        "organizations": db.query(Organization).count(),
-        "departments": db.query(Department).count(),
-        "users": db.query(User).count(),
-        "roles": db.query(Role).count(),
-        "services": db.query(ITService).count(),
-        "systems": db.query(ITSystem).count(),
-        "dependencies": db.query(SystemDependency).count(),
-        "incidents": db.query(Incident).count(),
-        "risk_rules": db.query(RiskRule).count(),
-    }
+def ensure_requested_organization(
+    requested_organization_id: int | None,
+    current_user: User,
+) -> None:
+    if (
+        requested_organization_id is not None
+        and requested_organization_id
+        != current_user.organization_id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "You cannot manage foundation data "
+                "for another organization."
+            ),
+        )
 
 
-@router.get("/organizations", response_model=list[OrganizationOutput])
-def get_organizations(db: Session = Depends(get_db)):
-    return db.query(Organization).order_by(Organization.id.asc()).all()
-
-
-@router.get("/roles", response_model=list[RoleOutput])
-def get_roles(db: Session = Depends(get_db)):
-    return db.query(Role).order_by(Role.id.asc()).all()
-
-
-@router.get("/departments", response_model=list[DepartmentOutput])
-def get_departments(db: Session = Depends(get_db)):
-    return db.query(Department).order_by(Department.name.asc()).all()
-
-
-@router.get("/users", response_model=list[UserOutput])
-def get_users(db: Session = Depends(get_db)):
-    return db.query(User).order_by(User.full_name.asc()).all()
-
-
-@router.get("/services", response_model=list[ITServiceOutput])
-def get_services(db: Session = Depends(get_db)):
-    return db.query(ITService).order_by(ITService.name.asc()).all()
-
-
-@router.get("/systems", response_model=list[ITSystemOutput])
-def get_systems(db: Session = Depends(get_db)):
-    return db.query(ITSystem).order_by(ITSystem.name.asc()).all()
-
-
-@router.get("/systems/{system_id}", response_model=ITSystemOutput)
-def get_system_by_id(system_id: int, db: Session = Depends(get_db)):
-    system = db.query(ITSystem).filter(ITSystem.id == system_id).first()
+def get_organization_system(
+    db: Session,
+    system_id: int,
+    organization_id: int,
+) -> ITSystem:
+    system = (
+        db.query(ITSystem)
+        .filter(
+            ITSystem.id == system_id,
+            ITSystem.organization_id
+            == organization_id,
+        )
+        .first()
+    )
 
     if not system:
-        raise HTTPException(status_code=404, detail="System not found")
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Configuration item not found or "
+                "access is not permitted."
+            ),
+        )
 
     return system
 
 
-@router.get("/systems/{system_id}/dependencies", response_model=list[SystemDependencyOutput])
-def get_system_dependencies(system_id: int, db: Session = Depends(get_db)):
-    system = db.query(ITSystem).filter(ITSystem.id == system_id).first()
+@router.get("/overview")
+def get_foundation_overview(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    organization_id = (
+        current_user.organization_id
+    )
 
-    if not system:
-        raise HTTPException(status_code=404, detail="System not found")
+    system_ids = (
+        db.query(ITSystem.id)
+        .filter(
+            ITSystem.organization_id
+            == organization_id
+        )
+        .subquery()
+    )
 
-    dependencies = (
-        db.query(SystemDependency)
-        .filter(SystemDependency.source_system_id == system_id)
+    return {
+        "organizations": 1,
+        "departments": (
+            db.query(Department)
+            .filter(
+                Department.organization_id
+                == organization_id
+            )
+            .count()
+        ),
+        "users": (
+            db.query(User)
+            .filter(
+                User.organization_id
+                == organization_id
+            )
+            .count()
+        ),
+        "roles": db.query(Role).count(),
+        "services": (
+            db.query(ITService)
+            .filter(
+                ITService.organization_id
+                == organization_id
+            )
+            .count()
+        ),
+        "systems": (
+            db.query(ITSystem)
+            .filter(
+                ITSystem.organization_id
+                == organization_id
+            )
+            .count()
+        ),
+        "dependencies": (
+            db.query(SystemDependency)
+            .filter(
+                SystemDependency.source_system_id.in_(
+                    system_ids
+                )
+            )
+            .count()
+        ),
+        "incidents": (
+            db.query(Incident)
+            .filter(
+                Incident.system_id.in_(
+                    system_ids
+                )
+            )
+            .count()
+        ),
+        "risk_rules": db.query(
+            RiskRule
+        ).count(),
+    }
+
+
+@router.get(
+    "/organizations",
+    response_model=list[OrganizationOutput],
+)
+def get_organizations(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Organization)
+        .filter(
+            Organization.id
+            == current_user.organization_id
+        )
         .all()
     )
 
-    return dependencies
+
+@router.get(
+    "/roles",
+    response_model=list[RoleOutput],
+)
+def get_roles(
+    _current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Role)
+        .order_by(Role.name.asc())
+        .all()
+    )
 
 
-@router.get("/systems/{system_id}/incidents", response_model=list[IncidentOutput])
-def get_system_incidents(system_id: int, db: Session = Depends(get_db)):
-    system = db.query(ITSystem).filter(ITSystem.id == system_id).first()
+@router.get(
+    "/departments",
+    response_model=list[DepartmentOutput],
+)
+def get_departments(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Department)
+        .filter(
+            Department.organization_id
+            == current_user.organization_id
+        )
+        .order_by(Department.name.asc())
+        .all()
+    )
 
-    if not system:
-        raise HTTPException(status_code=404, detail="System not found")
 
-    incidents = (
+@router.get(
+    "/users",
+    response_model=list[UserOutput],
+)
+def get_users(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(User)
+        .filter(
+            User.organization_id
+            == current_user.organization_id
+        )
+        .order_by(User.full_name.asc())
+        .all()
+    )
+
+
+@router.get(
+    "/services",
+    response_model=list[ITServiceOutput],
+)
+def get_services(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(ITService)
+        .filter(
+            ITService.organization_id
+            == current_user.organization_id
+        )
+        .order_by(ITService.name.asc())
+        .all()
+    )
+
+
+@router.get(
+    "/systems",
+    response_model=list[ITSystemOutput],
+)
+def get_systems(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(ITSystem)
+        .filter(
+            ITSystem.organization_id
+            == current_user.organization_id
+        )
+        .order_by(ITSystem.name.asc())
+        .all()
+    )
+
+
+@router.get(
+    "/systems/{system_id}",
+    response_model=ITSystemOutput,
+)
+def get_system_by_id(
+    system_id: int,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    return get_organization_system(
+        db,
+        system_id,
+        current_user.organization_id,
+    )
+
+
+@router.get(
+    "/systems/{system_id}/dependencies",
+    response_model=list[
+        SystemDependencyOutput
+    ],
+)
+def get_system_dependencies(
+    system_id: int,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    get_organization_system(
+        db,
+        system_id,
+        current_user.organization_id,
+    )
+
+    return (
+        db.query(SystemDependency)
+        .filter(
+            SystemDependency.source_system_id
+            == system_id
+        )
+        .order_by(SystemDependency.id.asc())
+        .all()
+    )
+
+
+@router.get(
+    "/systems/{system_id}/incidents",
+    response_model=list[IncidentOutput],
+)
+def get_system_incidents(
+    system_id: int,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    get_organization_system(
+        db,
+        system_id,
+        current_user.organization_id,
+    )
+
+    return (
         db.query(Incident)
-        .filter(Incident.system_id == system_id)
+        .filter(
+            Incident.system_id == system_id
+        )
         .order_by(Incident.occurred_at.desc())
         .all()
     )
 
-    return incidents
 
-
-@router.get("/systems/{system_id}/impact-profile", response_model=SystemImpactProfileOutput)
-def get_system_impact_profile(system_id: int, db: Session = Depends(get_db)):
-    system = db.query(ITSystem).filter(ITSystem.id == system_id).first()
-
-    if not system:
-        raise HTTPException(status_code=404, detail="System not found")
+@router.get(
+    "/systems/{system_id}/impact-profile",
+    response_model=SystemImpactProfileOutput,
+)
+def get_system_impact_profile(
+    system_id: int,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    system = get_organization_system(
+        db,
+        system_id,
+        current_user.organization_id,
+    )
 
     outgoing_dependencies = (
         db.query(SystemDependency)
-        .filter(SystemDependency.source_system_id == system_id)
+        .filter(
+            SystemDependency.source_system_id
+            == system_id
+        )
         .all()
     )
 
     incoming_dependencies = (
         db.query(SystemDependency)
-        .filter(SystemDependency.target_system_id == system_id)
+        .filter(
+            SystemDependency.target_system_id
+            == system_id
+        )
         .all()
     )
 
     incidents = (
         db.query(Incident)
-        .filter(Incident.system_id == system_id)
+        .filter(
+            Incident.system_id == system_id
+        )
         .order_by(Incident.occurred_at.desc())
         .all()
     )
 
-    outgoing_names = []
+    outgoing_names: list[str] = []
+
     for dependency in outgoing_dependencies:
-        target_system = (
-            db.query(ITSystem)
-            .filter(ITSystem.id == dependency.target_system_id)
-            .first()
+        target_system = get_organization_system(
+            db,
+            dependency.target_system_id,
+            current_user.organization_id,
         )
 
-        if target_system:
-            outgoing_names.append(
-                f"{system.name} depends on {target_system.name} ({dependency.impact_level})"
-            )
+        outgoing_names.append(
+            f"{system.name} depends on "
+            f"{target_system.name} "
+            f"({dependency.impact_level})"
+        )
 
-    incoming_names = []
+    incoming_names: list[str] = []
+
     for dependency in incoming_dependencies:
-        source_system = (
-            db.query(ITSystem)
-            .filter(ITSystem.id == dependency.source_system_id)
-            .first()
+        source_system = get_organization_system(
+            db,
+            dependency.source_system_id,
+            current_user.organization_id,
         )
 
-        if source_system:
-            incoming_names.append(
-                f"{source_system.name} depends on {system.name} ({dependency.impact_level})"
-            )
+        incoming_names.append(
+            f"{source_system.name} depends on "
+            f"{system.name} "
+            f"({dependency.impact_level})"
+        )
 
     incident_titles = [
-        f"{incident.title} ({incident.severity})"
+        f"{incident.title} "
+        f"({incident.severity})"
         for incident in incidents
     ]
 
-    department_name = system.department.name if system.department else None
-    service_name = system.service.name if system.service else None
-    owner_name = system.owner.full_name if system.owner else None
+    department_name = (
+        system.department.name
+        if system.department
+        else None
+    )
+    service_name = (
+        system.service.name
+        if system.service
+        else None
+    )
+    owner_name = (
+        system.owner.full_name
+        if system.owner
+        else None
+    )
 
     impact_summary = (
-        f"{system.name} is a {system.criticality} criticality system. "
-        f"It belongs to {department_name or 'an unspecified department'} "
-        f"and supports {service_name or 'an unspecified service'}. "
-        f"It has {len(outgoing_dependencies)} outgoing dependencies, "
-        f"{len(incoming_dependencies)} incoming dependencies, "
-        f"and {len(incidents)} previous incident(s)."
+        f"{system.name} is a "
+        f"{system.criticality} criticality "
+        "system. It belongs to "
+        f"{department_name or 'an unspecified department'} "
+        "and supports "
+        f"{service_name or 'an unspecified service'}. "
+        f"It has {len(outgoing_dependencies)} "
+        "outgoing dependencies, "
+        f"{len(incoming_dependencies)} incoming "
+        "dependencies, and "
+        f"{len(incidents)} previous incident(s)."
     )
 
     return SystemImpactProfileOutput(
@@ -209,42 +491,54 @@ def get_system_impact_profile(system_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/incidents", response_model=list[IncidentOutput])
-def get_incidents(db: Session = Depends(get_db)):
-    return db.query(Incident).order_by(Incident.occurred_at.desc()).all()
-
-
-@router.post("/incidents", response_model=IncidentOutput, status_code=201)
-def create_incident(
-    payload: IncidentCreate,
-    _current_user: User = Depends(require_roles("CMDB Manager")),
+@router.get(
+    "/incidents",
+    response_model=list[IncidentOutput],
+)
+def get_incidents(
+    current_user: User = Depends(
+        get_current_user
+    ),
     db: Session = Depends(get_db),
 ):
-    system = (
-        db.query(ITSystem)
-        .filter(ITSystem.id == payload.system_id)
-        .first()
+    return (
+        db.query(Incident)
+        .join(
+            ITSystem,
+            Incident.system_id == ITSystem.id,
+        )
+        .filter(
+            ITSystem.organization_id
+            == current_user.organization_id
+        )
+        .order_by(Incident.occurred_at.desc())
+        .all()
     )
 
-    if not system:
-        raise HTTPException(
-            status_code=404,
-            detail="Configuration item not found.",
+
+@router.post(
+    "/incidents",
+    response_model=IncidentOutput,
+    status_code=201,
+)
+def create_incident(
+    payload: IncidentCreate,
+    current_user: User = Depends(
+        require_roles("CMDB Manager")
+    ),
+    db: Session = Depends(get_db),
+):
+    get_organization_system(
+        db,
+        payload.system_id,
+        current_user.organization_id,
+    )
+
+    incident = Incident(
+        **payload.model_dump(
+            exclude_none=True
         )
-
-    if (
-        payload.occurred_at is not None
-        and payload.resolved_at is not None
-        and payload.resolved_at < payload.occurred_at
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Resolved date cannot be earlier than incident date.",
-        )
-
-    incident_data = payload.model_dump(exclude_none=True)
-
-    incident = Incident(**incident_data)
+    )
 
     db.add(incident)
     db.commit()
@@ -253,9 +547,21 @@ def create_incident(
     return incident
 
 
-@router.get("/risk-rules", response_model=list[RiskRuleOutput])
-def get_risk_rules(db: Session = Depends(get_db)):
-    return db.query(RiskRule).order_by(RiskRule.id.asc()).all()
+@router.get(
+    "/risk-rules",
+    response_model=list[RiskRuleOutput],
+)
+def get_risk_rules(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(RiskRule)
+        .order_by(RiskRule.id.asc())
+        .all()
+    )
 
 
 @router.post(
@@ -265,55 +571,38 @@ def get_risk_rules(db: Session = Depends(get_db)):
 )
 def create_risk_rule(
     payload: RiskRuleCreate,
-    _current_user: User = Depends(require_roles("CMDB Manager")),
+    current_user: User = Depends(
+        require_roles("CMDB Manager")
+    ),
     db: Session = Depends(get_db),
 ):
-    if not payload.name.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Risk rule name is required.",
-        )
+    name = payload.name.strip()
 
-    if not payload.condition_type.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Condition type is required.",
-        )
-
-    if not payload.condition_value.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Condition value is required.",
-        )
-
-    if payload.score < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Risk score cannot be negative.",
-        )
-
-    if payload.is_active not in ["active", "inactive"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Rule status must be active or inactive.",
-        )
-
-    existing_rule = (
+    duplicate_rule = (
         db.query(RiskRule)
-        .filter(RiskRule.name == payload.name.strip())
+        .filter(
+            RiskRule.name == name,
+        )
         .first()
     )
 
-    if existing_rule:
+    if duplicate_rule:
         raise HTTPException(
             status_code=409,
-            detail="A risk rule with this name already exists.",
+            detail=(
+                "A risk rule with this name "
+                "already exists."
+            ),
         )
 
     risk_rule = RiskRule(
-        name=payload.name.strip(),
-        condition_type=payload.condition_type.strip(),
-        condition_value=payload.condition_value.strip(),
+        name=name,
+        condition_type=(
+            payload.condition_type.strip()
+        ),
+        condition_value=(
+            payload.condition_value.strip()
+        ),
         score=payload.score,
         description=payload.description,
         is_active=payload.is_active,
@@ -333,31 +622,34 @@ def create_risk_rule(
 def update_risk_rule(
     rule_id: int,
     payload: RiskRuleUpdate,
-    _current_user: User = Depends(require_roles("CMDB Manager")),
+    current_user: User = Depends(
+        require_roles("CMDB Manager")
+    ),
     db: Session = Depends(get_db),
 ):
     risk_rule = (
         db.query(RiskRule)
-        .filter(RiskRule.id == rule_id)
+        .filter(
+            RiskRule.id == rule_id,
+        )
         .first()
     )
 
     if not risk_rule:
         raise HTTPException(
             status_code=404,
-            detail="Risk rule not found.",
+            detail=(
+                "Risk rule not found or access "
+                "is not permitted."
+            ),
         )
 
-    update_data = payload.model_dump(exclude_unset=True)
+    update_data = payload.model_dump(
+        exclude_unset=True
+    )
 
     if "name" in update_data:
         name = update_data["name"].strip()
-
-        if not name:
-            raise HTTPException(
-                status_code=400,
-                detail="Risk rule name cannot be empty.",
-            )
 
         duplicate_rule = (
             db.query(RiskRule)
@@ -371,46 +663,26 @@ def update_risk_rule(
         if duplicate_rule:
             raise HTTPException(
                 status_code=409,
-                detail="A risk rule with this name already exists.",
+                detail=(
+                    "A risk rule with this name "
+                    "already exists."
+                ),
             )
 
         update_data["name"] = name
 
     if "condition_type" in update_data:
-        condition_type = update_data["condition_type"].strip()
-
-        if not condition_type:
-            raise HTTPException(
-                status_code=400,
-                detail="Condition type cannot be empty.",
-            )
-
-        update_data["condition_type"] = condition_type
-
-    if "condition_value" in update_data:
-        condition_value = update_data["condition_value"].strip()
-
-        if not condition_value:
-            raise HTTPException(
-                status_code=400,
-                detail="Condition value cannot be empty.",
-            )
-
-        update_data["condition_value"] = condition_value
-
-    if "score" in update_data and update_data["score"] < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Risk score cannot be negative.",
+        update_data["condition_type"] = (
+            update_data[
+                "condition_type"
+            ].strip()
         )
 
-    if (
-        "is_active" in update_data
-        and update_data["is_active"] not in ["active", "inactive"]
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Rule status must be active or inactive.",
+    if "condition_value" in update_data:
+        update_data["condition_value"] = (
+            update_data[
+                "condition_value"
+            ].strip()
         )
 
     for field, value in update_data.items():
@@ -422,14 +694,47 @@ def update_risk_rule(
     return risk_rule
 
 
-@router.post("/departments", response_model=DepartmentOutput)
+@router.post(
+    "/departments",
+    response_model=DepartmentOutput,
+    status_code=201,
+)
 def create_department(
     payload: DepartmentCreate,
-    _current_user: User = Depends(require_roles("CMDB Manager")),
+    current_user: User = Depends(
+        require_roles("CMDB Manager")
+    ),
     db: Session = Depends(get_db),
 ):
+    ensure_requested_organization(
+        payload.organization_id,
+        current_user,
+    )
+
+    existing_department = (
+        db.query(Department)
+        .filter(
+            Department.organization_id
+            == current_user.organization_id,
+            Department.name
+            == payload.name,
+        )
+        .first()
+    )
+
+    if existing_department:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "A business unit with this name "
+                "already exists."
+            ),
+        )
+
     department = Department(
-        organization_id=payload.organization_id,
+        organization_id=(
+            current_user.organization_id
+        ),
         name=payload.name,
         description=payload.description,
     )
@@ -441,67 +746,94 @@ def create_department(
     return department
 
 
-@router.post("/systems", response_model=ITSystemOutput)
+@router.post(
+    "/systems",
+    response_model=ITSystemOutput,
+    status_code=201,
+)
 def create_system(
     payload: ITSystemCreate,
-    _current_user: User = Depends(require_roles("CMDB Manager")),
+    current_user: User = Depends(
+        require_roles("CMDB Manager")
+    ),
     db: Session = Depends(get_db),
 ):
-    organization = (
-        db.query(Organization)
-        .filter(Organization.id == payload.organization_id)
-        .first()
+    ensure_requested_organization(
+        payload.organization_id,
+        current_user,
     )
 
-    if not organization:
-        raise HTTPException(
-            status_code=404,
-            detail="Organization not found.",
-        )
+    organization_id = (
+        current_user.organization_id
+    )
 
     if payload.department_id is not None:
         department = (
             db.query(Department)
-            .filter(Department.id == payload.department_id)
+            .filter(
+                Department.id
+                == payload.department_id,
+                Department.organization_id
+                == organization_id,
+            )
             .first()
         )
 
         if not department:
             raise HTTPException(
                 status_code=404,
-                detail="Business unit not found.",
+                detail=(
+                    "Business unit not found or "
+                    "access is not permitted."
+                ),
             )
 
     if payload.service_id is not None:
         service = (
             db.query(ITService)
-            .filter(ITService.id == payload.service_id)
+            .filter(
+                ITService.id
+                == payload.service_id,
+                ITService.organization_id
+                == organization_id,
+            )
             .first()
         )
 
         if not service:
             raise HTTPException(
                 status_code=404,
-                detail="Service not found.",
+                detail=(
+                    "Service not found or access "
+                    "is not permitted."
+                ),
             )
 
     if payload.owner_id is not None:
         owner = (
             db.query(User)
-            .filter(User.id == payload.owner_id)
+            .filter(
+                User.id == payload.owner_id,
+                User.organization_id
+                == organization_id,
+            )
             .first()
         )
 
         if not owner:
             raise HTTPException(
                 status_code=404,
-                detail="Configuration item owner not found.",
+                detail=(
+                    "Configuration item owner not "
+                    "found or access is not permitted."
+                ),
             )
 
     existing_system = (
         db.query(ITSystem)
         .filter(
-            ITSystem.organization_id == payload.organization_id,
+            ITSystem.organization_id
+            == organization_id,
             ITSystem.name == payload.name,
         )
         .first()
@@ -510,12 +842,17 @@ def create_system(
     if existing_system:
         raise HTTPException(
             status_code=409,
-            detail="A configuration item with this name already exists.",
+            detail=(
+                "A configuration item with this "
+                "name already exists."
+            ),
         )
 
     system = ITSystem(
-        organization_id=payload.organization_id,
-        department_id=payload.department_id,
+        organization_id=organization_id,
+        department_id=(
+            payload.department_id
+        ),
         service_id=payload.service_id,
         owner_id=payload.owner_id,
         name=payload.name,
@@ -533,56 +870,66 @@ def create_system(
     return system
 
 
-@router.get("/dependencies", response_model=list[SystemDependencyOutput])
-def get_all_system_dependencies(db: Session = Depends(get_db)):
+@router.get(
+    "/dependencies",
+    response_model=list[
+        SystemDependencyOutput
+    ],
+)
+def get_all_system_dependencies(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
     return (
         db.query(SystemDependency)
-        .order_by(SystemDependency.id.desc())
+        .join(
+            ITSystem,
+            SystemDependency.source_system_id
+            == ITSystem.id,
+        )
+        .filter(
+            ITSystem.organization_id
+            == current_user.organization_id
+        )
+        .order_by(
+            SystemDependency.id.desc()
+        )
         .all()
     )
 
 
-@router.post("/dependencies", response_model=SystemDependencyOutput)
+@router.post(
+    "/dependencies",
+    response_model=SystemDependencyOutput,
+    status_code=201,
+)
 def create_system_dependency(
     payload: SystemDependencyCreate,
-    _current_user: User = Depends(require_roles("CMDB Manager")),
+    current_user: User = Depends(
+        require_roles("CMDB Manager")
+    ),
     db: Session = Depends(get_db),
 ):
-    if payload.source_system_id == payload.target_system_id:
-        raise HTTPException(
-            status_code=400,
-            detail="A configuration item cannot depend on itself.",
-        )
-
-    source_system = (
-        db.query(ITSystem)
-        .filter(ITSystem.id == payload.source_system_id)
-        .first()
+    source_system = get_organization_system(
+        db,
+        payload.source_system_id,
+        current_user.organization_id,
     )
-
-    target_system = (
-        db.query(ITSystem)
-        .filter(ITSystem.id == payload.target_system_id)
-        .first()
+    target_system = get_organization_system(
+        db,
+        payload.target_system_id,
+        current_user.organization_id,
     )
-
-    if not source_system:
-        raise HTTPException(
-            status_code=404,
-            detail="Dependent configuration item was not found.",
-        )
-
-    if not target_system:
-        raise HTTPException(
-            status_code=404,
-            detail="Required configuration item was not found.",
-        )
 
     existing_dependency = (
         db.query(SystemDependency)
         .filter(
-            SystemDependency.source_system_id == payload.source_system_id,
-            SystemDependency.target_system_id == payload.target_system_id,
+            SystemDependency.source_system_id
+            == payload.source_system_id,
+            SystemDependency.target_system_id
+            == payload.target_system_id,
         )
         .first()
     )
@@ -590,17 +937,29 @@ def create_system_dependency(
     if existing_dependency:
         raise HTTPException(
             status_code=409,
-            detail="This dependency relationship already exists.",
+            detail=(
+                "This dependency relationship "
+                "already exists."
+            ),
         )
 
     dependency = SystemDependency(
-        source_system_id=payload.source_system_id,
-        target_system_id=payload.target_system_id,
-        dependency_type=payload.dependency_type,
+        source_system_id=(
+            payload.source_system_id
+        ),
+        target_system_id=(
+            payload.target_system_id
+        ),
+        dependency_type=(
+            payload.dependency_type.strip()
+        ),
         impact_level=payload.impact_level,
         description=(
             payload.description
-            or f"{source_system.name} depends on {target_system.name}."
+            or (
+                f"{source_system.name} depends "
+                f"on {target_system.name}."
+            )
         ),
     )
 

@@ -1,38 +1,42 @@
-from datetime import datetime 
-from pydantic import BaseModel
-from typing import Optional, List
+from datetime import datetime
+from typing import Literal, Optional
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
-class OrganizationOutput(BaseModel):
+class ORMOutput(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
+class OrganizationOutput(ORMOutput):
     id: int
     name: str
     industry: Optional[str] = None
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
 
-
-class RoleOutput(BaseModel):
+class RoleOutput(ORMOutput):
     id: int
     name: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
 
-
-class DepartmentOutput(BaseModel):
+class DepartmentOutput(ORMOutput):
     id: int
     organization_id: int
     name: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
 
-
-class UserOutput(BaseModel):
+class UserOutput(ORMOutput):
     id: int
     organization_id: int
     department_id: Optional[int] = None
@@ -42,11 +46,8 @@ class UserOutput(BaseModel):
     job_title: Optional[str] = None
     is_active: Optional[str] = None
 
-    class Config:
-        from_attributes = True
 
-
-class ITServiceOutput(BaseModel):
+class ITServiceOutput(ORMOutput):
     id: int
     organization_id: int
     department_id: Optional[int] = None
@@ -54,11 +55,8 @@ class ITServiceOutput(BaseModel):
     description: Optional[str] = None
     business_criticality: str
 
-    class Config:
-        from_attributes = True
 
-
-class ITSystemOutput(BaseModel):
+class ITSystemOutput(ORMOutput):
     id: int
     organization_id: int
     department_id: Optional[int] = None
@@ -71,11 +69,8 @@ class ITSystemOutput(BaseModel):
     criticality: str
     status: str
 
-    class Config:
-        from_attributes = True
 
-
-class SystemDependencyOutput(BaseModel):
+class SystemDependencyOutput(ORMOutput):
     id: int
     source_system_id: int
     target_system_id: int
@@ -83,11 +78,8 @@ class SystemDependencyOutput(BaseModel):
     impact_level: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
 
-
-class IncidentOutput(BaseModel):
+class IncidentOutput(ORMOutput):
     id: int
     system_id: int
     title: str
@@ -97,21 +89,15 @@ class IncidentOutput(BaseModel):
     occurred_at: datetime
     resolved_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
 
-
-class RiskRuleOutput(BaseModel):
+class RiskRuleOutput(ORMOutput):
     id: int
     name: str
     condition_type: str
     condition_value: str
-    score: int
+    score: int = Field(ge=0, le=100)
     description: Optional[str] = None
     is_active: str
-
-    class Config:
-        from_attributes = True
 
 
 class SystemImpactProfileOutput(BaseModel):
@@ -121,64 +107,196 @@ class SystemImpactProfileOutput(BaseModel):
     department_name: Optional[str] = None
     service_name: Optional[str] = None
     owner_name: Optional[str] = None
-    outgoing_dependencies: List[str]
-    incoming_dependencies: List[str]
-    previous_incidents: List[str]
+    outgoing_dependencies: list[str]
+    incoming_dependencies: list[str]
+    previous_incidents: list[str]
     impact_summary: str
 
 
 class DepartmentCreate(BaseModel):
-    organization_id: int = 1
-    name: str
+    # Kept for frontend compatibility. The route enforces
+    # the authenticated user's organization.
+    organization_id: Optional[int] = Field(
+        default=None,
+        ge=1,
+    )
+    name: str = Field(
+        min_length=2,
+        max_length=255,
+    )
     description: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(
+        cls,
+        value: str,
+    ) -> str:
+        return value.strip()
 
 
 class ITSystemCreate(BaseModel):
-    organization_id: int = 1
-    department_id: Optional[int] = None
-    service_id: Optional[int] = None
-    owner_id: Optional[int] = None
-
-    name: str
+    # Kept for frontend compatibility. The route enforces
+    # the authenticated user's organization.
+    organization_id: Optional[int] = Field(
+        default=None,
+        ge=1,
+    )
+    department_id: Optional[int] = Field(
+        default=None,
+        ge=1,
+    )
+    service_id: Optional[int] = Field(
+        default=None,
+        ge=1,
+    )
+    owner_id: Optional[int] = Field(
+        default=None,
+        ge=1,
+    )
+    name: str = Field(
+        min_length=2,
+        max_length=255,
+    )
     description: Optional[str] = None
-    system_type: Optional[str] = None
-    environment: str = "Production"
-    criticality: str = "Medium"
-    status: str = "Active"
+    system_type: Optional[str] = Field(
+        default=None,
+        max_length=100,
+    )
+    environment: str = Field(
+        default="Production",
+        min_length=2,
+        max_length=50,
+    )
+    criticality: Literal[
+        "Low",
+        "Medium",
+        "High",
+        "Critical",
+    ] = "Medium"
+    status: str = Field(
+        default="Active",
+        min_length=2,
+        max_length=50,
+    )
+
+    @field_validator("name")
+    @classmethod
+    def normalize_system_name(
+        cls,
+        value: str,
+    ) -> str:
+        return value.strip()
 
 
 class SystemDependencyCreate(BaseModel):
-    source_system_id: int
-    target_system_id: int
-    dependency_type: str
-    impact_level: str = "Medium"
+    source_system_id: int = Field(ge=1)
+    target_system_id: int = Field(ge=1)
+    dependency_type: str = Field(
+        min_length=2,
+        max_length=100,
+    )
+    impact_level: Literal[
+        "Low",
+        "Medium",
+        "High",
+        "Critical",
+    ] = "Medium"
     description: Optional[str] = None
 
+    @model_validator(mode="after")
+    def prevent_self_dependency(self):
+        if (
+            self.source_system_id
+            == self.target_system_id
+        ):
+            raise ValueError(
+                "A configuration item cannot "
+                "depend on itself."
+            )
+
+        return self
 
 
 class IncidentCreate(BaseModel):
-    system_id: int
-    title: str
+    system_id: int = Field(ge=1)
+    title: str = Field(
+        min_length=3,
+        max_length=255,
+    )
     description: Optional[str] = None
-    severity: str = "Medium"
-    status: str = "Resolved"
+    severity: Literal[
+        "Low",
+        "Medium",
+        "High",
+        "Critical",
+    ] = "Medium"
+    status: str = Field(
+        default="Resolved",
+        min_length=2,
+        max_length=50,
+    )
     occurred_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
 
+    @model_validator(mode="after")
+    def validate_incident_window(self):
+        if (
+            self.occurred_at is not None
+            and self.resolved_at is not None
+            and self.resolved_at < self.occurred_at
+        ):
+            raise ValueError(
+                "Resolved date cannot be earlier "
+                "than incident date."
+            )
+
+        return self
+
 
 class RiskRuleCreate(BaseModel):
-    name: str
-    condition_type: str
-    condition_value: str
-    score: int
+    name: str = Field(
+        min_length=2,
+        max_length=255,
+    )
+    condition_type: str = Field(
+        min_length=2,
+        max_length=100,
+    )
+    condition_value: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+    score: int = Field(ge=0, le=100)
     description: Optional[str] = None
-    is_active: str = "active"
+    is_active: Literal[
+        "active",
+        "inactive",
+    ] = "active"
 
 
 class RiskRuleUpdate(BaseModel):
-    name: Optional[str] = None
-    condition_type: Optional[str] = None
-    condition_value: Optional[str] = None
-    score: Optional[int] = None
+    name: Optional[str] = Field(
+        default=None,
+        min_length=2,
+        max_length=255,
+    )
+    condition_type: Optional[str] = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+    )
+    condition_value: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+    )
+    score: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
     description: Optional[str] = None
-    is_active: Optional[str] = None
+    is_active: Optional[
+        Literal["active", "inactive"]
+    ] = None

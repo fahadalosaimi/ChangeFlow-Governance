@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -19,6 +19,13 @@ from app.schemas.notification import (
     NotificationUnreadCountOutput,
 )
 from app.services.auth_service import get_current_user
+
+
+
+def utc_now() -> datetime:
+    return datetime.now(
+        timezone.utc
+    ).replace(tzinfo=None)
 
 
 router = APIRouter(
@@ -187,7 +194,7 @@ def mark_all_notifications_as_read(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    read_at = datetime.utcnow()
+    read_at = utc_now()
 
     updated_count = (
         db.query(Notification)
@@ -247,7 +254,7 @@ def mark_notification_as_read(
 
     if not notification.is_read:
         notification.is_read = True
-        notification.read_at = datetime.utcnow()
+        notification.read_at = utc_now()
         db.commit()
         db.refresh(notification)
 

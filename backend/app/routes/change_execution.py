@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import (
@@ -40,6 +40,13 @@ from app.services.notification_service import (
 from app.services.change_state_service import (
     ensure_change_transition,
 )
+
+
+
+def utc_now() -> datetime:
+    return datetime.now(
+        timezone.utc
+    ).replace(tzinfo=None)
 
 
 router = APIRouter(
@@ -388,7 +395,7 @@ def start_change_implementation(
             ),
         )
 
-    now = datetime.utcnow()
+    now = utc_now()
 
     implementation = ChangeImplementation(
         change_request_id=change_request.id,
@@ -502,7 +509,7 @@ def complete_change_implementation(
             ),
         )
 
-    now = datetime.utcnow()
+    now = utc_now()
 
     implementation.implementation_status = (
         "Implemented"
@@ -613,7 +620,7 @@ def fail_change_implementation(
     implementation.failure_summary = (
         payload.failure_summary.strip()
     )
-    implementation.actual_end = datetime.utcnow()
+    implementation.actual_end = utc_now()
 
     old_status = change_request.status
 
@@ -720,7 +727,7 @@ def record_change_rollback(
     )
 
     if implementation.actual_end is None:
-        implementation.actual_end = datetime.utcnow()
+        implementation.actual_end = utc_now()
 
     old_status = change_request.status
 
@@ -838,7 +845,7 @@ def complete_post_implementation_review(
         and payload.follow_up_actions.strip()
         else None
     )
-    implementation.pir_completed_at = datetime.utcnow()
+    implementation.pir_completed_at = utc_now()
 
     old_status = change_request.status
 

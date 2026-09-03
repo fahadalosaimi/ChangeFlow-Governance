@@ -252,7 +252,9 @@ def build_change_response(
 @router.post("/requests")
 def create_managed_change_request(
     payload: ManagedChangeCreate,
-    current_user: User = Depends(require_roles("Requester")),
+    current_user: User = Depends(
+        require_roles("Requester")
+    ),
     db: Session = Depends(get_db),
 ):
     analysis_input = FoundationImpactAnalysisInput(
@@ -260,19 +262,36 @@ def create_managed_change_request(
         description=payload.description,
         change_type=payload.change_type,
         change_mode=payload.change_mode,
-        affected_system_ids=payload.affected_system_ids,
-        expected_downtime_minutes=payload.expected_downtime_minutes,
-        rollback_complexity=payload.rollback_complexity,
-        security_sensitivity=payload.security_sensitivity,
+        affected_system_ids=(
+            payload.affected_system_ids
+        ),
+        expected_downtime_minutes=(
+            payload.expected_downtime_minutes
+        ),
+        rollback_complexity=(
+            payload.rollback_complexity
+        ),
+        security_sensitivity=(
+            payload.security_sensitivity
+        ),
     )
-    
+
     try:
-        analysis = analyze_foundation_change(db, analysis_input)
+        analysis = analyze_foundation_change(
+            db,
+            analysis_input,
+            current_user.organization_id,
+        )
     except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error))
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
 
     change_request = ManagedChangeRequest(
-        organization_id=current_user.organization_id,
+        organization_id=(
+            current_user.organization_id
+        ),
         requester_id=current_user.id,
         title=payload.title,
         description=payload.description,
@@ -280,87 +299,148 @@ def create_managed_change_request(
         change_mode=payload.change_mode,
         priority=payload.priority,
         status="Pending Approval",
-        expected_downtime_minutes=payload.expected_downtime_minutes,
-        rollback_complexity=payload.rollback_complexity,
-        security_sensitivity=payload.security_sensitivity,
-        business_justification=payload.business_justification,
+        expected_downtime_minutes=(
+            payload.expected_downtime_minutes
+        ),
+        rollback_complexity=(
+            payload.rollback_complexity
+        ),
+        security_sensitivity=(
+            payload.security_sensitivity
+        ),
+        business_justification=(
+            payload.business_justification
+        ),
         planned_start=payload.planned_start,
         planned_end=payload.planned_end,
     )
 
     db.add(change_request)
-    db.commit()
-    db.refresh(change_request)
+    db.flush()
 
-    for system_id in payload.affected_system_ids:
+    for system_id in (
+        payload.affected_system_ids
+    ):
         db.add(
             ManagedChangeAffectedSystem(
-                change_request_id=change_request.id,
+                change_request_id=(
+                    change_request.id
+                ),
                 system_id=system_id,
                 impact_role="Direct",
             )
         )
 
-    assessment = ManagedImpactAssessment(
-        change_request_id=change_request.id,
-        risk_level=analysis.risk_level,
-        impact_score=analysis.impact_score,
-        decision_recommendation=analysis.decision_recommendation,
-        directly_affected_systems=to_json(analysis.directly_affected_systems),
-        indirectly_affected_systems=to_json(analysis.indirectly_affected_systems),
-        affected_departments=to_json(analysis.affected_departments),
-        system_owners=to_json(analysis.system_owners),
-        previous_incidents=to_json(analysis.previous_incidents),
-        risk_factors=to_json(analysis.risk_factors),
-        recommendations=to_json(analysis.recommendations),
-        rollback_plan=to_json(analysis.rollback_plan),
-        testing_checklist=to_json(analysis.testing_checklist),
-        ai_explanation=analysis.ai_explanation,
+    db.add(
+        ManagedImpactAssessment(
+            change_request_id=(
+                change_request.id
+            ),
+            risk_level=analysis.risk_level,
+            impact_score=(
+                analysis.impact_score
+            ),
+            decision_recommendation=(
+                analysis.decision_recommendation
+            ),
+            directly_affected_systems=to_json(
+                analysis.directly_affected_systems
+            ),
+            indirectly_affected_systems=to_json(
+                analysis.indirectly_affected_systems
+            ),
+            affected_departments=to_json(
+                analysis.affected_departments
+            ),
+            system_owners=to_json(
+                analysis.system_owners
+            ),
+            previous_incidents=to_json(
+                analysis.previous_incidents
+            ),
+            risk_factors=to_json(
+                analysis.risk_factors
+            ),
+            recommendations=to_json(
+                analysis.recommendations
+            ),
+            rollback_plan=to_json(
+                analysis.rollback_plan
+            ),
+            testing_checklist=to_json(
+                analysis.testing_checklist
+            ),
+            ai_explanation=(
+                analysis.ai_explanation
+            ),
+        )
     )
-
-    db.add(assessment)
 
     db.add(
         ChangeStatusHistory(
-            change_request_id=change_request.id,
+            change_request_id=(
+                change_request.id
+            ),
             old_status=None,
             new_status="Pending Approval",
             changed_by=current_user.id,
-            comment="Change request created and automatically assessed.",
+            comment=(
+                "Change request created and "
+                "automatically assessed."
+            ),
         )
     )
 
     db.add(
         AuditLog(
-            change_request_id=change_request.id,
+            change_request_id=(
+                change_request.id
+            ),
             actor_id=current_user.id,
-            action="CREATE_AND_ASSESS_CHANGE",
-            entity_type="ManagedChangeRequest",
+            action=(
+                "CREATE_AND_ASSESS_CHANGE"
+            ),
+            entity_type=(
+                "ManagedChangeRequest"
+            ),
             entity_id=change_request.id,
             details=(
-                "Change request created and analyzed using foundation data, "
-                "system dependencies, previous incidents, and risk rules."
+                "Change request created and "
+                "analyzed using foundation data, "
+                "system dependencies, previous "
+                "incidents, and risk rules."
             ),
         )
     )
 
     notify_change_managers(
         db,
-        organization_id=change_request.organization_id,
+        organization_id=(
+            change_request.organization_id
+        ),
         actor_id=current_user.id,
         change_request_id=change_request.id,
-        notification_type="CHANGE_SUBMITTED",
-        title="New change request submitted",
+        notification_type=(
+            "CHANGE_SUBMITTED"
+        ),
+        title=(
+            "New change request submitted"
+        ),
         message=(
-            f"{current_user.full_name} submitted change "
-            f"#{change_request.id}: {change_request.title}."
+            f"{current_user.full_name} "
+            "submitted change "
+            f"#{change_request.id}: "
+            f"{change_request.title}."
         ),
     )
-    
+
     db.commit()
     db.refresh(change_request)
 
-    return build_change_response(change_request)
+    return build_change_response(
+        change_request
+    )
+
 
 @router.put("/requests/{change_request_id}/revise")
 def revise_and_resubmit_change_request(
@@ -416,6 +496,7 @@ def revise_and_resubmit_change_request(
         analysis = analyze_foundation_change(
             db,
             analysis_input,
+            current_user.organization_id,
         )
     except ValueError as error:
         raise HTTPException(

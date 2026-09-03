@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import "./App.css";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
 const TOKEN_STORAGE_KEY = "changeflow_access_token";
 
 type FoundationOverview = {
@@ -1875,6 +1875,32 @@ async function reviseManagedChange() {
     });
   }
 
+  function formatUtcDateTime(value?: string | null) {
+  if (!value) return "N/A";
+
+  const normalizedValue =
+    value.endsWith("Z") ||
+    /[+-]\d{2}:\d{2}$/.test(value)
+      ? value
+      : `${value}Z`;
+
+  const date = new Date(normalizedValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "N/A";
+  }
+
+  return date.toLocaleString("en-GB", {
+    timeZone: "Asia/Riyadh",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
   async function createDependency() {
     if (!isCmdbManager) {
       alert("Only CMDB Manager users can register dependencies.");
@@ -2973,7 +2999,7 @@ async function reviseManagedChange() {
                         <td>
                           {change.latest_assessment?.impact_score ?? 0}%
                         </td>
-                        <td>{formatDateTime(change.created_at)}</td>
+                        <td>{formatUtcDateTime(change.created_at)}</td>
                         <td>
                           {getDecisionLabel(
                             change.latest_assessment?.decision_recommendation
@@ -3055,14 +3081,20 @@ async function reviseManagedChange() {
       ["CHANGE_APPROVED", "Change approved"],
       ["CHANGE_REJECTED", "Change rejected"],
       ["CHANGE_INFORMATION_REQUESTED", "Information requested"],
+      ["CHANGE_IMPLEMENTATION_STARTED", "Implementation started"],
+      ["CHANGE_IMPLEMENTED", "Change implemented"],
+      ["CHANGE_IMPLEMENTATION_FAILED", "Implementation failed"],
+      ["CHANGE_ROLLED_BACK", "Change rolled back"],
+      ["CHANGE_CLOSED", "Change closed"],
       ["CHANGE_STATUS_UPDATED", "Status updated"],
       ["CHANGE_DECISION_RECORDED", "Decision recorded"],
     ];
 
     return (
       <section className="panel form-panel notification-center-page">
-        <div className="section-header">
-          <div>
+        <div className="section-header notification-page-header">
+          <div className="notification-page-heading">
+            <span className="section-eyebrow">Workflow Inbox</span>
             <h2>Notification Center</h2>
             <p>
               Review workflow events assigned to your account and open the
@@ -3070,7 +3102,14 @@ async function reviseManagedChange() {
             </p>
           </div>
 
-          <div className="actions">
+          <div className="actions notification-header-actions">
+            <button
+              className="secondary-button"
+              onClick={() => setView("dashboard")}
+            >
+              Back
+            </button>
+
             <button
               className="secondary-button"
               onClick={() => {
@@ -3081,69 +3120,80 @@ async function reviseManagedChange() {
             >
               {notificationLoading ? "Refreshing..." : "Refresh"}
             </button>
-            <button
-              className="secondary-button"
-              onClick={() => setView("dashboard")}
-            >
-              Back
-            </button>
           </div>
         </div>
 
         <section className="notification-summary-grid">
-          <div>
+          <div className="notification-summary-card">
             <span>Unread</span>
             <strong>{notificationUnreadCount}</strong>
+            <small>Items requiring attention</small>
           </div>
-          <div>
+
+          <div className="notification-summary-card">
             <span>Matching Notifications</span>
             <strong>{notificationTotal}</strong>
+            <small>Results for the selected filters</small>
           </div>
-          <div>
+
+          <div className="notification-summary-card">
             <span>Current Page</span>
             <strong>
               {notificationPage} / {notificationTotalPages}
             </strong>
+            <small>Server-side paginated results</small>
           </div>
         </section>
 
         <div className="notification-toolbar">
-          <input
-            value={notificationSearch}
-            onChange={(event) => {
-              setNotificationSearch(event.target.value);
-              setNotificationPage(1);
-            }}
-            placeholder="Search notification title or message..."
-          />
+          <div className="notification-search-control">
+            <label htmlFor="notification-search">Search</label>
+            <input
+              id="notification-search"
+              value={notificationSearch}
+              onChange={(event) => {
+                setNotificationSearch(event.target.value);
+                setNotificationPage(1);
+              }}
+              placeholder="Search title or message..."
+            />
+          </div>
 
-          <select
-            value={notificationTypeFilter}
-            onChange={(event) => {
-              setNotificationTypeFilter(event.target.value);
-              setNotificationPage(1);
-            }}
-          >
-            <option value="">All notification types</option>
-            {notificationTypes.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <div className="notification-filter-control">
+            <label htmlFor="notification-type-filter">Event Type</label>
+            <select
+              id="notification-type-filter"
+              value={notificationTypeFilter}
+              onChange={(event) => {
+                setNotificationTypeFilter(event.target.value);
+                setNotificationPage(1);
+              }}
+            >
+              <option value="">All notification types</option>
+              {notificationTypes.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={notificationUnreadOnly ? "unread" : "all"}
-            onChange={(event) => {
-              setNotificationUnreadOnly(event.target.value === "unread");
-              setNotificationPage(1);
-            }}
-          >
-            <option value="all">All notifications</option>
-            <option value="unread">Unread only</option>
-          </select>
+          <div className="notification-filter-control">
+            <label htmlFor="notification-read-filter">Read Status</label>
+            <select
+              id="notification-read-filter"
+              value={notificationUnreadOnly ? "unread" : "all"}
+              onChange={(event) => {
+                setNotificationUnreadOnly(event.target.value === "unread");
+                setNotificationPage(1);
+              }}
+            >
+              <option value="all">All notifications</option>
+              <option value="unread">Unread only</option>
+            </select>
+          </div>
 
-          <label className="page-size-control notification-page-size">
+          <label className="notification-page-size">
             <span>Rows</span>
             <select
               value={notificationPageSize}
@@ -3151,6 +3201,7 @@ async function reviseManagedChange() {
                 setNotificationPageSize(Number(event.target.value));
                 setNotificationPage(1);
               }}
+              aria-label="Notifications per page"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -3159,7 +3210,7 @@ async function reviseManagedChange() {
           </label>
 
           <button
-            className="primary-button"
+            className="primary-button notification-mark-all-button"
             onClick={markAllNotificationsAsRead}
             disabled={
               markingAllNotifications || notificationUnreadCount === 0
@@ -3181,9 +3232,8 @@ async function reviseManagedChange() {
           <div className="notification-empty-state">
             <strong>No notifications found.</strong>
             <span>
-              Workflow notifications will appear here when a change is
-              submitted, resubmitted, approved, rejected, or returned for
-              additional information.
+              Workflow notifications will appear here when a change moves
+              through authorization, implementation, rollback, or closure.
             </span>
           </div>
         ) : (
@@ -3217,9 +3267,10 @@ async function reviseManagedChange() {
                       </span>
                       <h3>{notification.title}</h3>
                     </div>
-                    <span className="notification-date">
-                      {formatDateTime(notification.created_at)}
-                    </span>
+
+                    <time className="notification-date">
+                      {formatUtcDateTime(notification.created_at)}
+                    </time>
                   </div>
 
                   <p>{notification.message}</p>
@@ -3228,13 +3279,19 @@ async function reviseManagedChange() {
                     <span>
                       Actor: <strong>{notification.actor_name}</strong>
                     </span>
+
                     {notification.change_request_id && (
                       <span>
-                        Change: <strong>#{notification.change_request_id}</strong>
+                        Change:{" "}
+                        <strong>#{notification.change_request_id}</strong>
                       </span>
                     )}
+
                     <span>
-                      Status: <strong>{notification.is_read ? "Read" : "Unread"}</strong>
+                      Status:{" "}
+                      <strong>
+                        {notification.is_read ? "Read" : "Unread"}
+                      </strong>
                     </span>
                   </div>
                 </div>
@@ -3826,7 +3883,7 @@ async function reviseManagedChange() {
                               Current: {user.is_active}
                             </span>
                           </td>
-                          <td>{formatDateTime(user.created_at)}</td>
+                          <td>{formatUtcDateTime(user.created_at)}</td>
                           <td>
                             <button
                               className="table-button"
@@ -3971,12 +4028,13 @@ async function reviseManagedChange() {
                         <strong>{log.target_user_name}</strong>
                         <small>{log.target_user_email}</small>
                       </div>
-                      <time>{formatDateTime(log.created_at)}</time>
+                      <time>{formatUtcDateTime(log.created_at)}</time>
                     </div>
 
                     <p>
                       Performed by <strong>{log.actor_name}</strong>
                     </p>
+
 
                     {log.action === "ROLE_CHANGED" && (
                       <div className="access-audit-change">
@@ -5131,7 +5189,7 @@ async function reviseManagedChange() {
                 <span>Actual Start</span>
                 <strong>
                   {implementationRecord.actual_start
-                    ? formatDateTime(implementationRecord.actual_start)
+                    ? formatUtcDateTime(implementationRecord.actual_start)
                     : "Not started"}
                 </strong>
               </div>
@@ -5139,7 +5197,7 @@ async function reviseManagedChange() {
                 <span>Actual End</span>
                 <strong>
                   {implementationRecord.actual_end
-                    ? formatDateTime(implementationRecord.actual_end)
+                    ? formatUtcDateTime(implementationRecord.actual_end)
                     : "Not completed"}
                 </strong>
               </div>
@@ -5363,109 +5421,157 @@ async function reviseManagedChange() {
           )}
         </section>
 
-<section className="two-column">
-  <div className="panel inner-panel">
-    <h3>Authorization Records</h3>
-
-    {approvals.length === 0 ? (
-      <p>No authorization decisions recorded yet.</p>
-    ) : (
-      <ul>
-        {approvals.map((approval) => (
-          <li
-           key={approval.approval_id}
-           className="record-item"
-          >
-            <div className="record-header">
-              <strong>{approval.decision}</strong>
-              <span>
-                {formatDateTime(approval.decided_at)}
-              </span>
+        <section className="change-governance-history-grid">
+          <div className="panel inner-panel authorization-history-panel">
+            <div className="history-panel-header">
+              <div>
+                <span className="section-eyebrow">Authorization</span>
+                <h3>Authorization Records</h3>
+                <p>Formal decisions recorded for this change.</p>
+              </div>
+              <span className="history-count">{approvals.length}</span>
             </div>
 
-            <p>
-              {approval.approval_level} by{" "}
-              <strong>
-                {approval.approver_name ||
-                  `User #${approval.approver_id}`}
-              </strong>
-            </p>
+            {approvals.length === 0 ? (
+              <div className="history-empty-state">
+                No authorization decisions recorded yet.
+              </div>
+            ) : (
+              <ul className="record-list authorization-record-list">
+                {approvals.map((approval) => (
+                  <li
+                    key={approval.approval_id}
+                    className="record-item authorization-record-item"
+                  >
+                    <div className="record-header">
+                      <span
+                        className={`decision-status ${approval.decision
+                          .toLowerCase()
+                          .replaceAll(" ", "-")}`}
+                      >
+                        {approval.decision}
+                      </span>
 
-            {approval.comments && (
-              <p className="record-comment">
-                {approval.comments}
-              </p>
+                      <time>
+                        {formatUtcDateTime(approval.decided_at)}
+                      </time>
+                    </div>
+
+                    <p className="record-actor">
+                      {approval.approval_level} by{" "}
+                      <strong>
+                        {approval.approver_name ||
+                          `User #${approval.approver_id}`}
+                      </strong>
+                    </p>
+
+                    {approval.comments && (
+                      <p className="record-comment">
+                        {approval.comments}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-
-  <div className="panel inner-panel">
-    <h3>Change Timeline</h3>
-
-    {statusHistory.length === 0 ? (
-      <p>No status history available.</p>
-    ) : (
-      <ul>
-        {statusHistory.map((item, index) => (
-          <li key={index} className="record-item">
-            <div className="record-header">
-              <strong>
-                {item.old_status || "Created"} → {item.new_status}
-              </strong>
-
-              <span>{formatDateTime(item.changed_at)}</span>
-            </div>
-
-            <p>
-              Updated by{" "}
-              <strong>{item.changed_by_name || "System"}</strong>
-            </p>
-
-            {item.comment && (
-              <p className="record-comment">
-                {item.comment}
-              </p>
-          )}
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-</section>
-
-<section className="panel inner-panel">
-  <h3>Audit Trail</h3>
-
-  {auditLogs.length === 0 ? (
-    <p>No audit logs available.</p>
-  ) : (
-    <ul>
-      {auditLogs.map((log, index) => (
-        <li key={index} className="record-item">
-          <div className="record-header">
-            <strong>{log.action}</strong>
-
-            <span>{formatDateTime(log.created_at)}</span>
           </div>
 
-          <p>
-            Performed by{" "}
-            <strong>{log.actor_name || "System"}</strong>
-          </p>
+          <div className="panel inner-panel change-timeline-panel">
+            <div className="history-panel-header">
+              <div>
+                <span className="section-eyebrow">Lifecycle</span>
+                <h3>Change Timeline</h3>
+                <p>Chronological movement through the governed workflow.</p>
+              </div>
+              <span className="history-count">{statusHistory.length}</span>
+            </div>
 
-          {log.details && (
-            <p className="record-comment">
-              {log.details}
-            </p>
+            {statusHistory.length === 0 ? (
+              <div className="history-empty-state">
+                No status history available.
+              </div>
+            ) : (
+              <ol className="timeline-list">
+                {statusHistory.map((item, index) => (
+                  <li key={index} className="timeline-item">
+                    <span className="timeline-marker" aria-hidden="true" />
+
+                    <article className="timeline-card">
+                      <div className="record-header">
+                        <strong>
+                          {item.old_status || "Created"} → {item.new_status}
+                        </strong>
+
+                        <time>
+                          {formatUtcDateTime(item.changed_at)}
+                        </time>
+                      </div>
+
+                      <p className="record-actor">
+                        Updated by{" "}
+                        <strong>
+                          {item.changed_by_name || "System"}
+                        </strong>
+                      </p>
+
+                      {item.comment && (
+                        <p className="record-comment">
+                          {item.comment}
+                        </p>
+                      )}
+                    </article>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </section>
+
+        <section className="panel inner-panel audit-trail-panel">
+          <div className="history-panel-header">
+            <div>
+              <span className="section-eyebrow">Auditability</span>
+              <h3>Audit Trail</h3>
+              <p>
+                Immutable operational events captured for governance review.
+              </p>
+            </div>
+            <span className="history-count">{auditLogs.length}</span>
+          </div>
+
+          {auditLogs.length === 0 ? (
+            <div className="history-empty-state">
+              No audit logs available.
+            </div>
+          ) : (
+            <ul className="audit-trail-list">
+              {auditLogs.map((log, index) => (
+                <li key={index} className="audit-trail-item">
+                  <div className="audit-trail-main">
+                    <div className="record-header">
+                      <span className="audit-action-label">
+                        {log.action.replaceAll("_", " ")}
+                      </span>
+
+                      <time>{formatUtcDateTime(log.created_at)}</time>
+                    </div>
+
+                    <p className="record-actor">
+                      Performed by{" "}
+                      <strong>{log.actor_name || "System"}</strong>
+                    </p>
+
+                    {log.details && (
+                      <p className="record-comment">
+                        {log.details}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
-        </li>
-      ))}
-    </ul>
-  )}
-</section>
+        </section>
       </section>
     );
   }

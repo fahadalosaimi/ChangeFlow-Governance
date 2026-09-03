@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-from app.database import SessionLocal, engine, Base
+from app.database import SessionLocal
 from app.models.foundation import (
     Organization,
     Role,
@@ -13,8 +13,6 @@ from app.models.foundation import (
     RiskRule,
 )
 
-
-Base.metadata.create_all(bind=engine)
 
 
 def get_or_create(db, model, defaults=None, **kwargs):
@@ -488,7 +486,7 @@ def seed_database():
             )
 
             if not existing_incident:
-                occurred_at = datetime.utcnow() - timedelta(days=days_ago)
+                occurred_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_ago)
                 resolved_at = occurred_at + timedelta(hours=3)
 
                 db.add(

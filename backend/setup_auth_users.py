@@ -1,4 +1,4 @@
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect
 
 from app.database import (
     SessionLocal,
@@ -25,22 +25,15 @@ def ensure_password_column():
         )
     }
 
-    if "password_hash" in columns:
-        print(
-            "password_hash column already exists."
-        )
-        return
-
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "ALTER TABLE users "
-                "ADD COLUMN password_hash VARCHAR(255)"
-            )
+    if "password_hash" not in columns:
+        raise RuntimeError(
+            "The users.password_hash column is "
+            "missing. Apply Alembic migrations "
+            "before running setup_auth_users.py."
         )
 
     print(
-        "password_hash column added successfully."
+        "password_hash column is available."
     )
 
 

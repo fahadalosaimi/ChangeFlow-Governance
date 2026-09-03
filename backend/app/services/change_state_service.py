@@ -58,19 +58,17 @@ def ensure_change_transition(
     if new_status not in VALID_CHANGE_STATUSES:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Unsupported change status: "
-                f"{new_status}."
-            ),
+            detail=f"Unsupported change status: {new_status}.",
         )
 
+    # Creation is the only transition with no previous status.
     if old_status is None:
         if new_status != "Pending Approval":
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "A new change request must start "
-                    "in Pending Approval status."
+                    "A new change request must start in "
+                    "Pending Approval status."
                 ),
             )
         return
@@ -79,8 +77,8 @@ def ensure_change_transition(
         raise HTTPException(
             status_code=409,
             detail=(
-                f"The current change status "
-                f"'{old_status}' is not supported."
+                f"The current change status '{old_status}' "
+                "is not supported."
             ),
         )
 
@@ -88,8 +86,7 @@ def ensure_change_transition(
         raise HTTPException(
             status_code=409,
             detail=(
-                f"The change is already in "
-                f"{new_status} status."
+                f"The change is already in {new_status} status."
             ),
         )
 
@@ -101,12 +98,12 @@ def ensure_change_transition(
     if new_status not in allowed_targets:
         if old_status in TERMINAL_CHANGE_STATUSES:
             detail = (
-                "No further workflow transitions "
-                f"are allowed after {old_status}."
+                f"No further workflow transitions are allowed "
+                f"after {old_status}."
             )
         else:
             detail = (
-                "Invalid change transition: "
+                f"Invalid change transition: "
                 f"{old_status} -> {new_status}."
             )
 
