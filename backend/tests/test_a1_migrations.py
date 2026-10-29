@@ -60,7 +60,8 @@ def test_empty_database_migrates_to_model_schema(a1_pg_engine):
 
 def test_initial_migration_is_unchanged():
     original = Path(__file__).resolve().parents[1] / "migrations/versions/54c5a5c8470d_initial_changeflow_schema.py"
-    assert hashlib.sha256(original.read_bytes()).hexdigest() == "6652a45395c842d9eedfa10053127baeb64bfdd80bb8aa9787df00c17ac117ca"
+    # Git's Windows checkout can convert LF to CRLF without changing content.
+    assert hashlib.sha256(original.read_bytes().replace(b"\r\n", b"\n")).hexdigest() == "6652a45395c842d9eedfa10053127baeb64bfdd80bb8aa9787df00c17ac117ca"
 
 
 def test_every_legacy_table_and_account_is_preserved(a1_pg_engine):

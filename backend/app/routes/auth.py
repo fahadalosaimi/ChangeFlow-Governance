@@ -4,15 +4,15 @@ from fastapi import (
     HTTPException,
     status,
     Query,
+    Form,
 )
-from fastapi.security import OAuth2PasswordRequestForm
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session,aliased
 from sqlalchemy import or_
 from app.database import get_db
 from app.models.foundation import (
     Department,
-    Organization,
     Role,
     User,
     UserAdministrationAudit,
@@ -26,15 +26,16 @@ from app.schemas.auth import (
     TokenOutput,
     UserAdministrationAuditOutput,
     UserAdministrationAuditPageOutput,
-    UserRegistrationInput,
 )
 from app.services.auth_service import (
     create_access_token,
     get_current_user,
-    hash_password,
+    authenticate_user,
     require_roles,
-    verify_password,
 )
+
+
+from app.services.tenant_context import membership_is_ready
 
 
 router = APIRouter(
@@ -162,6 +163,7 @@ def count_active_system_administrators(
         .filter(
             User.organization_id
             == organization_id,
+            Role.organization_id == organization_id,
             Role.name
             == "System Administrator",
             User.is_active == "active",
@@ -170,156 +172,26 @@ def count_active_system_administrators(
     )
 
 
-@router.post(
-    "/register",
-    response_model=CurrentUserOutput,
-    status_code=status.HTTP_201_CREATED,
-)
-def register_requester(
-    payload: UserRegistrationInput,
-    db: Session = Depends(get_db),
-):
-    full_name = payload.full_name.strip()
-    email = payload.email.strip().lower()
-
-    if not full_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Full name is required.",
-        )
-
-    email_domain = (
-        email.rsplit("@", 1)[-1]
-        if "@" in email
-        else ""
+@router.post("/register", deprecated=True)
+def register_requester():
+    # The old first-organization/global-role path cannot create A2 memberships.
+    # Provisioning is deliberately deferred to the authorized A3 workflows.
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Public registration is disabled.",
     )
 
-    if (
-        "@" not in email
-        or "." not in email_domain
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Enter a valid email address.",
-        )
 
-    existing_user = (
-        db.query(User)
-        .filter(
-            func.lower(User.email) == email
-        )
-        .first()
-    )
-
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "An account with this email "
-                "already exists."
-            ),
-        )
-
-    organization = (
-        db.query(Organization)
-        .order_by(Organization.id.asc())
-        .first()
-    )
-
-    if not organization:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "No organization is configured "
-                "for account registration."
-            ),
-        )
-
-    requester_role = (
-        db.query(Role)
-        .filter(Role.name == "Requester")
-        .first()
-    )
-
-    if not requester_role:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="The Requester role is not configured.",
-        )
-
-    user = User(
-        organization_id=organization.id,
-        department_id=None,
-        role_id=requester_role.id,
-        full_name=full_name,
-        email=email,
-        password_hash=hash_password(
-            payload.password
-        ),
-        job_title=(
-            payload.job_title.strip()
-            if (
-                payload.job_title
-                and payload.job_title.strip()
-            )
-            else "Change Requester"
-        ),
-        is_active="active",
-    )
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    return build_current_user_output(user)
-
-
-@router.post(
-    "/login",
-    response_model=TokenOutput,
-)
+@router.post("/login", response_model=TokenOutput)
 def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    tenant_slug: str = Form(default=""),
+    email: str = Form(default=""),
+    password: str = Form(default=""),
     db: Session = Depends(get_db),
 ):
-    email = form_data.username.strip().lower()
-
-    user = (
-        db.query(User)
-        .filter(
-            func.lower(User.email) == email
-        )
-        .first()
-    )
-
-    if (
-        not user
-        or not user.password_hash
-        or not verify_password(
-            form_data.password,
-            user.password_hash,
-        )
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password.",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
-        )
-
-    if user.is_active != "active":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="This user account is inactive.",
-        )
-
-    access_token = create_access_token(user)
-
-    return TokenOutput(
-        access_token=access_token,
-        token_type="bearer",
-    )
+    # Empty/missing credentials follow the same generic 401 path.
+    user = authenticate_user(db, tenant_slug, email, password)
+    return TokenOutput(access_token=create_access_token(user), token_type="bearer")
 
 
 @router.get(
@@ -349,6 +221,7 @@ def get_managed_roles(
     return (
         db.query(Role)
         .filter(
+            Role.organization_id == current_user.organization_id,
             Role.name.in_(MANAGED_ROLE_NAMES)
         )
         .order_by(Role.name.asc())
@@ -595,6 +468,7 @@ def update_managed_user(
         new_role = (
             db.query(Role)
             .filter(
+                Role.organization_id == current_user.organization_id,
                 Role.name == requested_role_name
             )
             .first()
@@ -608,6 +482,11 @@ def update_managed_user(
 
         target_user.role = new_role
 
+    if requested_status == "active" and not membership_is_ready(target_user):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User membership is not ready for activation.",
+        )
     if requested_status is not None:
         target_user.is_active = requested_status
 

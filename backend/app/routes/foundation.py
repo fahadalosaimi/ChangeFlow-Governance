@@ -130,7 +130,7 @@ def get_foundation_overview(
             )
             .count()
         ),
-        "roles": db.query(Role).count(),
+        "roles": db.query(Role).filter(Role.organization_id == organization_id).count(),
         "services": (
             db.query(ITService)
             .filter(
@@ -196,13 +196,14 @@ def get_organizations(
     response_model=list[RoleOutput],
 )
 def get_roles(
-    _current_user: User = Depends(
+    current_user: User = Depends(
         get_current_user
     ),
     db: Session = Depends(get_db),
 ):
     return (
         db.query(Role)
+        .filter(Role.organization_id == current_user.organization_id)
         .order_by(Role.name.asc())
         .all()
     )

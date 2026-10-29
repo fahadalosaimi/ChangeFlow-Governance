@@ -1,5 +1,6 @@
 """Failure-path tests never contact Docker unless the real PostgreSQL fixture is requested."""
 import inspect
+import os
 import stat
 import subprocess
 from dataclasses import replace
@@ -15,6 +16,7 @@ from a1_postgresql import a1_postgres_url, a1_pg_engine, TestDatabaseSafetyError
 
 @pytest.fixture
 def fake_fixture_runtime(monkeypatch, tmp_path):
+    monkeypatch.delenv("CHANGEFLOW_TEST_POSTGRES_BIN", raising=False)
     state = dict(created=False, stop=False, stop_failure=False, removed_on_stop=False,
                  start_failure=False, start_timeout=False, files=[])
     original = pg.tempfile.NamedTemporaryFile
@@ -69,7 +71,10 @@ def test_password_file_removed_when_docker_stop_fails(fake_fixture_runtime):
     state = fake_fixture_runtime
     generator = state["start"]()
     url = next(generator)
-    assert stat.S_IMODE(state["files"][0].stat().st_mode) == 0o600
+    # Windows reports DOS read/write bits, not POSIX owner-only permissions.
+    # The cleanup failure path is still exercised on both platforms.
+    if os.name != "nt":
+        assert stat.S_IMODE(state["files"][0].stat().st_mode) == 0o600
     state["stop_failure"] = True
     with pytest.raises(RuntimeError, match="stop failure"):
         generator.close()

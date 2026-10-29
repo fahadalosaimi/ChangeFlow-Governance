@@ -108,6 +108,10 @@ def docker(*args, **kwargs):
 def a1_postgres_url():
     if os.environ.get("CHANGEFLOW_A1_POSTGRES_TESTS") != "1":
         pytest.skip("PostgreSQL tests not run; opt in with CHANGEFLOW_A1_POSTGRES_TESTS=1 (local Docker required).")
+    if os.environ.get("CHANGEFLOW_TEST_POSTGRES_BIN"):
+        from a2_native_postgresql import native_postgres_url
+        yield from native_postgres_url(os.environ["CHANGEFLOW_TEST_POSTGRES_BIN"])
+        return
     name = "changeflow-a1-test-" + uuid.uuid4().hex
     ownership_token = uuid.uuid4().hex
     password = secrets.token_urlsafe(32)
