@@ -1,9 +1,9 @@
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from app.database import Base
+from app.database import Base, enable_sqlite_foreign_keys
 from app.models import (
     change_execution,
     change_management,
@@ -46,6 +46,7 @@ def db():
             "check_same_thread": False,
         },
     )
+    event.listen(engine, "connect", enable_sqlite_foreign_keys)
     Base.metadata.create_all(engine)
 
     session = sessionmaker(
@@ -64,21 +65,21 @@ def db():
 def seed_two_organizations(db):
     organization_one = Organization(
         name="Organization One",
+        slug="organization-one",
     )
     organization_two = Organization(
         name="Organization Two",
+        slug="organization-two",
     )
-    requester_role = Role(
-        name="Requester",
-    )
-
     db.add_all(
         [
             organization_one,
             organization_two,
-            requester_role,
         ]
     )
+    db.flush()
+    requester_role = Role(name="Requester", organization_id=organization_one.id)
+    db.add(requester_role)
     db.flush()
 
     requester = User(
@@ -88,6 +89,7 @@ def seed_two_organizations(db):
         email="requester.one@example.com",
         password_hash=None,
         is_active="active",
+        membership_source="legacy",
     )
 
     system_one = ITSystem(

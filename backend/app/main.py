@@ -11,7 +11,9 @@ from app.models import (
     change_execution,
     change_management,
     foundation,
+    invitation,
     notification,
+    tenant_access_event,
 )
 
 from app.routes import (

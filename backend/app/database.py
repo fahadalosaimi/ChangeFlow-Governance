@@ -2,7 +2,6 @@ from sqlalchemy import (
     create_engine,
     event,
 )
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import (
     declarative_base,
     sessionmaker,
@@ -29,7 +28,7 @@ engine = create_engine(
 
 if settings.database_url.startswith("sqlite"):
     @event.listens_for(
-        Engine,
+        engine,
         "connect",
     )
     def enable_sqlite_foreign_keys(

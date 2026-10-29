@@ -1,1 +1,9 @@
-Generic single-database configuration.
+Alembic — ChangeFlow Governance
+
+التصميم وضوابط التفعيل والاختبارات الخاصة بـA1 موثقة في:
+../docs/phase2_a1.md
+
+لا تطبق A1 على قاعدة فعلية ضمن مهمة التطوير. هذه Schema غير جاهزة للتفعيل
+قبل إكمال Authentication وInvitations وAuthorization المتوافقة.
+Migrations الجديدة PostgreSQL-only، ولا تعدل Initial Migration.
+Downgrade الخاص بـA1 مرفوض لحماية البيانات؛ راجع خطة Forward Repair.
