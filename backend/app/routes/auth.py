@@ -28,6 +28,7 @@ from app.schemas.auth import (
     UserAdministrationAuditPageOutput,
 )
 from app.services.auth_service import (
+    MANAGED_ROLE_NAMES,
     create_access_token,
     get_current_user,
     authenticate_user,
@@ -42,14 +43,6 @@ router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
-
-
-MANAGED_ROLE_NAMES = {
-    "Requester",
-    "Change Manager",
-    "CMDB Manager",
-    "System Administrator",
-}
 
 
 def build_current_user_output(

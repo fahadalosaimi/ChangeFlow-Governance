@@ -289,7 +289,7 @@ def test_every_protected_route_uses_the_shared_tenant_boundary():
                 yield from routes_in(route.original_router)
             else:
                 yield route
-    public = {"/", "/health", "/auth/login", "/auth/register"}
+    public = {"/", "/health", "/auth/login", "/auth/register", "/auth/invitations/accept"}
     protected = 0
     for route in routes_in(app):
         if isinstance(route, APIRoute) and route.path not in public:

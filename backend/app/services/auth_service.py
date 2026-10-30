@@ -24,6 +24,9 @@ from app.services.tenant_context import (
 from app.settings import settings
 
 
+MANAGED_ROLE_NAMES = frozenset({"Requester", "Change Manager", "CMDB Manager", "System Administrator"})
+
+
 # New hashes and the minimum login work budget use cost 12. Higher-cost legacy
 # hashes remain supported and are never rewritten or downgraded during login.
 _BCRYPT_TARGET_COST = 12

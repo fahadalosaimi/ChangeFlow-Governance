@@ -18,6 +18,7 @@ from app.models import (
 
 from app.routes import (
     auth,
+    invitations,
     change_execution,
     change_management,
     foundation,
@@ -63,6 +64,7 @@ app.include_router(change_management.router)
 app.include_router(change_execution.router)
 app.include_router(notifications.router)
 app.include_router(auth.router)
+app.include_router(invitations.router)
 
 
 @app.get("/")
