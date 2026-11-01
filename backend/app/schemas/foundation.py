@@ -114,6 +114,7 @@ class SystemImpactProfileOutput(BaseModel):
 
 
 class DepartmentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     # Kept for frontend compatibility. The route enforces
     # the authenticated user's organization.
     organization_id: Optional[int] = Field(
@@ -136,6 +137,7 @@ class DepartmentCreate(BaseModel):
 
 
 class ITSystemCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     # Kept for frontend compatibility. The route enforces
     # the authenticated user's organization.
     organization_id: Optional[int] = Field(
@@ -190,6 +192,7 @@ class ITSystemCreate(BaseModel):
 
 
 class SystemDependencyCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     source_system_id: int = Field(ge=1)
     target_system_id: int = Field(ge=1)
     dependency_type: str = Field(
@@ -219,6 +222,7 @@ class SystemDependencyCreate(BaseModel):
 
 
 class IncidentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     system_id: int = Field(ge=1)
     title: str = Field(
         min_length=3,

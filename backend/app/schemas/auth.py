@@ -98,6 +98,7 @@ class RoleOptionOutput(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     role_name: Optional[str] = Field(
         default=None,
         min_length=1,

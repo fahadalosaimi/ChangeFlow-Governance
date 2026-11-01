@@ -1,3 +1,5 @@
+from app.services.tenant_resources import tenant_systems, tenant_services, tenant_users, tenant_dependencies, tenant_incidents
+from app.services.authorization import require_permissions
 from fastapi import (
     APIRouter,
     Depends,
@@ -35,10 +37,6 @@ from app.schemas.foundation import (
     SystemImpactProfileOutput,
     UserOutput,
 )
-from app.services.auth_service import (
-    get_current_user,
-    require_roles,
-)
 
 
 router = APIRouter(
@@ -71,7 +69,7 @@ def get_organization_system(
     organization_id: int,
 ) -> ITSystem:
     system = (
-        db.query(ITSystem)
+        tenant_systems(db, organization_id)
         .filter(
             ITSystem.id == system_id,
             ITSystem.organization_id
@@ -95,79 +93,22 @@ def get_organization_system(
 @router.get("/overview")
 def get_foundation_overview(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
-    organization_id = (
-        current_user.organization_id
-    )
-
-    system_ids = (
-        db.query(ITSystem.id)
-        .filter(
-            ITSystem.organization_id
-            == organization_id
-        )
-        .subquery()
-    )
-
+    organization_id = current_user.organization_id
     return {
         "organizations": 1,
-        "departments": (
-            db.query(Department)
-            .filter(
-                Department.organization_id
-                == organization_id
-            )
-            .count()
-        ),
-        "users": (
-            db.query(User)
-            .filter(
-                User.organization_id
-                == organization_id
-            )
-            .count()
-        ),
+        "departments": db.query(Department).filter(Department.organization_id == organization_id).count(),
+        "users": tenant_users(db, organization_id).count(),
         "roles": db.query(Role).filter(Role.organization_id == organization_id).count(),
-        "services": (
-            db.query(ITService)
-            .filter(
-                ITService.organization_id
-                == organization_id
-            )
-            .count()
-        ),
-        "systems": (
-            db.query(ITSystem)
-            .filter(
-                ITSystem.organization_id
-                == organization_id
-            )
-            .count()
-        ),
-        "dependencies": (
-            db.query(SystemDependency)
-            .filter(
-                SystemDependency.source_system_id.in_(
-                    system_ids
-                )
-            )
-            .count()
-        ),
-        "incidents": (
-            db.query(Incident)
-            .filter(
-                Incident.system_id.in_(
-                    system_ids
-                )
-            )
-            .count()
-        ),
-        "risk_rules": db.query(
-            RiskRule
-        ).count(),
+        "services": tenant_services(db, organization_id).count(),
+        "systems": tenant_systems(db, organization_id).count(),
+        "dependencies": tenant_dependencies(db, organization_id).count(),
+        "incidents": tenant_incidents(db, organization_id).count(),
+        # Global legacy policy/count remains a documented Batch B boundary.
+        "risk_rules": db.query(RiskRule).count(),
     }
 
 
@@ -177,7 +118,7 @@ def get_foundation_overview(
 )
 def get_organizations(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -197,7 +138,7 @@ def get_organizations(
 )
 def get_roles(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -215,7 +156,7 @@ def get_roles(
 )
 def get_departments(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -236,12 +177,12 @@ def get_departments(
 )
 def get_users(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
     return (
-        db.query(User)
+        tenant_users(db, current_user.organization_id)
         .filter(
             User.organization_id
             == current_user.organization_id
@@ -257,12 +198,12 @@ def get_users(
 )
 def get_services(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
     return (
-        db.query(ITService)
+        tenant_services(db, current_user.organization_id)
         .filter(
             ITService.organization_id
             == current_user.organization_id
@@ -278,12 +219,12 @@ def get_services(
 )
 def get_systems(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
     return (
-        db.query(ITSystem)
+        tenant_systems(db, current_user.organization_id)
         .filter(
             ITSystem.organization_id
             == current_user.organization_id
@@ -300,7 +241,7 @@ def get_systems(
 def get_system_by_id(
     system_id: int,
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -320,7 +261,7 @@ def get_system_by_id(
 def get_system_dependencies(
     system_id: int,
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -331,7 +272,7 @@ def get_system_dependencies(
     )
 
     return (
-        db.query(SystemDependency)
+        tenant_dependencies(db, current_user.organization_id)
         .filter(
             SystemDependency.source_system_id
             == system_id
@@ -348,7 +289,7 @@ def get_system_dependencies(
 def get_system_incidents(
     system_id: int,
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -359,7 +300,7 @@ def get_system_incidents(
     )
 
     return (
-        db.query(Incident)
+        tenant_incidents(db, current_user.organization_id)
         .filter(
             Incident.system_id == system_id
         )
@@ -375,7 +316,7 @@ def get_system_incidents(
 def get_system_impact_profile(
     system_id: int,
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -386,7 +327,7 @@ def get_system_impact_profile(
     )
 
     outgoing_dependencies = (
-        db.query(SystemDependency)
+        tenant_dependencies(db, current_user.organization_id)
         .filter(
             SystemDependency.source_system_id
             == system_id
@@ -395,7 +336,7 @@ def get_system_impact_profile(
     )
 
     incoming_dependencies = (
-        db.query(SystemDependency)
+        tenant_dependencies(db, current_user.organization_id)
         .filter(
             SystemDependency.target_system_id
             == system_id
@@ -404,7 +345,7 @@ def get_system_impact_profile(
     )
 
     incidents = (
-        db.query(Incident)
+        tenant_incidents(db, current_user.organization_id)
         .filter(
             Incident.system_id == system_id
         )
@@ -498,12 +439,12 @@ def get_system_impact_profile(
 )
 def get_incidents(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
     return (
-        db.query(Incident)
+        tenant_incidents(db, current_user.organization_id)
         .join(
             ITSystem,
             Incident.system_id == ITSystem.id,
@@ -525,7 +466,7 @@ def get_incidents(
 def create_incident(
     payload: IncidentCreate,
     current_user: User = Depends(
-        require_roles("CMDB Manager")
+        require_permissions("foundation.write")
     ),
     db: Session = Depends(get_db),
 ):
@@ -554,7 +495,7 @@ def create_incident(
 )
 def get_risk_rules(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("risk_rules.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -573,7 +514,7 @@ def get_risk_rules(
 def create_risk_rule(
     payload: RiskRuleCreate,
     current_user: User = Depends(
-        require_roles("CMDB Manager")
+        require_permissions("risk_rules.write")
     ),
     db: Session = Depends(get_db),
 ):
@@ -624,7 +565,7 @@ def update_risk_rule(
     rule_id: int,
     payload: RiskRuleUpdate,
     current_user: User = Depends(
-        require_roles("CMDB Manager")
+        require_permissions("risk_rules.write")
     ),
     db: Session = Depends(get_db),
 ):
@@ -703,7 +644,7 @@ def update_risk_rule(
 def create_department(
     payload: DepartmentCreate,
     current_user: User = Depends(
-        require_roles("CMDB Manager")
+        require_permissions("foundation.write")
     ),
     db: Session = Depends(get_db),
 ):
@@ -755,7 +696,7 @@ def create_department(
 def create_system(
     payload: ITSystemCreate,
     current_user: User = Depends(
-        require_roles("CMDB Manager")
+        require_permissions("foundation.write")
     ),
     db: Session = Depends(get_db),
 ):
@@ -791,7 +732,7 @@ def create_system(
 
     if payload.service_id is not None:
         service = (
-            db.query(ITService)
+            tenant_services(db, current_user.organization_id)
             .filter(
                 ITService.id
                 == payload.service_id,
@@ -812,7 +753,7 @@ def create_system(
 
     if payload.owner_id is not None:
         owner = (
-            db.query(User)
+            tenant_users(db, current_user.organization_id)
             .filter(
                 User.id == payload.owner_id,
                 User.organization_id
@@ -831,7 +772,7 @@ def create_system(
             )
 
     existing_system = (
-        db.query(ITSystem)
+        tenant_systems(db, current_user.organization_id)
         .filter(
             ITSystem.organization_id
             == organization_id,
@@ -879,26 +820,11 @@ def create_system(
 )
 def get_all_system_dependencies(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("foundation.read")
     ),
     db: Session = Depends(get_db),
 ):
-    return (
-        db.query(SystemDependency)
-        .join(
-            ITSystem,
-            SystemDependency.source_system_id
-            == ITSystem.id,
-        )
-        .filter(
-            ITSystem.organization_id
-            == current_user.organization_id
-        )
-        .order_by(
-            SystemDependency.id.desc()
-        )
-        .all()
-    )
+    return tenant_dependencies(db, current_user.organization_id).order_by(SystemDependency.id.desc()).all()
 
 
 @router.post(
@@ -909,7 +835,7 @@ def get_all_system_dependencies(
 def create_system_dependency(
     payload: SystemDependencyCreate,
     current_user: User = Depends(
-        require_roles("CMDB Manager")
+        require_permissions("foundation.write")
     ),
     db: Session = Depends(get_db),
 ):
@@ -925,7 +851,7 @@ def create_system_dependency(
     )
 
     existing_dependency = (
-        db.query(SystemDependency)
+        tenant_dependencies(db, current_user.organization_id)
         .filter(
             SystemDependency.source_system_id
             == payload.source_system_id,

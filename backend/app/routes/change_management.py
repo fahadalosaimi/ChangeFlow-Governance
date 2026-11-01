@@ -1,3 +1,5 @@
+from app.services.tenant_resources import scope_changes
+from app.services.authorization import require_permissions
 from datetime import date, datetime, time
 
 from fastapi import (
@@ -30,10 +32,6 @@ from app.models.change_management import (
 )
 
 from app.models.foundation import User
-from app.services.auth_service import (
-    get_current_user,
-    require_roles,
-)
 
 from app.services.notification_service import (
     notify_change_managers,
@@ -77,12 +75,6 @@ def get_user_display_name(
 
     return user.full_name
 
-ALLOWED_CHANGE_READ_ROLES = {
-    "Requester",
-    "Change Manager",
-    "CMDB Manager",
-}
-
 
 def get_user_role_name(current_user: User) -> str | None:
     if not current_user.role:
@@ -93,27 +85,7 @@ def get_user_role_name(current_user: User) -> str | None:
 
 
 def restrict_change_query(query, current_user: User):
-    role_name = get_user_role_name(current_user)
-
-    if role_name not in ALLOWED_CHANGE_READ_ROLES:
-        raise HTTPException(
-            status_code=403,
-            detail="You do not have permission to view change records.",
-        )
-
-    # Every supported role is restricted to its own organization.
-    query = query.filter(
-        ManagedChangeRequest.organization_id
-        == current_user.organization_id
-    )
-
-    if role_name == "Requester":
-        query = query.filter(
-            ManagedChangeRequest.requester_id
-            == current_user.id
-        )
-
-    return query
+    return scope_changes(query, current_user)
 
 def get_accessible_change_request(
     db: Session,
@@ -253,7 +225,7 @@ def build_change_response(
 def create_managed_change_request(
     payload: ManagedChangeCreate,
     current_user: User = Depends(
-        require_roles("Requester")
+        require_permissions("changes.create")
     ),
     db: Session = Depends(get_db),
 ):
@@ -446,11 +418,11 @@ def create_managed_change_request(
 def revise_and_resubmit_change_request(
     change_request_id: int,
     payload: ManagedChangeRevision,
-    current_user: User = Depends(require_roles("Requester")),
+    current_user: User = Depends(require_permissions("changes.revise")),
     db: Session = Depends(get_db),
 ):
     change_request = (
-        db.query(ManagedChangeRequest)
+        scope_changes(db.query(ManagedChangeRequest), current_user)
         .filter(
             ManagedChangeRequest.id == change_request_id,
             ManagedChangeRequest.requester_id == current_user.id,
@@ -630,7 +602,7 @@ def revise_and_resubmit_change_request(
 
 @router.get("/requests")
 def get_managed_change_requests(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("changes.read")),
     db: Session = Depends(get_db),
 ):
     query = db.query(ManagedChangeRequest)
@@ -687,7 +659,7 @@ def get_managed_change_requests_paged(
         default=None,
     ),
     current_user: User = Depends(
-        get_current_user
+        require_permissions("changes.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -712,9 +684,7 @@ def get_managed_change_requests_paged(
     )
 
     query = (
-        db.query(
-            ManagedChangeRequest
-        )
+        db.query(ManagedChangeRequest)
         .outerjoin(
             latest_assessment,
             latest_assessment.id
@@ -872,7 +842,7 @@ def get_managed_change_requests_paged(
 @router.get("/requests/{change_request_id}")
 def get_managed_change_request(
     change_request_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("changes.read")),
     db: Session = Depends(get_db),
 ):
     change_request = get_accessible_change_request(
@@ -887,7 +857,7 @@ def get_managed_change_request(
 @router.get("/requests/{change_request_id}/history")
 def get_change_request_history(
     change_request_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("changes.read")),
     db: Session = Depends(get_db),
 ):
     change_request = get_accessible_change_request(
@@ -914,7 +884,7 @@ def get_change_request_history(
 @router.get("/requests/{change_request_id}/audit-logs")
 def get_change_request_audit_logs(
     change_request_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("changes.read")),
     db: Session = Depends(get_db),
 ):
     change_request = get_accessible_change_request(
@@ -945,7 +915,7 @@ def create_change_approval(
     change_request_id: int,
     payload: ApprovalDecisionCreate,
     current_user: User = Depends(
-        require_roles("Change Manager")
+        require_permissions("changes.approve")
     ),
     db: Session = Depends(get_db),
 ):
@@ -988,7 +958,7 @@ def create_change_approval(
         )
 
     change_request = (
-        db.query(ManagedChangeRequest)
+        scope_changes(db.query(ManagedChangeRequest), current_user)
         .filter(
             ManagedChangeRequest.id
             == change_request_id,
@@ -1122,7 +1092,7 @@ def create_change_approval(
 @router.get("/requests/{change_request_id}/approvals")
 def get_change_approvals(
     change_request_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("changes.read")),
     db: Session = Depends(get_db),
 ):
     get_accessible_change_request(
@@ -1163,7 +1133,7 @@ def get_change_approvals(
     response_model=ChangeWorkQueueOverview,
 )
 def get_change_manager_work_queues(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("changes.read")),
     db: Session = Depends(get_db),
 ):
     latest_assessment = aliased(
@@ -1187,9 +1157,7 @@ def get_change_manager_work_queues(
     )
 
     base_query = (
-        db.query(
-            ManagedChangeRequest
-        )
+        db.query(ManagedChangeRequest)
         .outerjoin(
             latest_assessment,
             latest_assessment.id
@@ -1236,7 +1204,7 @@ def get_change_manager_work_queues(
 
 @router.get("/dashboard/overview")
 def get_change_management_dashboard(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("changes.read")),
     db: Session = Depends(get_db),
 ):
     change_query = db.query(ManagedChangeRequest)
@@ -1277,6 +1245,7 @@ def get_change_management_dashboard(
         )
     )
 
+    assessment_query = restrict_change_query(assessment_query, current_user)
     role_name = get_user_role_name(current_user)
 
     if role_name == "Requester":

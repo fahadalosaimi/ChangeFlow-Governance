@@ -3,6 +3,7 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     StringConstraints,
     field_validator,
@@ -29,6 +30,7 @@ DescriptionText = Annotated[
 
 
 class ManagedChangeBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     title: TitleText
     description: DescriptionText
     change_type: Literal[
@@ -120,6 +122,7 @@ class ManagedChangeCreate(ManagedChangeBase):
 
 
 class ApprovalDecisionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     approval_level: str = Field(
         default="Manager Review",
         min_length=2,

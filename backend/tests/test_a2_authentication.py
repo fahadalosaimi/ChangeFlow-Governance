@@ -206,7 +206,12 @@ def test_claimed_roles_permissions_and_tenant_headers_do_not_grant_access(worksp
     with Session(workspace.engine) as db:
         context = get_tenant_context(token, db)
         assert (context.user_id, context.organization_id, context.role_id) == (2, 1, 5)
-        assert context.permissions == frozenset()
+        # A4 supplies only the actual DB Requester's explicit grants. The
+        # forged wildcard/admin claims above never enter Tenant Context.
+        assert context.permissions == frozenset({
+            "identity.read", "foundation.read", "notifications.own", "risk_rules.read",
+            "changes.read", "changes.create", "changes.revise",
+        })
 
 
 def test_disable_and_role_changes_take_effect_on_existing_token(workspace):

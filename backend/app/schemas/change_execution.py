@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChangeImplementationStart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     start_notes: Optional[str] = Field(
         default=None,
         max_length=4000,
@@ -12,6 +13,7 @@ class ChangeImplementationStart(BaseModel):
 
 
 class ChangeImplementationComplete(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     completion_summary: str = Field(
         min_length=3,
         max_length=8000,
@@ -23,6 +25,7 @@ class ChangeImplementationComplete(BaseModel):
 
 
 class ChangeImplementationFailure(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     failure_summary: str = Field(
         min_length=3,
         max_length=8000,
@@ -30,6 +33,7 @@ class ChangeImplementationFailure(BaseModel):
 
 
 class ChangeImplementationRollback(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     rollback_reason: str = Field(
         min_length=3,
         max_length=8000,
@@ -37,6 +41,7 @@ class ChangeImplementationRollback(BaseModel):
 
 
 class PostImplementationReviewCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     pir_result: Literal[
         "Successful",
         "Successful with Issues",

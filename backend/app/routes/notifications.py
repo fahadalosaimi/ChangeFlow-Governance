@@ -1,3 +1,5 @@
+from app.services.tenant_resources import tenant_notifications
+from app.services.authorization import require_permissions
 from datetime import datetime, timezone
 
 from fastapi import (
@@ -18,7 +20,6 @@ from app.schemas.notification import (
     NotificationReadAllOutput,
     NotificationUnreadCountOutput,
 )
-from app.services.auth_service import get_current_user
 
 
 
@@ -63,11 +64,11 @@ def build_notification_response(
     response_model=NotificationUnreadCountOutput,
 )
 def get_unread_notification_count(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("notifications.own")),
     db: Session = Depends(get_db),
 ):
     unread_count = (
-        db.query(Notification)
+        tenant_notifications(db, current_user)
         .filter(
             Notification.recipient_id == current_user.id,
             Notification.organization_id
@@ -105,11 +106,11 @@ def get_notifications_paged(
     search: str | None = Query(
         default=None,
     ),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("notifications.own")),
     db: Session = Depends(get_db),
 ):
     query = (
-        db.query(Notification)
+        tenant_notifications(db, current_user)
         .options(
             joinedload(Notification.actor),
         )
@@ -191,13 +192,13 @@ def get_notifications_paged(
     response_model=NotificationReadAllOutput,
 )
 def mark_all_notifications_as_read(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("notifications.own")),
     db: Session = Depends(get_db),
 ):
     read_at = utc_now()
 
     updated_count = (
-        db.query(Notification)
+        tenant_notifications(db, current_user)
         .filter(
             Notification.recipient_id == current_user.id,
             Notification.organization_id
@@ -226,11 +227,11 @@ def mark_all_notifications_as_read(
 )
 def mark_notification_as_read(
     notification_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permissions("notifications.own")),
     db: Session = Depends(get_db),
 ):
     notification = (
-        db.query(Notification)
+        tenant_notifications(db, current_user)
         .options(
             joinedload(Notification.actor),
         )

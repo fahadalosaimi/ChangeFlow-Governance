@@ -1,3 +1,4 @@
+from app.services.tenant_resources import tenant_systems, tenant_dependencies, tenant_incidents
 from sqlalchemy.orm import Session
 
 from app.models.foundation import (
@@ -87,7 +88,7 @@ def analyze_foundation_change(
     )
 
     affected_systems = (
-        db.query(ITSystem)
+        tenant_systems(db, organization_id)
         .filter(
             ITSystem.organization_id
             == organization_id,
@@ -168,7 +169,7 @@ def analyze_foundation_change(
             )
 
         incoming_dependencies = (
-            db.query(SystemDependency)
+            tenant_dependencies(db, organization_id)
             .filter(
                 SystemDependency.target_system_id
                 == system.id
@@ -178,7 +179,7 @@ def analyze_foundation_change(
 
         for dependency in incoming_dependencies:
             source_system = (
-                db.query(ITSystem)
+                tenant_systems(db, organization_id)
                 .filter(
                     ITSystem.id
                     == dependency.source_system_id,
@@ -224,7 +225,7 @@ def analyze_foundation_change(
                 )
 
         incidents = (
-            db.query(Incident)
+            tenant_incidents(db, organization_id)
             .filter(
                 Incident.system_id == system.id
             )

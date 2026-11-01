@@ -1,3 +1,5 @@
+from app.services.tenant_resources import scope_changes
+from app.services.authorization import require_permissions
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -30,10 +32,6 @@ from app.schemas.change_execution import (
     DeliveryQueueOverview,
     PostImplementationReviewCreate,
 )
-from app.services.auth_service import (
-    get_current_user,
-    require_roles,
-)
 from app.services.notification_service import (
     notify_requester,
 )
@@ -54,12 +52,6 @@ router = APIRouter(
     tags=["Change Implementation"],
 )
 
-
-ALLOWED_CHANGE_READ_ROLES = {
-    "Requester",
-    "Change Manager",
-    "CMDB Manager",
-}
 
 
 ALLOWED_PIR_RESULTS = {
@@ -83,46 +75,10 @@ def get_accessible_change_request(
     change_request_id: int,
     current_user: User,
 ) -> ManagedChangeRequest:
-    role_name = get_user_role_name(
-        current_user
-    )
-
-    if role_name not in ALLOWED_CHANGE_READ_ROLES:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "You do not have permission to view "
-                "change implementation records."
-            ),
-        )
-
-    query = (
-        db.query(ManagedChangeRequest)
-        .filter(
-            ManagedChangeRequest.id
-            == change_request_id,
-            ManagedChangeRequest.organization_id
-            == current_user.organization_id,
-        )
-    )
-
-    if role_name == "Requester":
-        query = query.filter(
-            ManagedChangeRequest.requester_id
-            == current_user.id
-        )
-
-    change_request = query.first()
-
-    if not change_request:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "Change request not found or access "
-                "is not permitted."
-            ),
-        )
-
+    change_request = scope_changes(db.query(ManagedChangeRequest), current_user).filter(
+        ManagedChangeRequest.id == change_request_id).first()
+    if change_request is None:
+        raise HTTPException(404, "Change request not found or access is not permitted.")
     return change_request
 
 
@@ -131,26 +87,10 @@ def get_manager_change_request(
     change_request_id: int,
     current_user: User,
 ) -> ManagedChangeRequest:
-    change_request = (
-        db.query(ManagedChangeRequest)
-        .filter(
-            ManagedChangeRequest.id
-            == change_request_id,
-            ManagedChangeRequest.organization_id
-            == current_user.organization_id,
-        )
-        .first()
-    )
-
-    if not change_request:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "Change request not found or access "
-                "is not permitted."
-            ),
-        )
-
+    change_request = scope_changes(db.query(ManagedChangeRequest), current_user).filter(
+        ManagedChangeRequest.id == change_request_id).first()
+    if change_request is None:
+        raise HTTPException(404, "Change request not found or access is not permitted.")
     return change_request
 
 
@@ -263,36 +203,11 @@ def add_status_transition(
 )
 def get_delivery_queue_overview(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("changes.read")
     ),
     db: Session = Depends(get_db),
 ):
-    role_name = get_user_role_name(
-        current_user
-    )
-
-    if role_name not in ALLOWED_CHANGE_READ_ROLES:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "You do not have permission to view "
-                "change delivery queues."
-            ),
-        )
-
-    query = (
-        db.query(ManagedChangeRequest)
-        .filter(
-            ManagedChangeRequest.organization_id
-            == current_user.organization_id
-        )
-    )
-
-    if role_name == "Requester":
-        query = query.filter(
-            ManagedChangeRequest.requester_id
-            == current_user.id
-        )
+    query = scope_changes(db.query(ManagedChangeRequest), current_user)
 
     approved_ready = query.filter(
         ManagedChangeRequest.status
@@ -331,7 +246,7 @@ def get_delivery_queue_overview(
 def get_change_implementation(
     change_request_id: int,
     current_user: User = Depends(
-        get_current_user
+        require_permissions("changes.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -362,7 +277,7 @@ def start_change_implementation(
     change_request_id: int,
     payload: ChangeImplementationStart,
     current_user: User = Depends(
-        require_roles("Change Manager")
+        require_permissions("changes.implement")
     ),
     db: Session = Depends(get_db),
 ):
@@ -477,7 +392,7 @@ def complete_change_implementation(
     change_request_id: int,
     payload: ChangeImplementationComplete,
     current_user: User = Depends(
-        require_roles("Change Manager")
+        require_permissions("changes.implement")
     ),
     db: Session = Depends(get_db),
 ):
@@ -584,7 +499,7 @@ def fail_change_implementation(
     change_request_id: int,
     payload: ChangeImplementationFailure,
     current_user: User = Depends(
-        require_roles("Change Manager")
+        require_permissions("changes.implement")
     ),
     db: Session = Depends(get_db),
 ):
@@ -686,7 +601,7 @@ def record_change_rollback(
     change_request_id: int,
     payload: ChangeImplementationRollback,
     current_user: User = Depends(
-        require_roles("Change Manager")
+        require_permissions("changes.implement")
     ),
     db: Session = Depends(get_db),
 ):
@@ -793,7 +708,7 @@ def complete_post_implementation_review(
     change_request_id: int,
     payload: PostImplementationReviewCreate,
     current_user: User = Depends(
-        require_roles("Change Manager")
+        require_permissions("changes.implement")
     ),
     db: Session = Depends(get_db),
 ):

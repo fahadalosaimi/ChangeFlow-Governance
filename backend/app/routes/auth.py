@@ -1,3 +1,5 @@
+from app.services.authorization import require_permissions
+from app.services.tenant_resources import local_user_ids
 from fastapi import (
     APIRouter,
     Depends,
@@ -30,9 +32,7 @@ from app.schemas.auth import (
 from app.services.auth_service import (
     MANAGED_ROLE_NAMES,
     create_access_token,
-    get_current_user,
     authenticate_user,
-    require_roles,
 )
 
 
@@ -96,16 +96,17 @@ def build_admin_user_output(
 def build_user_admin_audit_output(
     db: Session,
     audit: UserAdministrationAudit,
+    organization_id: int,
 ) -> UserAdministrationAuditOutput:
     actor = (
         db.query(User)
-        .filter(User.id == audit.actor_id)
+        .filter(User.id == audit.actor_id, User.organization_id == organization_id)
         .first()
     )
 
     target_user = (
         db.query(User)
-        .filter(User.id == audit.target_user_id)
+        .filter(User.id == audit.target_user_id, User.organization_id == organization_id)
         .first()
     )
 
@@ -193,7 +194,7 @@ def login(
 )
 def read_current_user(
     current_user: User = Depends(
-        get_current_user
+        require_permissions("identity.read")
     ),
 ):
     return build_current_user_output(
@@ -207,7 +208,7 @@ def read_current_user(
 )
 def get_managed_roles(
     current_user: User = Depends(
-        require_roles("System Administrator")
+        require_permissions("users.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -228,7 +229,7 @@ def get_managed_roles(
 )
 def get_managed_users(
     current_user: User = Depends(
-        require_roles("System Administrator")
+        require_permissions("users.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -236,7 +237,7 @@ def get_managed_users(
         db.query(User)
         .filter(
             User.organization_id
-            == current_user.organization_id
+            == current_user.organization_id,
         )
         .order_by(
             User.full_name.asc()
@@ -261,7 +262,7 @@ def get_managed_users_paged(
     role_name: str | None = Query(default=None),
     is_active: str | None = Query(default=None),
     current_user: User = Depends(
-        require_roles("System Administrator")
+        require_permissions("users.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -350,7 +351,7 @@ def update_managed_user(
     user_id: int,
     payload: AdminUserUpdate,
     current_user: User = Depends(
-        require_roles("System Administrator")
+        require_permissions("users.update")
     ),
     db: Session = Depends(get_db),
 ):
@@ -548,7 +549,7 @@ def update_managed_user(
 )
 def get_user_administration_audit_logs(
     current_user: User = Depends(
-        require_roles("System Administrator")
+        require_permissions("audit.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -561,7 +562,8 @@ def get_user_administration_audit_logs(
         )
         .filter(
             User.organization_id
-            == current_user.organization_id
+            == current_user.organization_id,
+            UserAdministrationAudit.actor_id.in_(local_user_ids(current_user.organization_id)),
         )
         .order_by(
             UserAdministrationAudit.created_at.desc(),
@@ -574,6 +576,7 @@ def get_user_administration_audit_logs(
         build_user_admin_audit_output(
             db,
             audit,
+            current_user.organization_id,
         )
         for audit in audit_logs
     ]
@@ -588,7 +591,7 @@ def get_user_administration_audit_logs_paged(
     search: str | None = Query(default=None),
     action: str | None = Query(default=None),
     current_user: User = Depends(
-        require_roles("System Administrator")
+        require_permissions("audit.read")
     ),
     db: Session = Depends(get_db),
 ):
@@ -609,7 +612,8 @@ def get_user_administration_audit_logs_paged(
         )
         .filter(
             target_user.organization_id
-            == current_user.organization_id
+            == current_user.organization_id,
+            actor_user.organization_id == current_user.organization_id,
         )
     )
 
@@ -681,6 +685,7 @@ def get_user_administration_audit_logs_paged(
             build_user_admin_audit_output(
                 db,
                 audit,
+                current_user.organization_id,
             )
             for audit in audit_logs
         ],

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.foundation import User
 from app.settings import settings
+from app.services.permissions import permissions_for_role
 
 
 # Handle missing/invalid bearer credentials through the same error path as JWTs.
@@ -34,8 +35,7 @@ class TenantContext:
     role_id: int
     role_name: str
     user: User = field(repr=False, compare=False)
-    # A2 preserves existing role gates. No granular permissions have been
-    # approved yet (A4); neither JWT claims nor role descriptions grant any.
+    # A4 grants are derived from this request's trusted DB role, not JWT claims.
     permissions: frozenset[str] = field(default_factory=frozenset)
 
 
@@ -76,6 +76,7 @@ def context_for_user(user: User | None) -> TenantContext:
         organization_id=user.organization_id,
         role_id=user.role.id,
         role_name=user.role.name,
+        permissions=permissions_for_role(user.role.name),
         user=user,
     )
 
