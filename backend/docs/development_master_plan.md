@@ -10,13 +10,13 @@
 
 **Spec:** طلب المستخدم «ChangeFlow Governance — Enterprise SaaS Transformation — Master Development Prompt»، خاصة القسم 22: **Planning Gate Only**، بتاريخ 2026-11-01 بتوقيت Asia/Riyadh. مصدره المرفق المحلي [نص الطلب](<C:/Users/W10/.codex/attachments/9f871ecd-ce7d-43dd-a1cc-bcc9e4f247e2/نص ملصق.txt>). المرفق خارج Git؛ المتطلبات والقيود التنفيذية محفوظة هنا كي تبقى الخطة قابلة للاستخدام عند غياب المرفق. تقارير [A1](phase2_a1.md) و[A2](phase2_a2.md) و[A3](phase2_a3.md) و[A4](phase2_a4.md) أدلة تاريخية تُراجع مقابل الكود وGit.
 
-**حالة الوثيقة المحدثة — A5-T2 Final Review:** حُفظتT1 في `de4d0e36f00cfcb7a8352baee6b94e3e0eff8bb3`، ونُفذتT2 محليًا بإذن مستقل. أُصلح عيب تصنيفLogin outage باختبارRED→GREEN. المراجعة النهائية: Backend **426 Passed /1 Skipped /23 Deselected**، وإكمال **5 Passed** غير متداخلة كانت مستبعدة بالاسم فقط؛ لاFailures. PostgreSQL:262 ثم4 حالات ناجحة. Browser: **1 Passed تغطي13 سيناريوًا**؛ Frontend: **35 Passed**؛ Typecheck/Build/Lint ناجحة بلا تحذيرات. تفصيل الجولات وManifest في [تقريرT2](phase2_a5_t2.md) والقسم10.10. **Ready for Development Checkpoint** بعدGitleaks:28 ملفًا و0 Findings؛ لاGit أوT3، وLegacy/F2/B/C باقية.
+**حالة الوثيقة المحدثة — A5-T3 Final Visual Review (2026-11-02):** استُكملت المراجعة وتحسينات Motion محليًا مع الحفاظ على الهوية المعتمدة. أُصلح auto-focus frame وpre-paint theme وCSS compatibility cascade وScroll الجديد بأدلة RED→GREEN؛ لا تغيير لسياسات Auth/Backend. Frontend **46 Passed**؛ Browser **2 Passed** تغطي **13 Auth +62 Presentation** و**80 حالة تخطيط**؛ axe **36 فحصًا، 0 Violations** و3 Incomplete موثقة بقياسات إضافية13.76/17.45:1. Typecheck/Build/Lint ناجحة. Manifest **19 Modified +39 New =58**؛ الملف الجديد الوحيد فوق57 هوRouteSurface. Gitleaks النهائية **58 ملفًا، 0 Findings**. التفاصيل في [تقرير T3](phase2_a5_t3.md) والقسم10.12. **Ready for Development Checkpoint** فقط؛ لا Git أوA5-T4 أوProduction claim.
 
 ## Global Constraints
 
 - المستودع `bigest11/ChangeFlow-Governance` فقط، والمسار `C:\Users\W10\AI_Change_Impact_Analyzer`؛ ArchitectAI خارج النطاق تمامًا.
-- الفرع المعتمد `feature/phase2-batch-a-tenant-security`، وخط أساس T2 الحالي `de4d0e36f00cfcb7a8352baee6b94e3e0eff8bb3`؛ عند اختلاف Branch أوRemote أوHEAD المتوقع، توقف واشرح قبل تعديل الملفات. بيانات Stage 0 أدناه تاريخية.
-- التفويض الأحدث **A5-T2 — Secure Workspace Authentication, Sessions & Invitations** يسمح بالتنفيذ والاختبارات والتوثيق محليًا فقط بعد حفظ T1. لا Stage/Commit/Push/PR/Merge/Deployment دون اعتماد لاحق صريح. لا قاعدة قديمة أوقراءة .env/Backup secrets أوRotation أوBootstrap/Legacy execution أوMigrations تشغيلية أوA5-T3/T4 أوB/C/D/Gemini.
+- الفرع المعتمد `feature/phase2-batch-a-tenant-security`، وخط أساس T3 الحالي `a89468f82c3edbb0d252dd2788e243e162358524`؛ عند اختلاف Branch أوRemote أوHEAD المتوقع، توقف واشرح قبل تعديل الملفات. بيانات Stage 0 أدناه تاريخية.
+- التفويض الأحدث **A5-T3 Final Visual Review & Premium Motion Refinement** يسمح بالمراجعة والتحسينات المحدودة والاختبارات والتوثيق محليًا، مع حفظ التعديلات الحالية والهوية المعتمدة. لا Stage/Commit/Push/PR/Merge/Deployment أوA5-T4 دون اعتماد لاحق صريح. لا قاعدة قديمة أو.env/Backup secrets أوRotation أوBootstrap/Legacy execution أوMigrations تشغيلية أوB/C/D/Gemini.
 - لا Commit أوPush أوPR أوMerge أوRebase أوForce Push أوتعديل `master` دون الموافقة المحددة؛ Git Checkpoint يأتي بعد اعتماد نتائج المرحلة فقط.
 - لا تشغيل Bootstrap فعلي أوSeed أوSetup على قاعدة قائمة، ولا بريد حقيقي أوخدمات مدفوعة أوDeployment أوDomains أوProduction Secrets أوProduction Migrations دون موافقة صريحة منفصلة.
 - لا اختبار على قاعدة إنتاجية، ولا حذف بيانات Legacy أوHistory، ولا اعتبار `create_all()` بديلًا لـMigrations.
@@ -295,18 +295,20 @@ Stage 0 approval
 
 #### A5-T3 — Design System وLocalization وRouting Shell
 
-**Files:** تعديل `frontend/src/main.tsx` و`App.tsx` و`index.css` و`App.css` و`frontend/index.html` و`package.json` و`package-lock.json`؛ إنشاء `frontend/src/app/router.tsx` و`AppProviders.tsx` و`ErrorBoundary.tsx`؛ `frontend/src/layouts/AppLayout.tsx`؛ `frontend/src/components/navigation/{Sidebar,MobileNavigation,Breadcrumbs}.tsx`؛ `frontend/src/components/ui/`؛ `frontend/src/styles/{tokens,global}.css`؛ `frontend/src/localization/{index,formatters}.ts` و`locales/{ar-SA,en}.json`؛ اختبارات `frontend/src/localization/localization.test.ts` و`frontend/e2e/navigation.spec.ts`.
+**Files:** تعديل `frontend/src/main.tsx` و`App.tsx` و`index.css` و`App.css` و`frontend/index.html` و`package.json` و`package-lock.json`؛ إنشاء `frontend/src/app/router.tsx` و`AppProviders.tsx` و`ErrorBoundary.tsx`؛ `frontend/src/layouts/AppLayout.tsx`؛ `frontend/src/components/navigation/{Sidebar,MobileNavigation,Breadcrumbs}.tsx`؛ `frontend/src/components/ui/`؛ `frontend/src/styles/{tokens,global}.css`؛ `frontend/src/localization/{index,formatters}.ts` و`locales/{ar-SA,en}.json`؛ الاختبارات الفعلية `frontend/tests/presentation.test.ts` و`frontend/e2e/presentation.mjs` و`backend/tests/test_a5_t3_browser.py`؛ القائمة الكاملة في تقريرT3.
 
 **Interfaces:** `can(user: CurrentUser, permission: string): boolean` في `frontend/src/features/auth/permissions.ts`؛ `formatDateTime(value: string, kind: "utc" | "organization-local", locale: "ar-SA" | "en"): string` وفق قرار Timezone؛ Route metadata تحمل permission/key الخاصة بالعنوان لا نصوص UI Hardcoded.
 
-- [ ] تثبيت الخيارات المعتمدة فقط بعد فحص React/Node/TypeScript compatibility وLicenses/Bundle؛ اعتماد Lockfile. لا ترقية عشوائية لبقية Dependencies.
-- [ ] تعريف Semantic Tokens للألوان/Typography/Spacing/Focus، وLight/Dark منفصلين، وRisk Critical/High/Medium/Low مع نص وأيقونة، لا لون فقط.
-- [ ] بناء Buttons/Inputs/Forms/Cards/Tables/Dialogs/Tabs/Badges/Toasts/Navigation/Loading/Empty/Error مع حالات Keyboard/Screen Reader؛ Dialog focus trap وعودة التركيز وEscape.
-- [ ] ضبط `lang` و`dir` على الجذر، ومفاتيح ترجمة لكل نص/Validation/ARIA/Toast؛ CSS logical properties، وعدم قلب الرموز غير الاتجاهية.
-- [ ] تصميم Sidebar Desktop وMobile Drawer واضحة وTouch Targets مريحة؛ Breakpoints تُختبر عند 360/390 و768 و1366 و1440، دون Overflow غير مقصود.
-- [ ] تطبيق Lazy Loading وError Boundaries وSkeletons وTransitions محدودة تدعم reduced motion؛ عدم تحميل كل موارد التطبيق بمجرد المصادقة.
-- [ ] اختبارات Back/Forward/Deep Link/Refresh/404/403 والتركيز بعد التنقل، واللغتين مع Theme Switch وحفظ Preference. في A5 يثبت fallback محلي للاستضافة الثابتة؛ S9 يجهز إعداد Netlify قبل النشر.
-- [ ] اختبار أسماء عربية طويلة وEmail/IDs مختلطة الاتجاه وPlural/Zero/Numbers والتواريخ غير الصالحة. لا تترجم بيانات المستخدم أوAPI enums في النقل.
+- [x] تثبيت الخيارات المعتمدة فقط بعد فحص React/Node/TypeScript compatibility وLicenses/Bundle؛ اعتماد Lockfile. لا ترقية عشوائية لبقية Dependencies.
+- [x] تعريف Semantic Tokens للألوان/Typography/Spacing/Focus، وLight/Dark منفصلين، وRisk Critical/High/Medium/Low مع نص وأيقونة، لا لون فقط.
+- [x] بناء Buttons/Inputs/Forms/Cards/Tables/Dialogs/Badges/Toasts/Navigation/Loading/Empty/Error مع حالات Keyboard/Screen Reader؛ Dialog focus trap وعودة التركيز وEscape.
+- [x] ضبط `lang` و`dir` على الجذر، ومفاتيح ترجمة لكل نص/Validation/ARIA/Toast؛ CSS logical properties، وعدم قلب الرموز غير الاتجاهية.
+- [x] تصميم Sidebar Desktop وMobile Drawer واضحة وTouch Targets مريحة؛ Breakpoints تُختبر عند 360/390 و768 و1366 و1440، دون Overflow غير مقصود.
+- [x] تطبيق Lazy Loading وError Boundaries وSkeletons وTransitions محدودة تدعم reduced motion؛ عدم تحميل كل موارد التطبيق بمجرد المصادقة.
+- [x] اختبارات Back/Forward/Deep Link/Refresh/404/403 والتركيز بعد التنقل، واللغتين مع Theme Switch وحفظ Preference. في A5 يثبت fallback محلي للاستضافة الثابتة؛ S9 يجهز إعداد Netlify قبل النشر.
+- [x] اختبار أسماء عربية طويلة وEmail/IDs مختلطة الاتجاه وPlural/Zero/Numbers والتواريخ غير الصالحة. لا تترجم بيانات المستخدم أوAPI enums في النقل.
+
+**حدود الإغلاق:** Business tabs وترجمة/فصل الميزات القديمة إلىT4. لاادعاء Screen Reader audit أوWCAG شامل أوMulti-browser QA؛ Incomplete التباين موثق بقياس مستقل. لاBackend APIs أوModels/Migrations أوJWT/Matrix policy changes.
 
 #### A5-T4 — نقل الصفحات المدعومة تدريجيًا
 
@@ -710,6 +712,29 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 - [x] Gitleaks v8.30.1 بعد سلامة الحزمة وChecksums وexe واختبارSynthetic redaction/template: **28 ملفًا، 0 Findings**، مع إعادة فحص وثيقتي التسليم. Python AST/UTF-8 وdiff check وManifest ناجحة؛ لا قيم سرية أوملفات بيئة/أرشيفات ضمن المدخلات.
 - [x] **Ready for Development Checkpoint** ضمن التطوير الاصطناعي المعزول فقط؛ ينتظرGit اعتمادًا جديدًا. Demo retirement Unresolved وF2/B/C وبقيةProduction gates مفتوحة؛ Logout محلي وsessionStorage مؤقتة، وQA/i18n/RTL/Router/Design System إلىT3.
 
+### 10.11 A5-T3 — التنفيذ والاستئناف والتحقق المحلي النهائي
+
+- [x] React Router Data Mode وNested protected layouts وPermission navigation وSafe redirects وLazy business adapter، بلا Auth fetching مكرر أوتغيير JWT/Matrix/Client policies.
+- [x] Obsidian & Sage وخط Readex Pro محلي وSemantic tokens وar-SA/en وRTL/LTR وLight/Dark وصفحات Auth وShell متجاوبة. صفحات الأعمال لم تفكك؛ محتواها الإنجليزي معلن إلى T4.
+- [x] Frontend: **44 Passed /0 Failed /0 Skipped**، منها 9 Presentation؛ Typecheck وProduction Build ناجحتان، Lint **0 Errors /0 Warnings**؛ git diff --check ناجح.
+- [x] Relevant Backend: **304 Passed /0 Failed /1 Skipped /2 Deselected**، ثم إكمال المستبعدتين بالاسم فقط: **2 Passed /0 Failed /0 Skipped /134 Deselected** بعد إثبات عدم تشغيل Bootstrap. الحصيلة غير المتداخلة 306 Passed، منها 197 PostgreSQL و109 Unit/in-memory. Skip للـcollation على SQLite، ونسختها PostgreSQL ناجحة.
+- [x] Browser production preview محلي: **2 pytest Passed**؛ T2=13 سيناريوًا وT3=52. إعادة T3 للتباين: 52 ناجحة دون إضافتها للعدد. مصفوفة 40 تخطيطًا و20 axe runs مع 0 Violations؛ Incomplete واحد لعنوان Dialog، تحقق إضافي: 17.445:1 وvisible/unobscured ولقطة مراجعة. لا ادعاء WCAG أوScreen Reader شامل.
+- [x] Keyboard regression: RED عند Shift+Tab عبر حدود native dialog؛ Boundary wrap ثم GREEN، مع Escape وعودة التركيز وReduced motion. إصلاحات Harness (Enter/CORS/encoding) موثقة ولا تُحسب نجاحًا للتطبيق قبل الإصلاح.
+- [x] حواجز Isolation من T1/T2 محفوظة؛ dotenv محظورة، Clean env، وPostgreSQL18.4 جديدة على loopback وملكيتها مثبتة، وHTTP حقيقية مع Fixtures اصطناعية. لا قاعدة قديمة أوLegacy/Bootstrap/Production writes. موارد الجولات منظفة وArtifacts اصطناعية خارج Git.
+- [x] Dependencies exact: react-router 7.18.5، i18next 26.6.0، react-i18next 17.1.9، Readex Pro 5.3.0، وaxe-core 4.14.0 للتطوير. روجعت Compatibility/Licenses/Lockfile integrity؛ لا تغيير لإصدارات الحزم السابقة أواعتماديات إضافية.
+- [x] Gitleaks8.30.1 موثقة وسابقة التثبيت: Synthetic redaction/template أولًا، ثم 57 ملفًا و0 Findings؛ 0 Known historical value matches. ليست إعادة History scan أوإثبات تقاعد Demo. أُعيد الفحص النهائي للملفات الـ57 ثم لوثيقتي التسليم؛ 0 Findings.
+- [x] Manifest: **19 Modified +38 New =57** في تقرير T3؛ Staging فارغة وHEAD a89468f محفوظ. لا .env/ZIP/Build/Dependencies/Scanner/Artifacts ضمنها. **Ready for Development Checkpoint** فقط؛ لا Commit/Push أوT4، ومخاطر Legacy/F2/B/C/D باقية.
+
+### 10.12 A5-T3 Final Visual Review & Premium Motion Refinement — 2026-11-02
+
+- [x] حافظت المراجعة على Obsidian & Sage وLogin المعتمدة دون إعادة تصميم T4. Motion tokens=160/200/240ms مع Reduced Motion وEntry only؛ لا Exit snapshots أوMotion dependencies أوتأخير Navigation.
+- [x] RED→GREEN: التركيز التلقائي كان مصدر إطار Main، لا form border؛ حُذف أول تحميل فقط وبقي Skip Link/Keyboard focus. تهيئة Presentation قبل Entry JS تمنع theme flash وتقرأ مفتاحين غير سريين فقط. صححت وحدات CSS الزمنية بعد minification، وطبقة compatibility بعد Legacy تمنع الهيدر المكرر وتثبت44px. تنقل الهاتف الجديد لا يحتفظ بإزاحة الصفحة القديمة؛ POP لا يُجبر إلى الصفر ولاStorage إضافية.
+- [x] Frontend **46 Passed /0 Failed /0 Skipped**؛ Typecheck وProduction Build98 modules وLint0 Warnings/0 Errors ناجحة. Browser مشتركة **2 Passed /0 Failed /0 Skipped /0 Deselected،62.85s**، تغطي13 Auth و62 Presentation؛ **80 layout combinations** عبر4 صفحات×5 مقاسات×لغتين×ثيمين. لا جمع مع الجولات المتداخلة.
+- [x] axe: **36 فحصًا، 0 Violations**؛3 Incomplete لعنوان Drawer الإنجليزي. تحقق إضافي من ألوان العرض والظهور وعدم الحجب يثبت13.759:1 و17.445:1؛ لا ادعاء WCAG شامل أوScreen Reader يدوي. Business legacy مستثناة من4 فحوص axe الخاصة بـShell، واستكمالها إلىT4.
+- [x] طلب Tenant معلق لا يعيد بياناته؛ Shell القديمة منفصلة من أولrAF بعد Logout. AuthStore/Provider/Client/JWT/Matrix/Models/Migrations دون تغيير. Backend Regression306 Pass/1 Skip دليل سابق لم يُعد هنا؛ HTTP/PostgreSQL المعزولة الحالية فعلية بحواجزT1/T2.
+- [x] Dependencies/Lockfile/Readex OFL دون تغيير في هذه المراجعة؛ لا Install جديدة. Theme shifts=0 في العينة المحلية؛ Entry Opacity/Transform فقط، ولا ادعاء60fps أوCore Web Vitals.
+- [x] Gitleaks8.30.1: **58 ملفًا،0 Findings** مع توثيق binary integrity وsynthetic detection/redaction/template؛ أعيد فحص الوثيقتين بعد الخلاصة. Manifest58 مطابقة، Staging فارغة، diff/UTF-8/Python AST ناجحة، وجذور الاختبار النهائية المملوكة منظفة. **Ready for Development Checkpoint** فقط؛ انتظار اعتماد المالك. Legacy/F2/B/C/D باقية؛ لا Commit/Push أوT4 أوDeployment.
+
 ## 11. عوائق وحدود المعرفة وخطة إغلاقها
 
 - **عائق استخدام قاعدة قديمة/Production:** نُفذ مسار A5-T1 الاصطناعي المعتمد مع إثبات العزل؛ لا إعادة تصنيف 21 موضعًا أوPRE-04 بلا دليل جديد. تقاعد Demo Unresolved ولا يجوز استخدام قاعدة قديمة قبل إثبات تقاعد أوDEMO-R1..R6 مصرح بها. Exposure للأسرار المحلية وتوزيع الأرشيفات غير محسومين؛ لا Rotation تلقائية أوإغلاق Risk/CAB/F2 بواسطة نجاح T1.
@@ -727,7 +752,7 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 |---|---|---|
 | A1–A4 | Checkpoints موجودة؛ قبول Development فقط ضمن حدود التقارير | High B/C وF2 وبقية سجل المخاطر |
 | Stage 0 | Audit/Plan مكتملتان؛ اتجاه الخطة والقرارات المحددة معتمدة | لا اعتماد Production أوباقي المراحل |
-| Stage 1 A5 | T1 محفوظة في de4d0e3؛ T2 نُفذت واختُبرت محليًا وجاهزة لمراجعة Checkpoint | اعتماد جديد لحفظ T2 أوبدء T3؛ لا استخدام قاعدة قديمة أوProduction claim |
+| Stage 1 A5 | T1 وT2 محفوظتان؛ T3 مكتملة ومختبرة محليًا | اعتماد نتائج T3 ثم Git Checkpoint منفصل؛ لا A5-T4 أوقاعدة قديمة أوProduction claim |
 | Stage 2 B | Not started | اعتماد A5، وRisk/Migration design |
 | Stage 3 C | Not started | B وCAB policy/Legacy treatment |
 | Stage 4 D | Not started | C وSession/Email/F2 decisions |
@@ -736,10 +761,10 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 
 بعد كل مرحلة يسجل التقرير: ما نُفذ، قرارات المعمارية، Files Changed، API/DB Changes، Security Findings، Commands/Passed/Failed/Skipped، المخاطر، Git status، والمرحلة التالية. إذا فشل Gate، تُصلح المرحلة نفسها دون بدء التالية.
 
-**Git Checkpoint الحالي:** HEAD `de4d0e36f00cfcb7a8352baee6b94e3e0eff8bb3` والفرع المعتمد وmaster دون تغيير. Working Tree **9 Modified +19 Untracked =28 ملفًا** في نطاق T2/الاختبارات/التوثيق. القائمة المقترحة في تقرير T2؛ Staging فارغة، ولا .env/Backup/Build/Scanner/Temp ضمنها. لا Reset/Clean/Stash/Checkout/Stage/Commit/Push/PR/Merge أوHistory Rewrite في مهمة T2.
+**Git Checkpoint الحالي:** HEAD `a89468f82c3edbb0d252dd2788e243e162358524`، والفرع المعتمد وmaster محفوظان. تعديلات T3 محلية وغير staged: 19 Modified +39 New =58؛ القائمة الدقيقة في Manifest تقرير T3. لا .env/Backup/Build/Scanner/Temp ضمن القائمة. لا Reset/Clean/Stash/Checkout/Stage/Commit/Push/PR/Merge أوHistory Rewrite.
 
-**خطوة الاستئناف الدقيقة:** اقرأ هذه الخطة وتقرير phase2_a5_t2.md، وتحقق من Git واحفظ التغييرات الحالية. اكتمل التنفيذ والتحقق المحليان لـT2؛ ينتظر الحفظ في GitHub موافقة المالك على Manifest الجديدة. لا تعِد تنفيذ T1/T2 من البداية أوStage/Commit/Push تلقائية. T3 تحتاج موافقة تنفيذ مستقلة؛ لا .env/DB قديمة.
+**خطوة الاستئناف الدقيقة:** اقرأ هذه الخطة وتقرير phase2_a5_t3.md وآخر نتائج الاختبارات، وتحقق من Git واحفظ العمل الحالي. استكمل T3 فقط من حالتها المحلية؛ لا تعِد T1/T2 أوتثبيت الاعتماديات دون حاجة مثبتة. بعد نجاح جميع Gates يُنتظر اعتماد المالك على Development Checkpoint، ثم اعتماد Git الصريح. لا A5-T4 أو.env/DB قديمة.
 
-**التحقق التاريخي في Stage 0:** حفظت جميع المراحل والمخاطر العشرة والقرارات الستة عشر. نتائج Stage 0 وPreflight وعزل Setup وScanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 وتقريرها، وT2 الحالية في 10.9 وتقريرها. لا تجمع الأعداد المتداخلة أوتعد الاختبارات المتخطاة نجاحًا.
+**التحقق التاريخي في Stage 0:** حفظت جميع المراحل والمخاطر العشرة والقرارات الستة عشر. نتائج Stage 0 وPreflight وعزل Setup وScanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 وتقريرها، وT2 في 10.9–10.10 وتقريرها، وT3 في 10.11 وتقريرها. لا تجمع الأعداد المتداخلة أوتعد الاختبارات المتخطاة نجاحًا.
 
-**التوقف المطلوب الآن:** اكتملت اختباراتA5-T2 Final Review: عددحالاتBackend الناجحة426+5 غيرمتداخلة، مع1 Skip SQLite و18 Legacy invocation غيرمنفذة، و0 Lint warnings. Browser E2E محلية مثبتة ضمن13 سيناريوًا؛ Gitleaks النهائي ناجح:28 ملفًا و0 Findings؛ قرار10.10 هوReady for Development Checkpoint. لاProduction claim أوإغلاقDemo retirement/F2/B/C أوSEC-01..10، ولاGit أوT3/Deployment/Rotation دون موافقة لاحقة صريحة.
+**التوقف المطلوب بعد T3:** تقرير عربي بنتائج فعلية وManifest دقيقة، ثم انتظار اعتماد المالك قبل Git Checkpoint أوA5-T4. لا Production claim أوإغلاق Demo retirement/F2/B/C أوSEC-01..10، ولا Deployment/Rotation.

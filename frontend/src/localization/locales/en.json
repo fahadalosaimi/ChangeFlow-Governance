@@ -1,0 +1,165 @@
+{
+  "common": {
+    "brand": {
+      "name": "ChangeFlow",
+      "descriptor": "Change governance"
+    },
+    "actions": {
+      "login": "Sign in",
+      "logout": "Sign out",
+      "retry": "Try again",
+      "close": "Close",
+      "cancel": "Cancel",
+      "back": "Back to workspace",
+      "continue": "Continue",
+      "dismiss": "Dismiss notification",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "verify": "Verify membership",
+      "confirmVerify": "Verify and continue",
+      "menu": "Open navigation",
+      "account": "Open account",
+      "refresh": "Refresh page"
+    },
+    "preferences": {
+      "language": "Language",
+      "arabic": "العربية",
+      "english": "English",
+      "light": "Switch to light theme",
+      "dark": "Switch to dark theme",
+      "warning": "Your preferences will apply in this tab, but could not be saved."
+    },
+    "risk": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "unknown": "Unknown"
+    },
+    "feedback": {
+      "loading": "Loading page",
+      "message": "Workspace notification",
+      "success": "Completed",
+      "error": "Something needs your attention",
+      "empty": "Nothing here yet",
+      "emptyBody": "New activity will appear here when it is available.",
+      "permissionCount_one": "{{count, number}} permission available",
+      "permissionCount_other": "{{count, number}} permissions available"
+    },
+    "skip": "Skip to main content"
+  },
+  "auth": {
+    "story": {
+      "title": "Clarity before change.",
+      "body": "A considered place for technical change, its impact, and the decisions that follow.",
+      "flowChange": "Change",
+      "flowImpact": "Impact",
+      "flowDecision": "Decision",
+      "footer": "Your organization. Your workspace."
+    },
+    "login": {
+      "title": "Welcome to your workspace",
+      "body": "Sign in with the workspace identifier provided by your organization.",
+      "workspace": "Workspace",
+      "workspaceHint": "Your organization's workspace identifier",
+      "email": "Work email",
+      "password": "Password",
+      "required": "Enter your workspace, email address, and password.",
+      "credentials": "Unable to sign in. Check your workspace, email, and password.",
+      "ended": "Your session ended or could not be verified. Sign in again.",
+      "invitationOnly": "Access is managed by your organization. Ask your administrator for an invitation.",
+      "localLogout": "Signed out of this tab. Previously issued sessions may remain valid until they expire.",
+      "storageWarning": "Session storage is unavailable. You can continue in this tab, but refreshing may require sign-in. Close the tab if saved-session removal is blocked."
+    },
+    "invitation": {
+      "title": "Join your workspace",
+      "body": "Complete your invitation to activate your membership.",
+      "name": "Full name",
+      "password": "Choose a password",
+      "passwordHint": "At least 8 characters, up to 72 UTF-8 bytes. Password managers and paste are supported.",
+      "submit": "Accept invitation",
+      "pending": "Activating membership…",
+      "missing": "This page has no usable invitation link. Reopen the original link or ask your workspace administrator for a new invitation. Refresh cannot recover a removed link.",
+      "unavailable": "This invitation is unavailable. It may have expired, been revoked, or already been used. Sign in if you completed acceptance, or request a new invitation.",
+      "acceptedTitle": "You're ready to sign in",
+      "accepted": "Membership activated. Sign in with your workspace and email to continue. No automatic sign-in was performed.",
+      "invalid": "Enter a name of 2–255 characters and a password within the stated limits.",
+      "network": "The result could not be confirmed. Try signing in if acceptance completed, or re-enter your password to retry. No automatic retry was made.",
+      "back": "Back to sign in",
+      "continue": "Continue to sign in"
+    }
+  },
+  "shell": {
+    "nav": {
+      "workspace": "Workspace",
+      "changes": "Changes",
+      "newChange": "New change",
+      "foundation": "Service foundation",
+      "users": "People & access",
+      "notifications": "Notifications",
+      "details": "Change details",
+      "revise": "Revise change",
+      "label": "Workspace navigation",
+      "mobile": "Mobile navigation",
+      "breadcrumb": "Breadcrumb"
+    },
+    "context": {
+      "workspace": "Current workspace",
+      "account": "Your account",
+      "role": "Role",
+      "email": "Email",
+      "development": "Development workspace",
+      "memory": "Memory-only session",
+      "verified": "Membership verified"
+    },
+    "home": {
+      "title": "Your workspace, in focus.",
+      "welcome": "Welcome, {{name}}.",
+      "body": "Choose a work area to continue. The areas available to you follow your current membership.",
+      "areas": "Work areas",
+      "context": "Workspace context",
+      "identityOnly": "Your current membership provides workspace identity access. Contact your administrator if you need another work area.",
+      "changes": "Review change requests, their impact, and their progress.",
+      "foundation": "Maintain the service foundation and its relationships.",
+      "users": "Review members and manage workspace access.",
+      "notifications": "Follow activity relevant to your membership.",
+      "open": "Open {{area}}",
+      "limits": "Development limits",
+      "limitsBody": "Tenant risk-rule isolation and CAB enforcement are planned work. AI integration is not active.",
+      "access": "Available to your membership"
+    },
+    "verify": {
+      "title": "Verify your membership again?",
+      "body": "The workspace will reload its identity and permissions. Unsaved workspace changes will be cleared."
+    },
+    "legacy": {
+      "title": "Business workspace",
+      "body": "This existing workspace is available in English while its pages are being migrated. Your data and access rules stay the same.",
+      "loading": "Opening the business workspace",
+      "dataError": "The requested record could not be loaded.",
+      "tryAgain": "Try opening it again."
+    }
+  },
+  "states": {
+    "checking": {
+      "title": "Verifying your workspace",
+      "body": "Your data will appear after your session is verified."
+    },
+    "unavailable": {
+      "title": "We couldn't verify your session",
+      "body": "Your workspace data stays hidden. Try again, or return to sign in. No password was saved."
+    },
+    "forbidden": {
+      "title": "This page isn't available to your membership",
+      "body": "You can return to your workspace or contact your administrator if you need access."
+    },
+    "notFound": {
+      "title": "This page couldn't be found",
+      "body": "The address may have changed. Return to your workspace to continue."
+    },
+    "unexpected": {
+      "title": "The page couldn't be opened",
+      "body": "Try reloading the page. Your account details and request information have not been displayed."
+    }
+  }
+}

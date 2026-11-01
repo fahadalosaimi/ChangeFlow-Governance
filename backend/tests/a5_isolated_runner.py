@@ -72,6 +72,13 @@ def build_child_environment(directory, postgres_bin):
     return env
 
 
+def prepare_artifacts_root(value):
+    parent = Path(value).resolve(strict=True)
+    if not parent.is_dir() or parent.is_relative_to(BACKEND.parent.resolve()):
+        raise RuntimeError("Visual artifact parent must be outside the checkout")
+    return Path(tempfile.mkdtemp(prefix="changeflow-a5-t3-visual-", dir=parent))
+
+
 def child():
     import a5_isolation
     a5_isolation.install(os.environ["CHANGEFLOW_TEST_RUN_ROOT"])
@@ -134,6 +141,7 @@ def main():
     parser.add_argument("--postgres-bin")
     parser.add_argument("--browser-bin")
     parser.add_argument("--node-bin")
+    parser.add_argument("--artifacts-root")
     options, pytest_arguments = parser.parse_known_args()
     postgres_bin = resolve_postgres_bin(options.postgres_bin)
     with tempfile.TemporaryDirectory(prefix="changeflow-a5-run-") as directory:
@@ -145,6 +153,10 @@ def main():
                 if not binary.is_file():
                     raise RuntimeError("Test executable is unavailable")
                 env[name] = str(binary)
+        if options.artifacts_root:
+            artifact_directory = prepare_artifacts_root(options.artifacts_root)
+            env["CHANGEFLOW_TEST_ARTIFACTS_ROOT"] = str(artifact_directory)
+            print(json.dumps({"event": "synthetic_artifacts", "directory": str(artifact_directory)}), flush=True)
         print(json.dumps({"event": "isolated_run_started", "run_directory": directory}), flush=True)
         result = subprocess.run([sys.executable, "-B", __file__, "--child", "-q", "-ra",
                                  "--tb=short", "-p", "no:cacheprovider", *pytest_arguments],

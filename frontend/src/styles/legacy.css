@@ -1,0 +1,28 @@
+@layer compatibility {
+  .legacy-workspace { min-inline-size: 0; font-family: var(--font-ui); color: var(--text); }
+  .legacy-workspace .page { padding: 0; min-height: auto; min-block-size: 0; }
+  .legacy-workspace .app-header { display: none; }
+  .legacy-workspace :is(.panel, .stat-card, .inner-panel, .workspace-card, .summary-card) { background: var(--surface); border-color: var(--border); box-shadow: none; border-radius: var(--radius-md); }
+  .legacy-workspace :is(h1,h2,h3,h4,strong,label) { color: var(--text); }
+  .legacy-workspace :is(input,select,textarea) { background: var(--bg); color: var(--text); border-color: var(--border-strong); min-height: 44px; font-family: inherit; }
+  .legacy-workspace button { min-height: 44px; min-inline-size: 44px; font-family: inherit; }
+  .legacy-workspace .primary-button { background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); }
+  .legacy-workspace .primary-button:hover { background: #cbf7aa; color: var(--on-accent); }
+  .legacy-workspace .secondary-button { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+  .legacy-workspace .secondary-button:hover { background: var(--surface-hover); }
+  .legacy-workspace table { color: var(--text); font-variant-numeric: tabular-nums; }
+  .legacy-workspace :is(th,td) { background: transparent; border-color: var(--border); }
+  .legacy-workspace :is(.table-wrapper,.table-container,.table-scroll) { max-inline-size: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .legacy-workspace :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .legacy-workspace img { max-inline-size: 100%; }
+  .legacy-workspace :is(.status-badge,.risk-badge) { white-space: normal; }
+  @media (max-width: 600px) {
+    .legacy-workspace :is(.panel,.inner-panel) { padding: 1rem; }
+    .legacy-workspace .stats-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .legacy-workspace .stat-card { padding: 1rem; min-inline-size: 0; }
+    .legacy-workspace .stat-card strong { font-size: 1.5rem; }
+    .legacy-workspace :is(.section-header,.actions,.dashboard-filters) { flex-wrap: wrap; }
+    .legacy-workspace .section-header { align-items: flex-start; }
+    .legacy-workspace :is(input,select,textarea) { max-inline-size: 100%; }
+  }
+}

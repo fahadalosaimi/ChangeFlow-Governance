@@ -5,8 +5,9 @@ import { AuthStore } from './authStore.ts'
 import { createSessionStorage, discardLegacyToken } from './sessionStorage.ts'
 import { createInvitationFlow } from './invitationFlow.ts'
 import { recoveryAllowed } from './safeRedirect.ts'
+import { resolveWorkspaceRoute, withRecoveryMarker } from '../../app/routePolicy.ts'
 
-const destinations = new Set(['/workspace', '/workspace?memory=1', '/login', '/login?logout=1', '/invitations/accept'])
+const publicDestinations = new Set(['/login', '/login?logout=1', '/invitations/accept'])
 
 export function createBrowserRuntime() {
   const session = new ApiSession()
@@ -26,6 +27,8 @@ export function createBrowserRuntime() {
       }
     }, onAccepted: store.logout })
   let invitation = capture() // Removes the URL secret before React mounts.
+  let invitationVersion = 0
+  let navigateWithRouter: ((path: string, replace: boolean) => void) | null = null
   let version = 0
   let previousPath = window.location.pathname
   const listeners = new Set<() => void>()
@@ -36,6 +39,7 @@ export function createBrowserRuntime() {
     if (path === '/invitations/accept' && (window.location.hash || window.location.search)) {
       invitation.discard()
       invitation = capture()
+      invitationVersion++
     }
     previousPath = path
     notify()
@@ -45,12 +49,18 @@ export function createBrowserRuntime() {
   return {
     client, store,
     get invitation() { return invitation },
+    get invitationVersion() { return invitationVersion },
     path: () => window.location.pathname,
     getRouteSnapshot: () => `${window.location.pathname}:${version}`,
     subscribeRoute: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+    syncLocation: changed,
+    setNavigator: (navigate: (path: string, replace: boolean) => void) => { navigateWithRouter = navigate },
     navigate: (destination: string, replace = false) => {
-      const target = destinations.has(destination) ? destination : '/workspace'
+      const clean = destination.endsWith('?memory=1') ? destination.slice(0, -9) : destination
+      const target = publicDestinations.has(destination) ? destination
+        : resolveWorkspaceRoute(clean) ? withRecoveryMarker(clean, store.getSnapshot().storageWarning) : '/workspace'
       if (window.location.pathname === '/invitations/accept' && !target.startsWith('/invitations/accept')) invitation.discard()
+      if (navigateWithRouter) { navigateWithRouter(target, replace); return }
       if (replace) window.history.replaceState(null, '', target)
       else window.history.pushState(null, '', target)
       changed()

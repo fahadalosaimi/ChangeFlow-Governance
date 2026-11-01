@@ -1,0 +1,16 @@
+import { Link, useLocation } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import { resolveWorkspaceRoute } from '../../app/routePolicy.ts'
+import { Icon } from '../ui/Icon.tsx'
+
+export function Breadcrumbs() {
+  const { t } = useTranslation('shell')
+  const { pathname } = useLocation()
+  const route = resolveWorkspaceRoute(pathname)
+  return <nav className="breadcrumbs" aria-label={t('nav.breadcrumb')}><ol>
+    <li>{pathname === '/workspace' ? <span aria-current="page">{t('nav.workspace')}</span> : <Link to="/workspace">{t('nav.workspace')}</Link>}</li>
+    {route && pathname !== '/workspace' && <li><Icon name="chevron" className="icon-directional" />
+      <span aria-current="page">{t(route.title)}{route.changeId && <> <bdi dir="ltr">#{route.changeId}</bdi></>}</span>
+    </li>}
+  </ol></nav>
+}

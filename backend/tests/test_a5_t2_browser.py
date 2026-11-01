@@ -27,7 +27,8 @@ from app.services.auth_service import hash_password
 from app.settings import settings
 
 
-def test_browser_workspace_sessions_and_invitation_flow(workspace, mailbox, tmp_path):
+def run_browser_flow(workspace, mailbox, tmp_path, script="auth.mjs"):
+    assert script in {"auth.mjs", "presentation.mjs"}
     browser = os.environ.get("CHANGEFLOW_TEST_BROWSER_BIN")
     node = os.environ.get("CHANGEFLOW_TEST_NODE_BIN")
     if not browser or not node:
@@ -38,6 +39,8 @@ def test_browser_workspace_sessions_and_invitation_flow(workspace, mailbox, tmp_
         db.get(User, 2).password_hash = hash_password(password)
         db.get(User, 3).password_hash = hash_password(password)
         db.get(User, 3).role_id = 7
+        if script == "presentation.mjs":
+            db.get(User, 2).full_name = "سارة العبدالله — فريق الخدمات المؤسسية"
         db.commit()
     issued = issue(workspace, email="browser-invite@example.test")
     assert issued.status_code == 201
@@ -81,9 +84,15 @@ def test_browser_workspace_sessions_and_invitation_flow(workspace, mailbox, tmp_
         assert server.started, "Owned HTTP fixture failed to start"
         frontend = Path(__file__).resolve().parents[2] / "frontend"
         env = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR", "PATH", "PATHEXT", "COMSPEC", "TEMP", "TMP") if key in os.environ}
-        completed = subprocess.run([node, str(frontend/"e2e/auth.mjs"), "--api", api_origin,
+        arguments = [node, str(frontend/"e2e"/script), "--api", api_origin,
             "--frontend-port", str(frontend_port), "--browser-bin", browser,
-            "--temporary-root", str(tmp_path)], cwd=frontend, env=env, capture_output=True, text=True, timeout=180)
+            "--temporary-root", str(tmp_path)]
+        artifact_root = os.environ.get("CHANGEFLOW_TEST_ARTIFACTS_ROOT")
+        if artifact_root:
+            artifact_directory = Path(artifact_root) / script.removesuffix(".mjs")
+            artifact_directory.mkdir()
+            arguments += ["--artifacts-root", str(artifact_directory)]
+        completed = subprocess.run(arguments, cwd=frontend, env=env, capture_output=True, text=True, timeout=240)
         # The driver emits only three allowlisted metadata fields, never locals.
         lines = [line for line in completed.stdout.splitlines() if line.startswith("A5_BROWSER_METADATA=")]
         assert lines, "Browser driver produced no safe result"
@@ -96,3 +105,7 @@ def test_browser_workspace_sessions_and_invitation_flow(workspace, mailbox, tmp_
         thread.join(timeout=10)
         listener.close()
         assert not thread.is_alive(), "Owned HTTP fixture did not stop"
+
+
+def test_browser_workspace_sessions_and_invitation_flow(workspace, mailbox, tmp_path):
+    run_browser_flow(workspace, mailbox, tmp_path)

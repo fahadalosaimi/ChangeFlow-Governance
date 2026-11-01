@@ -1,7 +1,8 @@
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "./features/auth/useAuth.ts";
 import { createWorkspaceGateway } from "./features/auth/workspaceGateway.ts";
 import { canView } from "./features/auth/permissions.ts";
+import type { WorkspaceView } from "./features/auth/permissions.ts";
 import type { Permission } from "./types/api.ts";
 import { ApiError } from "./services/api/errors.ts";
 import "./App.css";
@@ -341,7 +342,16 @@ const riskRuleValueOptions: Record<string, string[]> = {
   ],
 };
 
-function App() {
+interface LegacyWorkspaceProps {
+  view: WorkspaceView;
+  changeId?: number;
+  onView: (view: WorkspaceView, changeId?: number) => void;
+  onNotice: (message: string) => void;
+  pending: ReactNode;
+  failure: ReactNode;
+}
+
+function App(props: LegacyWorkspaceProps) {
   const auth = useAuth();
   const currentUser = auth.state.user!;
   const sessionId = auth.state.binding!;
@@ -394,15 +404,9 @@ function App() {
   const [pirFollowUpActions, setPirFollowUpActions] = useState("");
   const [implementationActionLoading, setImplementationActionLoading] =
     useState(false);
-  const [view, setView] = useState<
-    | "dashboard"
-    | "new"
-    | "revise"
-    | "details"
-    | "foundation"
-    | "users"
-    | "notifications"
-  >("dashboard");
+  const view = props.view;
+  const setView = (next: WorkspaceView) => props.onView(next, selectedChange?.id);
+  const [failedRecordId, setFailedRecordId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [revisionComment, setRevisionComment] = useState("");
   const [approvalComment, setApprovalComment] = useState("");
@@ -510,7 +514,7 @@ function App() {
   const isSystemAdministrator = can("users.read");
 
   function notify(message: string) {
-    if (auth.store.getSnapshot().binding === sessionId) window.alert(message);
+    if (auth.store.getSnapshot().binding === sessionId) props.onNotice(message);
   }
 
   function handleLogout() {
@@ -1126,7 +1130,9 @@ function App() {
 
   async function openChangeDetails(
     changeId: number,
-    returnView: "dashboard" | "notifications" = "dashboard"
+    returnView: "dashboard" | "notifications" = "dashboard",
+    navigate = true,
+    signal?: AbortSignal,
   ) {
     try {
       const [
@@ -1136,25 +1142,26 @@ function App() {
         approvalsData,
         implementationData,
       ] = await Promise.all([
-          apiFetch(`/change-management/requests/${changeId}`).then((response) =>
+          apiFetch(`/change-management/requests/${changeId}`, { signal }).then((response) =>
             readResponse<ManagedChange>(response)
           ),
-          apiFetch(`/change-management/requests/${changeId}/history`).then(
+          apiFetch(`/change-management/requests/${changeId}/history`, { signal }).then(
             (response) => readResponse<StatusHistoryItem[]>(response)
           ),
-          apiFetch(`/change-management/requests/${changeId}/audit-logs`).then(
+          apiFetch(`/change-management/requests/${changeId}/audit-logs`, { signal }).then(
             (response) => readResponse<AuditLogItem[]>(response)
           ),
-          apiFetch(`/change-management/requests/${changeId}/approvals`).then(
+          apiFetch(`/change-management/requests/${changeId}/approvals`, { signal }).then(
             (response) => readResponse<ApprovalItem[]>(response)
           ),
           apiFetch(
-            `/change-management/requests/${changeId}/implementation`
+            `/change-management/requests/${changeId}/implementation`, { signal }
           ).then((response) =>
             readResponse<ChangeImplementation | null>(response)
           ),
         ]);
 
+      if (signal?.aborted) return false;
       setSelectedChange(changeData);
       setStatusHistory(historyData);
       setAuditLogs(auditData);
@@ -1169,11 +1176,28 @@ function App() {
       setPirSummary("");
       setPirFollowUpActions("");
       setDetailsReturnView(returnView);
-      setView("details");
+      if (navigate) props.onView("details", changeId);
+      return true;
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Unable to load change details.");
+      if (navigate && !signal?.aborted) notify(error instanceof Error ? error.message : "Unable to load change details.");
+      return false;
     }
   }
+
+  const recoverRouteRecord = useEffectEvent(async (id: number, signal: AbortSignal) => {
+    if (selectedChange?.id === id) return;
+    const loaded = await openChangeDetails(id, "dashboard", false, signal);
+    if (!signal.aborted) setFailedRecordId(loaded ? null : id);
+  });
+  useEffect(() => {
+    if (!props.changeId || (view !== "details" && view !== "revise")) return;
+    const controller = new AbortController();
+    void recoverRouteRecord(props.changeId, controller.signal);
+    return () => controller.abort();
+  }, [props.changeId, view]);
+
+  const prepareRevision = useEffectEvent(() => { if (view === "revise" && selectedChange?.id === props.changeId) startRevision(); });
+  useEffect(() => { prepareRevision(); }, [view, props.changeId, selectedChange?.id]);
 
   function toDateTimeLocalValue(value?: string) {
   if (!value) return "";
@@ -5181,11 +5205,14 @@ async function reviseManagedChange() {
   }
 
   if (!canView(view, currentUser.permissions)) {
-    return <main className="page" data-workspace-shell>{renderAccessDenied("Your current permissions do not allow this view.")}</main>;
+    return <section className="page" data-legacy-shell>{renderAccessDenied("Your current permissions do not allow this view.")}</section>;
   }
 
+  if ((view === "details" || view === "revise") && selectedChange?.id !== props.changeId)
+    return <section data-legacy-shell>{failedRecordId === props.changeId ? props.failure : props.pending}</section>;
+
   return (
-    <main className="page" data-workspace-shell>
+    <section className="page" data-legacy-shell>
       {view === "dashboard" && renderDashboard()}
       {(view === "new" || view === "revise") &&
         renderNewChange()}
@@ -5193,7 +5220,7 @@ async function reviseManagedChange() {
       {view === "foundation" && renderFoundationManagement()}
       {view === "users" && renderUserManagement()}
       {view === "notifications" && renderNotificationCenter()}
-    </main>
+    </section>
   );
 }
 

@@ -70,3 +70,22 @@ def test_metadata_filter_does_not_echo_traceback_copies_of_browser_output():
     result = sanitize(output)
     assert metadata in result
     assert all("synthetic private marker" not in line and "CompletedProcess" not in line for line in result)
+
+
+def test_visual_artifacts_stay_outside_checkout_and_preserve_existing_files(tmp_path, monkeypatch):
+    prepare = getattr(runner, "prepare_artifacts_root", None)
+    assert callable(prepare), "Owned artifact directory validation is missing"
+    checkout = tmp_path / "checkout"
+    backend = checkout / "backend"
+    backend.mkdir(parents=True)
+    monkeypatch.setattr(runner, "BACKEND", backend)
+    with pytest.raises(RuntimeError, match="outside"):
+        prepare(checkout)
+    screenshots = tmp_path / "screenshots"
+    screenshots.mkdir()
+    sentinel = screenshots / "existing.txt"
+    sentinel.write_text("synthetic metadata", encoding="utf-8")
+    created = prepare(screenshots)
+    assert created.parent == screenshots.resolve()
+    assert created.name.startswith("changeflow-a5-t3-visual-")
+    assert sentinel.read_text(encoding="utf-8") == "synthetic metadata"

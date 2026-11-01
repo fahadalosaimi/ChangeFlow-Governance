@@ -1,6 +1,6 @@
-export function safeReturnTo(value: string | null): string {
-  return value === '/workspace' ? value : '/workspace'
-}
+import { safeDestination, withRecoveryMarker } from '../../app/routePolicy.ts'
+
+export const safeReturnTo = safeDestination
 
 export function recoveryAllowed(search: string): boolean {
   const query = new URLSearchParams(search)
@@ -8,5 +8,5 @@ export function recoveryAllowed(search: string): boolean {
 }
 
 export function workspaceDestination(storageWarning: boolean): string {
-  return storageWarning ? '/workspace?memory=1' : '/workspace'
+  return withRecoveryMarker('/workspace', storageWarning)
 }
