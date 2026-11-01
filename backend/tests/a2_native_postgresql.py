@@ -65,6 +65,9 @@ def native_postgres_url(bin_directory):
         # fails startup; it never causes us to attach to the competing server.
         run(pg_ctl, "-D", data, "-l", root / "server.log", "-w", "start",
             "-o", f"-h 127.0.0.1 -p {port}")
+        # The A5 runner permits only a newly started cluster under its private root.
+        from a5_isolation import register_native_cluster, unregister_native_cluster
+        register_native_cluster(data, port, password)
         connection = psycopg2.connect(
             host="127.0.0.1", port=port, user="a1_test", password=password,
             dbname="postgres", connect_timeout=5,
@@ -90,6 +93,8 @@ def native_postgres_url(bin_directory):
         _SERVERS[url] = server
         yield url
     finally:
+        from a5_isolation import unregister_native_cluster
+        unregister_native_cluster(data)
         if server is not None:
             server.active = False
             _SERVERS.pop(url, None)

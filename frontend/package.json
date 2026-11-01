@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test": "node scripts/verify.mjs test",
+    "verify": "node scripts/verify.mjs all",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",

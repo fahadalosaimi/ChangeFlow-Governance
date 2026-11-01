@@ -69,6 +69,8 @@ class CurrentUserOutput(BaseModel):
     job_title: Optional[str] = None
     role_name: str
     department_name: Optional[str] = None
+    permissions: list[str]
+    workspace_slug: str
 
 
 class AdminUserOutput(BaseModel):

@@ -1,4 +1,5 @@
 from app.services.authorization import require_permissions
+from app.services.permissions import permissions_for_user
 from app.services.tenant_resources import local_user_ids
 from fastapi import (
     APIRouter,
@@ -49,6 +50,8 @@ def build_current_user_output(
     user: User,
 ) -> CurrentUserOutput:
     return CurrentUserOutput(
+        permissions=sorted(permissions_for_user(user)),
+        workspace_slug=user.organization.slug,
         id=user.id,
         organization_id=user.organization_id,
         department_id=user.department_id,
