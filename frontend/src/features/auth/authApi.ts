@@ -1,4 +1,4 @@
-import type { CurrentUser, LoginInput, Permission, TokenOutput } from '../../types/api.ts'
+import type { CurrentUser, InvitationInput, LoginInput, MembershipActivated, Permission, TokenOutput } from '../../types/api.ts'
 import type { ApiClient } from '../../services/api/client.ts'
 import { ApiError } from '../../services/api/errors.ts'
 
@@ -40,6 +40,18 @@ function decodeToken(value: unknown): TokenOutput {
 export function createAuthApi(client: ApiClient) {
   return {
     me: (signal?: AbortSignal) => client.request('/auth/me', { signal, decode: decodeIdentity }),
+    acceptInvitation: (input: InvitationInput, signal?: AbortSignal): Promise<MembershipActivated> =>
+      client.request('/auth/invitations/accept', { method: 'POST', authenticated: false, signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: input.token, password: input.password,
+          ...(input.full_name === undefined ? {} : { full_name: input.full_name }) }),
+        decode: (value) => {
+          const record = object(value)
+          if (!id(record.user_id) || !id(record.organization_id) || record.status !== 'activated')
+            throw new ApiError('invalid_response')
+          return { user_id: record.user_id as number, organization_id: record.organization_id as number,
+            status: 'activated' }
+        } }),
     login: (input: LoginInput, signal?: AbortSignal): Promise<TokenOutput> => {
       if (![input.tenant_slug, input.email, input.password].every((field) => typeof field === 'string' && field.length > 0))
         return Promise.reject(new ApiError('request_validation'))

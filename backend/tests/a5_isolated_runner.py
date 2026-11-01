@@ -8,8 +8,33 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import re
 
 BACKEND = Path(__file__).resolve().parents[1]
+
+
+def safe_output(output):
+    result = []
+    tags = ("A5_FAILURE_METADATA=", "A5_COUNTS_METADATA=", "A5_BROWSER_METADATA=")
+    for line in output.splitlines():
+        included = False
+        for tag in tags:
+            offset = line.find(tag)
+            if offset < 0 or re.fullmatch(r"[.FEsxX\[\]0-9% \t]*", line[:offset]) is None:
+                continue
+            try:
+                value = json.loads(line[offset+len(tag):])
+            except (ValueError, TypeError):
+                continue
+            if tag == "A5_BROWSER_METADATA=" and set(value) != {"passed", "failed", "phase"}:
+                continue
+            result.append(tag + json.dumps(value, separators=(",", ":")))
+            included = True
+            break
+        if not included and (line.startswith(("FAILED tests/", "ERROR tests/", "SKIPPED ["))
+            or re.fullmatch(r"\d+ (?:passed|failed|skipped|deselected|errors?).* in [0-9.]+s.*", line)):
+            result.append(line)
+    return result
 
 
 def resolve_postgres_bin(value):
@@ -74,6 +99,11 @@ def child():
             return result
 
         def pytest_runtest_logreport(self, report):
+            for line in (getattr(report, "capstdout", "").splitlines() if report.when == "call" else []):
+                if line.startswith("A5_BROWSER_METADATA="):
+                    evidence = json.loads(line.split("=", 1)[1])
+                    if set(evidence) == {"passed", "failed", "phase"}:
+                        print("A5_BROWSER_METADATA=" + json.dumps(evidence))
             if report.failed:
                 self.outcomes[report.nodeid] = "failed"
             elif report.skipped and self.outcomes.get(report.nodeid) != "failed":
@@ -102,22 +132,25 @@ def main():
     # Never inherit application credentials, provider keys, PG*, or PYTHONPATH.
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--postgres-bin")
+    parser.add_argument("--browser-bin")
+    parser.add_argument("--node-bin")
     options, pytest_arguments = parser.parse_known_args()
     postgres_bin = resolve_postgres_bin(options.postgres_bin)
     with tempfile.TemporaryDirectory(prefix="changeflow-a5-run-") as directory:
         env = build_child_environment(directory, postgres_bin)
+        for option, name in ((options.browser_bin, "CHANGEFLOW_TEST_BROWSER_BIN"),
+                             (options.node_bin, "CHANGEFLOW_TEST_NODE_BIN")):
+            if option:
+                binary = Path(option).resolve(strict=True)
+                if not binary.is_file():
+                    raise RuntimeError("Test executable is unavailable")
+                env[name] = str(binary)
         print(json.dumps({"event": "isolated_run_started", "run_directory": directory}), flush=True)
         result = subprocess.run([sys.executable, "-B", __file__, "--child", "-q", "-ra",
                                  "--tb=short", "-p", "no:cacheprovider", *pytest_arguments],
                                 env=env, cwd=BACKEND, capture_output=True, text=True)
         # Only summaries and test names reach the terminal, never assertion locals.
-        lines = (result.stdout + result.stderr).splitlines()
-        safe = [line for line in lines if (
-            line.startswith(("FAILED tests/", "ERROR tests/", "SKIPPED ["))
-            or "A5_FAILURE_METADATA=" in line
-            or "A5_COUNTS_METADATA=" in line
-            or (" in " in line and any(word in line for word in (" passed", " failed", " error", " skipped")))
-        )]
+        safe = safe_output(result.stdout + result.stderr)
         print(json.dumps({"exit_code": result.returncode, "summary": safe,
                           "raw_output_withheld": True}))
         raise SystemExit(result.returncode)

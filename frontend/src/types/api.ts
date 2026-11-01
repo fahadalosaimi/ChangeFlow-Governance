@@ -17,3 +17,5 @@ export interface CurrentUser {
 
 export interface LoginInput { tenant_slug: string; email: string; password: string }
 export interface TokenOutput { access_token: string; token_type: 'bearer' }
+export interface InvitationInput { token: string; password: string; full_name?: string }
+export interface MembershipActivated { user_id: number; organization_id: number; status: 'activated' }

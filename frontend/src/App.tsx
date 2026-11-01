@@ -1,8 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useAuth } from "./features/auth/useAuth.ts";
+import { createWorkspaceGateway } from "./features/auth/workspaceGateway.ts";
+import { canView } from "./features/auth/permissions.ts";
+import type { Permission } from "./types/api.ts";
+import { ApiError } from "./services/api/errors.ts";
 import "./App.css";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
-const TOKEN_STORAGE_KEY = "changeflow_access_token";
 
 type FoundationOverview = {
   organizations: number;
@@ -203,28 +206,6 @@ type NewChangeForm = {
   planned_end: string;
 };
 
-type CurrentUser = {
-  id: number;
-  organization_id: number;
-  department_id?: number | null;
-  full_name: string;
-  email: string;
-  job_title?: string | null;
-  role_name: string;
-  department_name?: string | null;
-};
-
-type LoginForm = {
-  email: string;
-  password: string;
-};
-
-type SignupForm = {
-  full_name: string;
-  email: string;
-  password: string;
-  job_title: string;
-};
 
 type AdminUser = {
   id: number;
@@ -361,26 +342,12 @@ const riskRuleValueOptions: Record<string, string[]> = {
 };
 
 function App() {
-  const [token, setToken] = useState<string>(
-    () => localStorage.getItem(TOKEN_STORAGE_KEY) || ""
-  );
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState("");
-  const [loginForm, setLoginForm] = useState<LoginForm>({
-    email: "",
-    password: "",
-  });
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [registerLoading, setRegisterLoading] = useState(false);
-  const [signupForm, setSignupForm] = useState<SignupForm>({
-    full_name: "",
-    email: "",
-    password: "",
-    job_title: "",
-  });
-
+  const auth = useAuth();
+  const currentUser = auth.state.user!;
+  const sessionId = auth.state.binding!;
+  const can = (permission: Permission) => currentUser.permissions.includes(permission);
+  const gateway = useMemo(() => createWorkspaceGateway(auth.client, auth.store.getSnapshot, sessionId),
+    [auth.client, auth.store, sessionId]);
   const [foundationOverview, setFoundationOverview] =
     useState<FoundationOverview | null>(null);
   const [dashboardOverview, setDashboardOverview] =
@@ -537,133 +504,32 @@ function App() {
     planned_end: "",
   });
 
-  const isRequester = currentUser?.role_name === "Requester";
-  const isChangeManager = currentUser?.role_name === "Change Manager";
-  const isCmdbManager = currentUser?.role_name === "CMDB Manager";
-  const isSystemAdministrator =
-    currentUser?.role_name === "System Administrator";
+  const isRequester = can("changes.create");
+  const isChangeManager = can("changes.approve");
+  const isCmdbManager = can("foundation.write");
+  const isSystemAdministrator = can("users.read");
 
-  function clearSession() {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-    setToken("");
-    setCurrentUser(null);
-    setWorkQueueOverview(null);
-    setDeliveryQueueOverview(null);
-    setSelectedChange(null);
-    setImplementationRecord(null);
-    setImplementationStartNotes("");
-    setImplementationOutcome("");
-    setImplementationValidation("");
-    setImplementationFailure("");
-    setImplementationRollbackReason("");
-    setPirResult("Successful");
-    setPirSummary("");
-    setPirFollowUpActions("");
-    setImplementationActionLoading(false);
-    setChanges([]);
-    setChangeRequesterOptions([]);
-    setChangeSearch("");
-    setChangeStatusFilter("");
-    setChangeRiskFilter("");
-    setChangeTypeFilter("");
-    setChangeRequesterFilter("");
-    setChangeCreatedFrom("");
-    setChangeCreatedTo("");
-    setChangePage(1);
-    setChangePageSize(5);
-    setChangeTotal(0);
-    setChangeTotalPages(1);
-    setChangeRecordsError("");
-    setManagedUsers([]);
-    setManagedRoles([]);
-    setUserAdministrationAuditLogs([]);
-    setUserEdits({});
-    setUserSearch("");
-    setUserRoleFilter("");
-    setUserStatusFilter("");
-    setUserPage(1);
-    setUserPageSize(5);
-    setUserTotal(0);
-    setUserTotalPages(1);
-    setUserAuditSearch("");
-    setUserAuditActionFilter("");
-    setUserAuditPage(1);
-    setUserAuditPageSize(5);
-    setUserAuditTotal(0);
-    setUserAuditTotalPages(1);
-    setUserAccountSummary({
-      total: 0,
-      active: 0,
-      inactive: 0,
-    });
-    setNotifications([]);
-    setNotificationUnreadCount(0);
-    setNotificationSearch("");
-    setNotificationTypeFilter("");
-    setNotificationUnreadOnly(false);
-    setNotificationPage(1);
-    setNotificationPageSize(10);
-    setNotificationTotal(0);
-    setNotificationTotalPages(1);
-    setNotificationError("");
-    setNotificationActionId(null);
-    setMarkingAllNotifications(false);
-    setDetailsReturnView("dashboard");
-    setView("dashboard");
+  function notify(message: string) {
+    if (auth.store.getSnapshot().binding === sessionId) window.alert(message);
   }
 
   function handleLogout() {
-    clearSession();
-    setLoginForm({ email: "", password: "" });
-    setSignupForm({
-      full_name: "",
-      email: "",
-      password: "",
-      job_title: "",
-    });
-    setAuthMode("login");
-    setLoginError("");
+    auth.store.logout();
+    auth.runtime.navigate("/login?logout=1");
   }
 
-  async function apiFetch(
-    path: string,
-    options: RequestInit = {},
-    accessToken: string = token
-  ) {
-    const headers = new Headers(options.headers);
-
-    if (accessToken) {
-      headers.set("Authorization", `Bearer ${accessToken}`);
+  async function apiFetch(path: string, options: RequestInit = {}, _binding: string = sessionId) {
+    try { return await gateway(path, options); }
+    catch (error) {
+      if (error instanceof ApiError && error.code === "forbidden"
+          && auth.store.getSnapshot().binding === sessionId) void auth.store.recover();
+      throw error;
     }
-
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      headers,
-    });
-
-    if (response.status === 401) {
-      clearSession();
-    }
-
-    return response;
   }
 
-  async function readResponse<T>(response: Response): Promise<T> {
-    const data = await response.json().catch(() => null);
+  async function readResponse<T>(data: unknown): Promise<T> { return data as T; }
 
-    if (!response.ok) {
-      const message =
-        data && typeof data === "object" && "detail" in data
-          ? String(data.detail)
-          : "The request could not be completed.";
-
-      throw new Error(message);
-    }
-
-    return data as T;
-  }
-
-  async function loadData(accessToken: string = token) {
+  async function loadData(requestBinding: string = sessionId) {
     try {
       const [
         foundationData,
@@ -677,40 +543,40 @@ function App() {
         riskRulesData,
         requesterOptionsData,
       ] = await Promise.all([
-        apiFetch("/foundation/overview", {}, accessToken).then((response) =>
+        (can("foundation.read") ? apiFetch("/foundation/overview", {}, requestBinding).then((response) =>
           readResponse<FoundationOverview>(response)
-        ),
-        apiFetch("/change-management/dashboard/overview", {}, accessToken).then(
+        ) : Promise.resolve(null)),
+        (can("changes.read") ? apiFetch("/change-management/dashboard/overview", {}, requestBinding).then(
           (response) => readResponse<DashboardOverview>(response)
-        ),
-        apiFetch(
+        ) : Promise.resolve(null)),
+        (can("changes.read") ? apiFetch(
           "/change-management/dashboard/work-queues",
           {},
-          accessToken
-        ).then((response) => readResponse<WorkQueueOverview>(response)),
-        apiFetch(
+          requestBinding
+        ).then((response) => readResponse<WorkQueueOverview>(response)) : Promise.resolve(null)),
+        (can("changes.read") ? apiFetch(
           "/change-management/dashboard/delivery-queues",
           {},
-          accessToken
-        ).then((response) => readResponse<DeliveryQueueOverview>(response)),
-        apiFetch("/foundation/systems", {}, accessToken).then((response) =>
+          requestBinding
+        ).then((response) => readResponse<DeliveryQueueOverview>(response)) : Promise.resolve(null)),
+        (can("foundation.read") ? apiFetch("/foundation/systems", {}, requestBinding).then((response) =>
           readResponse<ITSystem[]>(response)
-        ),
-        apiFetch("/foundation/departments", {}, accessToken).then((response) =>
+        ) : Promise.resolve([])),
+        (can("foundation.read") ? apiFetch("/foundation/departments", {}, requestBinding).then((response) =>
           readResponse<Department[]>(response)
-        ),
-        apiFetch("/foundation/dependencies", {}, accessToken).then((response) =>
+        ) : Promise.resolve([])),
+        (can("foundation.read") ? apiFetch("/foundation/dependencies", {}, requestBinding).then((response) =>
           readResponse<SystemDependency[]>(response)
-        ),
-        apiFetch("/foundation/incidents", {}, accessToken).then((response) =>
+        ) : Promise.resolve([])),
+        (can("foundation.read") ? apiFetch("/foundation/incidents", {}, requestBinding).then((response) =>
           readResponse<HistoricalIncident[]>(response)
-        ),
-        apiFetch("/foundation/risk-rules", {}, accessToken).then((response) =>
+        ) : Promise.resolve([])),
+        (can("risk_rules.read") ? apiFetch("/foundation/risk-rules", {}, requestBinding).then((response) =>
           readResponse<RiskRule[]>(response)
-        ),
-        apiFetch("/foundation/users", {}, accessToken).then((response) =>
+        ) : Promise.resolve([])),
+        (can("foundation.read") ? apiFetch("/foundation/users", {}, requestBinding).then((response) =>
           readResponse<FoundationUser[]>(response)
-        ),
+        ) : Promise.resolve([])),
       ]);
 
       setFoundationOverview(foundationData);
@@ -724,14 +590,14 @@ function App() {
       setRiskRules(riskRulesData);
       setChangeRequesterOptions(requesterOptionsData);
 
-      await loadChangeRecordsPage(accessToken, changePage);
-    } catch (error) {
-      console.error(error);
+      if (can("changes.read")) await loadChangeRecordsPage(requestBinding, changePage);
+    } catch {
+      // The session-bound API client exposes only safe request errors.
     }
   }
 
   async function loadChangeRecordsPage(
-    accessToken: string = token,
+    requestBinding: string = sessionId,
     requestedPage: number = changePage
   ) {
     setChangeRecordsLoading(true);
@@ -784,7 +650,7 @@ function App() {
       const response = await apiFetch(
         `/change-management/requests/paged?${params.toString()}`,
         {},
-        accessToken
+        requestBinding
       );
 
       const data = await readResponse<PagedResponse<ManagedChange>>(response);
@@ -811,23 +677,23 @@ function App() {
   }
 
   async function loadNotificationUnreadCount(
-    accessToken: string = token
+    requestBinding: string = sessionId
   ) {
     try {
       const response = await apiFetch(
         "/notifications/unread-count",
         {},
-        accessToken
+        requestBinding
       );
       const data = await readResponse<NotificationUnreadCount>(response);
       setNotificationUnreadCount(data.unread_count);
-    } catch (error) {
-      console.error("Unable to load notification count.", error);
+    } catch {
+      // No credential or request details are logged.
     }
   }
 
   async function loadNotificationsPage(
-    accessToken: string = token,
+    requestBinding: string = sessionId,
     requestedPage: number = notificationPage
   ) {
     setNotificationLoading(true);
@@ -851,7 +717,7 @@ function App() {
       const response = await apiFetch(
         `/notifications/paged?${params.toString()}`,
         {},
-        accessToken
+        requestBinding
       );
       const data = await readResponse<PagedResponse<NotificationItem>>(response);
 
@@ -952,7 +818,7 @@ function App() {
       setNotificationUnreadCount(0);
 
       if (notificationUnreadOnly) {
-        await loadNotificationsPage(token, 1);
+        await loadNotificationsPage(sessionId, 1);
         setNotificationPage(1);
       }
     } catch (error) {
@@ -966,7 +832,7 @@ function App() {
     }
   }
 
-  async function loadUserManagementData(accessToken: string = token) {
+  async function loadUserManagementData(requestBinding: string = sessionId) {
     setUserManagementLoading(true);
 
     try {
@@ -976,27 +842,27 @@ function App() {
         activeData,
         inactiveData,
       ] = await Promise.all([
-        apiFetch("/auth/admin/roles", {}, accessToken).then((response) =>
+        apiFetch("/auth/admin/roles", {}, requestBinding).then((response) =>
           readResponse<RoleOption[]>(response)
         ),
         apiFetch(
           "/auth/admin/users/paged?page=1&page_size=1",
           {},
-          accessToken
+          requestBinding
         ).then((response) =>
           readResponse<PagedResponse<AdminUser>>(response)
         ),
         apiFetch(
           "/auth/admin/users/paged?page=1&page_size=1&is_active=active",
           {},
-          accessToken
+          requestBinding
         ).then((response) =>
           readResponse<PagedResponse<AdminUser>>(response)
         ),
         apiFetch(
           "/auth/admin/users/paged?page=1&page_size=1&is_active=inactive",
           {},
-          accessToken
+          requestBinding
         ).then((response) =>
           readResponse<PagedResponse<AdminUser>>(response)
         ),
@@ -1009,7 +875,7 @@ function App() {
         inactive: inactiveData.total,
       });
     } catch (error) {
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Unable to load user administration summary."
@@ -1020,7 +886,7 @@ function App() {
   }
 
   async function loadManagedUsersPage(
-    accessToken: string = token,
+    requestBinding: string = sessionId,
     requestedPage: number = userPage
   ) {
     setUsersPageLoading(true);
@@ -1046,7 +912,7 @@ function App() {
       const response = await apiFetch(
         `/auth/admin/users/paged?${params.toString()}`,
         {},
-        accessToken
+        requestBinding
       );
 
       const data = await readResponse<PagedResponse<AdminUser>>(response);
@@ -1071,7 +937,7 @@ function App() {
         )
       );
     } catch (error) {
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Unable to load user accounts."
@@ -1082,7 +948,7 @@ function App() {
   }
 
   async function loadUserAdministrationAuditPage(
-    accessToken: string = token,
+    requestBinding: string = sessionId,
     requestedPage: number = userAuditPage
   ) {
     setUserAuditPageLoading(true);
@@ -1104,7 +970,7 @@ function App() {
       const response = await apiFetch(
         `/auth/admin/audit-logs/paged?${params.toString()}`,
         {},
-        accessToken
+        requestBinding
       );
 
       const data =
@@ -1118,7 +984,7 @@ function App() {
         setUserAuditPage(data.total_pages);
       }
     } catch (error) {
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Unable to load access administration records."
@@ -1136,69 +1002,41 @@ function App() {
     ]);
   }
 
-  async function initializeSession(accessToken: string) {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+  const loadWorkspaceData = useEffectEvent(async () => {
+    if (can("users.read")) await loadUserManagementData();
+    else await loadData();
+    if (can("notifications.own")) await loadNotificationUnreadCount();
+  });
+  useEffect(() => { void loadWorkspaceData(); }, [sessionId]);
+  const loadChangesForEffect = useEffectEvent(() => {
+    if (can("changes.read") && view === "dashboard") void loadChangeRecordsPage();
+  });
+  const loadUsersForEffect = useEffectEvent(() => {
+    if (can("users.read") && view === "users") void loadManagedUsersPage();
+  });
+  const loadAuditForEffect = useEffectEvent(() => {
+    if (can("audit.read") && view === "users") void loadUserAdministrationAuditPage();
+  });
+  const loadCountForEffect = useEffectEvent(() => {
+    if (can("notifications.own")) void loadNotificationUnreadCount();
+  });
+  const loadNotificationsForEffect = useEffectEvent(() => {
+    if (can("notifications.own") && view === "notifications") void loadNotificationsPage();
+  });
 
-    const user = await readResponse<CurrentUser>(response);
-    setCurrentUser(user);
-
-    if (user.role_name === "System Administrator") {
-      await loadUserManagementData(accessToken);
-    } else {
-      await loadData(accessToken);
-    }
-
-    await loadNotificationUnreadCount(accessToken);
-  }
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function restoreSession() {
-      if (!token) {
-        setAuthLoading(false);
-        return;
-      }
-
-      setAuthLoading(true);
-
-      try {
-        await initializeSession(token);
-      } catch (error) {
-        if (!isCancelled) {
-          console.error(error);
-          clearSession();
-        }
-      } finally {
-        if (!isCancelled) {
-          setAuthLoading(false);
-        }
-      }
-    }
-
-    restoreSession();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [token]);
 
   useEffect(() => {
-    if (!token || isSystemAdministrator || view !== "dashboard") {
+    if (view !== "dashboard") {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      loadChangeRecordsPage();
+      loadChangesForEffect();
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
   }, [
-    token,
+    sessionId,
     isSystemAdministrator,
     view,
     changePage,
@@ -1213,17 +1051,17 @@ function App() {
   ]);
 
   useEffect(() => {
-    if (!token || !isSystemAdministrator || view !== "users") {
+    if (!sessionId || !isSystemAdministrator || view !== "users") {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      loadManagedUsersPage();
+      loadUsersForEffect();
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
   }, [
-    token,
+    sessionId,
     isSystemAdministrator,
     view,
     userPage,
@@ -1234,17 +1072,17 @@ function App() {
   ]);
 
   useEffect(() => {
-    if (!token || !isSystemAdministrator || view !== "users") {
+    if (!sessionId || !isSystemAdministrator || view !== "users") {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      loadUserAdministrationAuditPage();
+      loadAuditForEffect();
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
   }, [
-    token,
+    sessionId,
     isSystemAdministrator,
     view,
     userAuditPage,
@@ -1254,29 +1092,29 @@ function App() {
   ]);
 
   useEffect(() => {
-    if (!token || !currentUser) {
+    if (!sessionId) {
       return;
     }
 
     const intervalId = window.setInterval(() => {
-      loadNotificationUnreadCount();
+      loadCountForEffect();
     }, 30000);
 
     return () => window.clearInterval(intervalId);
-  }, [token, currentUser?.id]);
+  }, [sessionId, currentUser?.id]);
 
   useEffect(() => {
-    if (!token || !currentUser || view !== "notifications") {
+    if (!sessionId || view !== "notifications") {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      loadNotificationsPage();
+      loadNotificationsForEffect();
     }, 250);
 
     return () => window.clearTimeout(timeoutId);
   }, [
-    token,
+    sessionId,
     currentUser?.id,
     view,
     notificationPage,
@@ -1285,96 +1123,6 @@ function App() {
     notificationTypeFilter,
     notificationUnreadOnly,
   ]);
-
-  async function authenticate(email: string, password: string) {
-    const formBody = new URLSearchParams();
-    formBody.set("username", email.trim().toLowerCase());
-    formBody.set("password", password);
-    formBody.set("grant_type", "password");
-
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formBody,
-    });
-
-    const data = await readResponse<{
-      access_token: string;
-      token_type: string;
-    }>(response);
-
-    localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
-    setToken(data.access_token);
-  }
-
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!loginForm.email.trim() || !loginForm.password) {
-      setLoginError("Enter your email address and password.");
-      return;
-    }
-
-    setLoginLoading(true);
-    setLoginError("");
-
-    try {
-      await authenticate(loginForm.email, loginForm.password);
-    } catch (error) {
-      setLoginError(
-        error instanceof Error ? error.message : "Unable to sign in."
-      );
-    } finally {
-      setLoginLoading(false);
-    }
-  }
-
-  async function handleRegister(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (
-      !signupForm.full_name.trim() ||
-      !signupForm.email.trim() ||
-      !signupForm.password
-    ) {
-      setLoginError("Enter your full name, email address, and password.");
-      return;
-    }
-
-    if (signupForm.password.length < 8) {
-      setLoginError("Password must contain at least 8 characters.");
-      return;
-    }
-
-    setRegisterLoading(true);
-    setLoginError("");
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          full_name: signupForm.full_name.trim(),
-          email: signupForm.email.trim().toLowerCase(),
-          password: signupForm.password,
-          job_title: signupForm.job_title.trim() || null,
-        }),
-      });
-
-      await readResponse<CurrentUser>(response);
-      await authenticate(signupForm.email, signupForm.password);
-    } catch (error) {
-      setLoginError(
-        error instanceof Error ? error.message : "Unable to create account."
-      );
-    } finally {
-      setRegisterLoading(false);
-    }
-  }
 
   async function openChangeDetails(
     changeId: number,
@@ -1423,7 +1171,7 @@ function App() {
       setDetailsReturnView(returnView);
       setView("details");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Unable to load change details.");
+      notify(error instanceof Error ? error.message : "Unable to load change details.");
     }
   }
 
@@ -1441,7 +1189,7 @@ function startRevision() {
     !isRequester ||
     selectedChange.status !== "Needs More Information"
   ) {
-    alert("This change request cannot currently be revised.");
+    notify("This change request cannot currently be revised.");
     return;
   }
 
@@ -1472,12 +1220,12 @@ function startRevision() {
 }
   async function createManagedChange() {
     if (!isRequester) {
-      alert("Only Requester users can register change requests.");
+      notify("Only Requester users can register change requests.");
       return;
     }
 
     if (!form.title || !form.description || form.affected_system_ids.length === 0) {
-      alert(
+      notify(
         "Please provide title, description, and select at least one directly affected configuration item."
       );
       return;
@@ -1527,7 +1275,7 @@ function startRevision() {
       await loadData();
       await openChangeDetails(data.id);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Error creating change request.");
+      notify(error instanceof Error ? error.message : "Error creating change request.");
     } finally {
       setLoading(false);
     }
@@ -1537,7 +1285,7 @@ async function reviseManagedChange() {
   if (!selectedChange) return;
 
   if (!isRequester) {
-    alert("Only the requester can revise this change request.");
+    notify("Only the requester can revise this change request.");
     return;
   }
 
@@ -1546,14 +1294,14 @@ async function reviseManagedChange() {
     !form.description.trim() ||
     form.affected_system_ids.length === 0
   ) {
-    alert(
+    notify(
       "Please provide title, description, and at least one directly affected configuration item."
     );
     return;
   }
 
   if (!revisionComment.trim()) {
-    alert("Please explain what was updated in this revision.");
+    notify("Please explain what was updated in this revision.");
     return;
   }
 
@@ -1595,7 +1343,7 @@ async function reviseManagedChange() {
     await loadData();
     await openChangeDetails(data.id);
   } catch (error) {
-    alert(
+    notify(
       error instanceof Error
         ? error.message
         : "Unable to revise and resubmit the change request."
@@ -1609,7 +1357,7 @@ async function reviseManagedChange() {
     if (!selectedChange) return;
     
     if (!isChangeManager) {
-      alert(
+      notify(
         "Only users assigned the Change Manager role can submit authorization decisions."
       );
       return;
@@ -1619,7 +1367,7 @@ async function reviseManagedChange() {
       decision === "Needs More Information" &&
       !approvalComment.trim()
     ) {
-      alert(
+      notify(
         "Please explain what additional information the requester must provide."
       );
       return;
@@ -1657,7 +1405,7 @@ async function reviseManagedChange() {
       await openChangeDetails(selectedChange.id);
       await loadData();
     } catch (error) {
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Unable to submit the authorization decision."
@@ -1673,8 +1421,8 @@ async function reviseManagedChange() {
   ) {
     if (!selectedChange) return;
 
-    if (!isChangeManager) {
-      alert(
+    if (!can("changes.implement")) {
+      notify(
         "Only users assigned the Change Manager role can manage implementation execution."
       );
       return;
@@ -1698,7 +1446,7 @@ async function reviseManagedChange() {
       await openChangeDetails(selectedChange.id, detailsReturnView);
       await loadData();
     } catch (error) {
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Unable to update the implementation lifecycle."
@@ -1716,7 +1464,7 @@ async function reviseManagedChange() {
 
   async function completeImplementation() {
     if (!implementationOutcome.trim() || !implementationValidation.trim()) {
-      alert(
+      notify(
         "Provide the implementation outcome and validation results before completion."
       );
       return;
@@ -1730,7 +1478,7 @@ async function reviseManagedChange() {
 
   async function failImplementation() {
     if (!implementationFailure.trim()) {
-      alert("Document the implementation failure before recording it.");
+      notify("Document the implementation failure before recording it.");
       return;
     }
 
@@ -1741,7 +1489,7 @@ async function reviseManagedChange() {
 
   async function recordImplementationRollback() {
     if (!implementationRollbackReason.trim()) {
-      alert("Document the rollback reason before recording the rollback.");
+      notify("Document the rollback reason before recording the rollback.");
       return;
     }
 
@@ -1752,7 +1500,7 @@ async function reviseManagedChange() {
 
   async function completePostImplementationReview() {
     if (!pirSummary.trim()) {
-      alert("Document the post-implementation review summary.");
+      notify("Document the post-implementation review summary.");
       return;
     }
 
@@ -1804,12 +1552,12 @@ async function reviseManagedChange() {
 
   async function createConfigurationItem() {
     if (!isCmdbManager) {
-      alert("Only CMDB Manager users can register configuration items.");
+      notify("Only CMDB Manager users can register configuration items.");
       return;
     }
 
     if (!newConfigItem.name.trim()) {
-      alert("Please enter configuration item name.");
+      notify("Please enter configuration item name.");
       return;
     }
 
@@ -1820,7 +1568,6 @@ async function reviseManagedChange() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          organization_id: currentUser?.organization_id ?? 1,
           department_id: newConfigItem.department_id
             ? Number(newConfigItem.department_id)
             : null,
@@ -1847,9 +1594,9 @@ async function reviseManagedChange() {
       });
 
       await loadData();
-      alert("Configuration item registered successfully.");
+      notify("Configuration item registered successfully.");
     } catch (error) {
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Error creating configuration item."
@@ -1903,19 +1650,19 @@ async function reviseManagedChange() {
 
   async function createDependency() {
     if (!isCmdbManager) {
-      alert("Only CMDB Manager users can register dependencies.");
+      notify("Only CMDB Manager users can register dependencies.");
       return;
     }
 
     if (!newDependency.source_system_id || !newDependency.target_system_id) {
-      alert(
+      notify(
         "Please select both the dependent item and the required configuration item."
       );
       return;
     }
 
     if (newDependency.source_system_id === newDependency.target_system_id) {
-      alert("A configuration item cannot depend on itself.");
+      notify("A configuration item cannot depend on itself.");
       return;
     }
 
@@ -1945,9 +1692,9 @@ async function reviseManagedChange() {
       });
 
       await loadData();
-      alert("Dependency relationship registered successfully.");
+      notify("Dependency relationship registered successfully.");
     } catch (error) {
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Error creating dependency relationship."
@@ -1957,17 +1704,17 @@ async function reviseManagedChange() {
 
   async function createHistoricalIncident() {
     if (!isCmdbManager) {
-      alert("Only CMDB Manager users can register historical incidents.");
+      notify("Only CMDB Manager users can register historical incidents.");
       return;
     }
 
     if (!newIncident.system_id) {
-      alert("Please select a configuration item.");
+      notify("Please select a configuration item.");
       return;
     }
 
     if (!newIncident.title.trim()) {
-      alert("Please enter the incident title.");
+      notify("Please enter the incident title.");
       return;
     }
 
@@ -1976,7 +1723,7 @@ async function reviseManagedChange() {
       newIncident.resolved_at &&
       new Date(newIncident.resolved_at) < new Date(newIncident.occurred_at)
     ) {
-      alert("Resolved date cannot be earlier than incident date.");
+      notify("Resolved date cannot be earlier than incident date.");
       return;
     }
 
@@ -2010,9 +1757,9 @@ async function reviseManagedChange() {
       });
 
       await loadData();
-      alert("Historical incident registered successfully.");
+      notify("Historical incident registered successfully.");
     } catch (error) {
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Error registering historical incident."
@@ -2021,18 +1768,18 @@ async function reviseManagedChange() {
   }
 
   async function createRiskRule() {
-    if (!isCmdbManager) {
-      alert("Only CMDB Manager users can register risk rules.");
+    if (!can("risk_rules.write")) {
+      notify("Only CMDB Manager users can register risk rules.");
       return;
     }
 
     if (!newRiskRule.name.trim()) {
-      alert("Please enter the risk rule name.");
+      notify("Please enter the risk rule name.");
       return;
     }
 
     if (Number(newRiskRule.score) < 0) {
-      alert("Risk score cannot be negative.");
+      notify("Risk score cannot be negative.");
       return;
     }
 
@@ -2064,15 +1811,15 @@ async function reviseManagedChange() {
       });
 
       await loadData();
-      alert("Risk rule registered successfully.");
+      notify("Risk rule registered successfully.");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Error creating risk rule.");
+      notify(error instanceof Error ? error.message : "Error creating risk rule.");
     }
   }
 
   async function toggleRiskRuleStatus(rule: RiskRule) {
-    if (!isCmdbManager) {
-      alert("Only CMDB Manager users can update risk rules.");
+    if (!can("risk_rules.write")) {
+      notify("Only CMDB Manager users can update risk rules.");
       return;
     }
 
@@ -2089,13 +1836,13 @@ async function reviseManagedChange() {
       await readResponse(response);
       await loadData();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Error updating risk rule.");
+      notify(error instanceof Error ? error.message : "Error updating risk rule.");
     }
   }
 
   async function openUserManagement() {
     if (!isSystemAdministrator) {
-      alert("Only System Administrator users can manage accounts.");
+      notify("Only System Administrator users can manage accounts.");
       return;
     }
 
@@ -2126,8 +1873,8 @@ async function reviseManagedChange() {
   }
 
   async function saveManagedUser(user: AdminUser) {
-    if (!isSystemAdministrator) {
-      alert("Only System Administrator users can update accounts.");
+    if (!can("users.update")) {
+      notify("Only System Administrator users can update accounts.");
       return;
     }
 
@@ -2141,7 +1888,7 @@ async function reviseManagedChange() {
       edit.role_name === user.role_name &&
       edit.is_active === user.is_active
     ) {
-      alert("No account changes were detected.");
+      notify("No account changes were detected.");
       return;
     }
 
@@ -2179,7 +1926,7 @@ async function reviseManagedChange() {
         loadManagedUsersPage(),
         loadUserAdministrationAuditPage(),
       ]);
-      alert("User account updated successfully.");
+      notify("User account updated successfully.");
     } catch (error) {
       setUserEdits((current) => ({
         ...current,
@@ -2188,7 +1935,7 @@ async function reviseManagedChange() {
           is_active: user.is_active,
         },
       }));
-      alert(
+      notify(
         error instanceof Error
           ? error.message
           : "Unable to update the user account."
@@ -2231,160 +1978,6 @@ async function reviseManagedChange() {
           Back to Dashboard
         </button>
       </section>
-    );
-  }
-
-  function renderLogin() {
-    const isSignup = authMode === "signup";
-
-    return (
-      <main className="login-page">
-        <section className="login-shell">
-          <div className="login-brand-panel">
-            <span className="login-eyebrow">Enterprise Change Governance</span>
-            <h1>ChangeFlow Governance</h1>
-            <p>
-              Assess change impact, manage authorization workflows, and maintain
-              audit-ready records through role-based access.
-            </p>
-
-            <div className="login-feature-list">
-              <span>Database-driven impact assessment</span>
-              <span>Role-based authorization</span>
-              <span>CMDB foundation and audit trail</span>
-            </div>
-          </div>
-
-          <section className="panel login-panel">
-            <div className="login-form-heading">
-              <h2>{isSignup ? "Create Requester Account" : "Welcome Back"}</h2>
-              <p>
-                {isSignup
-                  ? "New accounts are assigned the Requester role automatically."
-                  : "Sign in with your organizational account."}
-              </p>
-            </div>
-
-            {isSignup ? (
-              <form className="login-form" onSubmit={handleRegister}>
-                <label>Full Name</label>
-                <input
-                  value={signupForm.full_name}
-                  onChange={(event) =>
-                    setSignupForm({
-                      ...signupForm,
-                      full_name: event.target.value,
-                    })
-                  }
-                  placeholder="Enter your full name"
-                  autoComplete="name"
-                />
-
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  value={signupForm.email}
-                  onChange={(event) =>
-                    setSignupForm({
-                      ...signupForm,
-                      email: event.target.value,
-                    })
-                  }
-                  placeholder="name@organization.com"
-                  autoComplete="email"
-                />
-
-                <label>Job Title</label>
-                <input
-                  value={signupForm.job_title}
-                  onChange={(event) =>
-                    setSignupForm({
-                      ...signupForm,
-                      job_title: event.target.value,
-                    })
-                  }
-                  placeholder="Optional"
-                  autoComplete="organization-title"
-                />
-
-                <label>Password</label>
-                <input
-                  type="password"
-                  value={signupForm.password}
-                  onChange={(event) =>
-                    setSignupForm({
-                      ...signupForm,
-                      password: event.target.value,
-                    })
-                  }
-                  placeholder="At least 8 characters"
-                  autoComplete="new-password"
-                />
-
-                {loginError && <p className="login-error">{loginError}</p>}
-
-                <button
-                  className="primary-button login-button"
-                  type="submit"
-                  disabled={registerLoading}
-                >
-                  {registerLoading ? "Creating Account..." : "Create Account"}
-                </button>
-              </form>
-            ) : (
-              <form className="login-form" onSubmit={handleLogin}>
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  value={loginForm.email}
-                  onChange={(event) =>
-                    setLoginForm({ ...loginForm, email: event.target.value })
-                  }
-                  placeholder="name@organization.com"
-                  autoComplete="username"
-                />
-
-                <label>Password</label>
-                <input
-                  type="password"
-                  value={loginForm.password}
-                  onChange={(event) =>
-                    setLoginForm({ ...loginForm, password: event.target.value })
-                  }
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                />
-
-                {loginError && <p className="login-error">{loginError}</p>}
-
-                <button
-                  className="primary-button login-button"
-                  type="submit"
-                  disabled={loginLoading}
-                >
-                  {loginLoading ? "Signing In..." : "Sign In"}
-                </button>
-              </form>
-            )}
-
-            <div className="auth-switch">
-              <span>
-                {isSignup ? "Already have an account?" : "Need an account?"}
-              </span>
-              <button
-                type="button"
-                className="auth-link-button"
-                onClick={() => {
-                  setAuthMode(isSignup ? "login" : "signup");
-                  setLoginError("");
-                }}
-              >
-                {isSignup ? "Sign In" : "Create Requester Account"}
-              </button>
-            </div>
-          </section>
-        </section>
-      </main>
     );
   }
 
@@ -2458,6 +2051,16 @@ async function reviseManagedChange() {
   }
 
   function renderDashboard() {
+    if (!can("changes.read") && !can("users.read")) return (
+      <header className="app-header">
+        <div><h1>ChangeFlow Governance</h1><p>{currentUser.full_name} · {currentUser.workspace_slug}</p>
+          <p>{can("foundation.read") ? "Your membership grants catalog overview access." : "Your membership grants workspace identity access."} Change and administration views are restricted.</p>
+          {can("foundation.read") && <p>Systems: {foundationOverview?.systems ?? "Loading…"}</p>}</div>
+        <div className="actions">{can("notifications.own") && renderNotificationButton()}
+          <button className="secondary-button" onClick={handleLogout}>Logout</button></div>
+      </header>
+    );
+
     if (isSystemAdministrator) {
       return (
         <>
@@ -4122,7 +3725,7 @@ async function reviseManagedChange() {
   function renderFoundationManagement() {
   if (!isCmdbManager) {
     return renderAccessDenied(
-      "Only users assigned the CMDB Manager role can access foundation administration."
+      "Foundation administration requires the foundation.write permission."
     );
   }
 
@@ -4142,11 +3745,11 @@ async function reviseManagedChange() {
         </button>
       </div>
       <section className="admin-note">
-        <strong>Governance Note</strong>
+        <strong>Shared legacy risk rules — Batch B isolation pending</strong>
         <p>
           Business units, services, configuration items, dependencies, historical
           incidents, and risk rules are foundation data. They should be maintained by
-          a System Administrator, CMDB Manager, or through enterprise integrations.
+          a membership with the required foundation permissions. Use synthetic data only while risk-rule isolation is pending.
           Change requesters only select the directly affected configuration items when
           submitting a change request.
         </p>
@@ -4924,6 +4527,7 @@ async function reviseManagedChange() {
         <div className="section-header">
           <div>
             <h2>{selectedChange.title}</h2>
+            <p>Development workflow: independent CAB authorization is pending in Batch C.</p>
             <p>{selectedChange.description}</p>
           </div>
 
@@ -4976,7 +4580,7 @@ async function reviseManagedChange() {
         </section>
 
         <section className="panel inner-panel">
-          <h3>Assessment Rationale</h3>
+          <h3>Assessment Rationale — AI integration pending</h3>
           <p>{assessment?.ai_explanation}</p>
         </section>
 
@@ -5576,22 +5180,12 @@ async function reviseManagedChange() {
     );
   }
 
-  if (authLoading) {
-    return (
-      <main className="login-page">
-        <section className="panel login-panel loading-session">
-          <h2>Restoring secure session...</h2>
-        </section>
-      </main>
-    );
-  }
-
-  if (!token || !currentUser) {
-    return renderLogin();
+  if (!canView(view, currentUser.permissions)) {
+    return <main className="page" data-workspace-shell>{renderAccessDenied("Your current permissions do not allow this view.")}</main>;
   }
 
   return (
-    <main className="page">
+    <main className="page" data-workspace-shell>
       {view === "dashboard" && renderDashboard()}
       {(view === "new" || view === "revise") &&
         renderNewChange()}

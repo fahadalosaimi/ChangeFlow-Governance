@@ -1,0 +1,10 @@
+.auth-panel { width: min(100%, 36rem); margin: auto; padding: 2rem; }
+.auth-panel h1 { margin-block: .5rem 1rem; font-size: clamp(1.6rem, 4vw, 2.2rem); }
+.auth-panel p { line-height: 1.65; overflow-wrap: anywhere; }
+.auth-panel .login-form label { display: block; margin-block-start: .7rem; }
+.auth-panel button, .auth-panel input { min-height: 44px; }
+.auth-panel button { margin-block-start: 1rem; }
+.auth-panel :focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+.auth-actions { display: flex; flex-wrap: wrap; gap: 1rem; }
+.workspace-identity { padding: .7rem 1.5rem; border-block-end: 1px solid currentColor; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .auth-panel { padding: 1.25rem; } }

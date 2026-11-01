@@ -10,13 +10,13 @@
 
 **Spec:** طلب المستخدم «ChangeFlow Governance — Enterprise SaaS Transformation — Master Development Prompt»، خاصة القسم 22: **Planning Gate Only**، بتاريخ 2026-11-01 بتوقيت Asia/Riyadh. مصدره المرفق المحلي [نص الطلب](<C:/Users/W10/.codex/attachments/9f871ecd-ce7d-43dd-a1cc-bcc9e4f247e2/نص ملصق.txt>). المرفق خارج Git؛ المتطلبات والقيود التنفيذية محفوظة هنا كي تبقى الخطة قابلة للاستخدام عند غياب المرفق. تقارير [A1](phase2_a1.md) و[A2](phase2_a2.md) و[A3](phase2_a3.md) و[A4](phase2_a4.md) أدلة تاريخية تُراجع مقابل الكود وGit.
 
-**حالة الوثيقة المحدثة — Final Checkpoint Review مكتملة:** **Ready for Development Checkpoint** للمراجعة والاعتماد الصريح فقط. Backend الواسعة بعد التصحيح **399 passed /0 failed /1 skipped /18 deselected في 635.56s**، منها **235 PostgreSQL passed /0 skipped**؛ التنظيف ناجح. Frontend **13 passed** وTypecheck/Build ناجحان، وLint **0 errors /6 warnings سابقة**. Gitleaks **24 ملفًا، 0 Findings**؛ Manifest حصرية 7M/17U في القسم 13 من [التقرير](phase2_a5_t1.md). لا Stage/Commit/Push أوT2، وLegacy/F2/B/C باقية.
+**حالة الوثيقة المحدثة — A5-T2 Final Review:** حُفظتT1 في `de4d0e36f00cfcb7a8352baee6b94e3e0eff8bb3`، ونُفذتT2 محليًا بإذن مستقل. أُصلح عيب تصنيفLogin outage باختبارRED→GREEN. المراجعة النهائية: Backend **426 Passed /1 Skipped /23 Deselected**، وإكمال **5 Passed** غير متداخلة كانت مستبعدة بالاسم فقط؛ لاFailures. PostgreSQL:262 ثم4 حالات ناجحة. Browser: **1 Passed تغطي13 سيناريوًا**؛ Frontend: **35 Passed**؛ Typecheck/Build/Lint ناجحة بلا تحذيرات. تفصيل الجولات وManifest في [تقريرT2](phase2_a5_t2.md) والقسم10.10. **Ready for Development Checkpoint** بعدGitleaks:28 ملفًا و0 Findings؛ لاGit أوT3، وLegacy/F2/B/C باقية.
 
 ## Global Constraints
 
 - المستودع `bigest11/ChangeFlow-Governance` فقط، والمسار `C:\Users\W10\AI_Change_Impact_Analyzer`؛ ArchitectAI خارج النطاق تمامًا.
-- الفرع المعتمد `feature/phase2-batch-a-tenant-security`، وخط أساس هذه الجلسة `5ef6a68df8a5ef1293dfbe0a605e53fefa8afec5`؛ عند اختلاف Branch أوRemote أوHEAD المتوقع، توقف واشرح قبل تعديل الملفات.
-- أجيزت بعد Stage 0 Preflight وعزل Legacy وScanner ثم A5-T1 داخل موارد اصطناعية بعد اجتياز Isolation Gate. التفويض الأحدث **A5-T1 Final Checkpoint Review** لإعادة المجموعة الواسعة ومراجعة الملفات وإصلاح عيوب T1 فقط وتحديد Manifest؛ لا Stage/Commit/Push/PR/Merge/Deployment دون اعتماد لاحق صريح. لا قاعدة قديمة أوقراءة .env/Backup secrets أوRotation أوBootstrap/Legacy execution أوMigrations تشغيلية أوA5-T2/T3/T4 أوB/C/D/Gemini.
+- الفرع المعتمد `feature/phase2-batch-a-tenant-security`، وخط أساس T2 الحالي `de4d0e36f00cfcb7a8352baee6b94e3e0eff8bb3`؛ عند اختلاف Branch أوRemote أوHEAD المتوقع، توقف واشرح قبل تعديل الملفات. بيانات Stage 0 أدناه تاريخية.
+- التفويض الأحدث **A5-T2 — Secure Workspace Authentication, Sessions & Invitations** يسمح بالتنفيذ والاختبارات والتوثيق محليًا فقط بعد حفظ T1. لا Stage/Commit/Push/PR/Merge/Deployment دون اعتماد لاحق صريح. لا قاعدة قديمة أوقراءة .env/Backup secrets أوRotation أوBootstrap/Legacy execution أوMigrations تشغيلية أوA5-T3/T4 أوB/C/D/Gemini.
 - لا Commit أوPush أوPR أوMerge أوRebase أوForce Push أوتعديل `master` دون الموافقة المحددة؛ Git Checkpoint يأتي بعد اعتماد نتائج المرحلة فقط.
 - لا تشغيل Bootstrap فعلي أوSeed أوSetup على قاعدة قائمة، ولا بريد حقيقي أوخدمات مدفوعة أوDeployment أوDomains أوProduction Secrets أوProduction Migrations دون موافقة صريحة منفصلة.
 - لا اختبار على قاعدة إنتاجية، ولا حذف بيانات Legacy أوHistory، ولا اعتبار `create_all()` بديلًا لـMigrations.
@@ -258,7 +258,7 @@ Stage 0 approval
 
 **الدخول:** اعتماد Stage 0 وقرارات A5. **الخروج:** صفحات حقيقية مدعومة، Login/Invitations متوافقة، Design System ولغتان وResponsive مثبتة. B/C/D تبقى معلنة غير مكتملة.
 
-**الحالة الحالية:** A5-T1 نُفذت بعد موافقة لاحقة واجتياز Isolation Gate؛ التحقق المحدد والانحدار الموثق مكتملان للمراجعة المحلية. لا انتقال إلى T2/T3/T4 دون موافقة. التقرير النهائي وحدود الاختبارات في القسم 12 من [phase2_a5_t1.md](phase2_a5_t1.md).
+**الحالة الحالية:** A5-T1 محفوظة باعتماد صريح. نُفذت A5-T2 محليًا بعد اجتياز Isolation Gate مجددًا، وتنتظر مراجعة Development Checkpoint. لا انتقال إلى T3/T4 أوحفظ Git دون موافقة جديدة. أدلة T1 تاريخية في [تقريرها](phase2_a5_t1.md)، وأدلة التنفيذ الحالي في [تقرير T2](phase2_a5_t2.md).
 
 عزل Setup اللاحق إصلاح أمني مستقل مصرح به فقط؛ لا ينفذ API Client أو`/auth/me` ولا يعيد فتح Gate A5-T1 تلقائيًا.
 
@@ -281,17 +281,17 @@ Stage 0 approval
 
 #### A5-T2 — Session وWorkspace Login وInvitation Acceptance
 
-**Files:** تعديل `frontend/src/App.tsx` لإزالة Auth القديمة تدريجيًا؛ إنشاء `frontend/src/features/auth/AuthProvider.tsx` و`useAuth.ts` و`sessionStorage.ts` و`safeRedirect.ts` و`frontend/src/pages/WorkspaceLoginPage.tsx` و`InvitationAcceptancePage.tsx`؛ Tests `AuthProvider.test.tsx` و`InvitationAcceptancePage.test.tsx` و`frontend/e2e/auth.spec.ts`.
+**Files الفعلية:** تعديل `frontend/src/App.tsx` تدريجيًا وmain/index وauthApi/types/verify؛ إضافة AuthContext/AuthProvider/useAuth/AuthRoot وauthStore/sessionStorage/runtime/safeRedirect/permissions/workspaceGateway/invitationFlow وCSS محدودة، وصفحتي WorkspaceLoginPage/InvitationAcceptancePage. الاختبارات الفعلية `frontend/tests/auth.test.ts` و`invitation.test.ts` و`frontend/e2e/auth.mjs` و`backend/tests/test_a5_t2_browser.py`، مع توسيع Runner واختبار أمان مخرجاتها. لا Dependencies جديدة؛ Manifest كاملة في تقرير T2.
 
-**Interfaces:** `AuthState = loading | authenticated(CurrentUser) | anonymous`؛ `logout(): void` محلي حاليًا؛ `safeReturnTo(value: string | null): string` يعيد Path داخل التطبيق مسموحًا أوالصفحة الافتراضية المسموحة. لا Server Revocation قبل D.
+**Interfaces الفعلية:** AuthSnapshot بحالات checking/authenticated/anonymous/unavailable/forbidden، وUser موثقة وgeneration/binding؛ login/recover/logout محلية فوق Client T1. safeReturnTo لا تسمح إلا بالـWorkspace الافتراضية؛ Invitation accept ترسل JSON إلى A3 دون Auto-login. Minimal history routes للدخول/Workspace/قبول الدعوة فقط، إلى حين Router Data Mode في T3. لا Server Revocation قبل D.
 
-- [ ] اختبار استعادة Session عبر `/auth/me`، ثم تطبيق DEC-02؛ لا تعتمد UI على JWT decoding لمنح صلاحية.
-- [ ] إزالة Signup والدعوة إلى Public Registration؛ Login بثلاثة مدخلات، Generic credentials error مترجمة.
-- [ ] قراءة Token الدعوة من Fragment مرة واحدة، وإزالتها بـHistory replace قبل أية اتصالات خارجية؛ حفظها بالذاكرة فقط، وReferrer Policy تمنع التسريب.
-- [ ] إرسال `token/password/full_name` وفق A3، وعدم تخزين Password أوToken في logs/storage/toasts. قبول ناجح يعرض تفعيل العضوية ثم Login؛ لا JWT مختلقة.
-- [ ] اختبار Replay/Expired/Revoke/Resend/Directory activation وقيود Password Unicode. Refresh بعد إزالة Token يعرض مسار إعادة فتح الرابط دون نجاح وهمي.
-- [ ] اختبار Logout أثناء طلب بطيء، ورفض إعادة كتابة Cache/State من استجابة قديمة، وتنظيف بيانات المؤسسة السابقة عند الدخول إلى Workspace أخرى.
-- [ ] اختبار safe redirect ضد URL مطلقة و`//host` وencoded bypass ومحاولة العودة إلى صفحة ممنوعة؛ حفظ رابط داخلي مسموح بعد Login.
+- [x] استعادة Session عبر `/auth/me` وDEC-02، دون هوية من JWT decoding؛ network failures تحتفظ بمرشحة مخفية، و401/expiry تمسح الجلسة.
+- [x] إزالة Signup؛ Login بثلاثة مدخلات وForm Content-Type الفعلية ورسالة فشل عامة. الترجمة الشاملة في T3؛ النص الحالي English مثل الواجهة القائمة.
+- [x] Fragment تلتقط وتزال قبل React mount؛ Memory-only وReferrer Policy no-referrer، دون query token أوlogs/storage.
+- [x] قبول الدعوة JSON وفق A3، ثم Login صريح؛ لا Auto-login أوToken output مختلقة.
+- [x] Backend regression تغطي Replay/Expired/Revoke/Resend/Directory activation؛ Frontend Unicode وRefresh وgeneric unavailable، وBrowser accept/replay فعلية.
+- [x] Logout أثناء طلب بطيء وSession switching وScoped gateway وkeyed shell تمنع استجابات/بيانات المؤسسة السابقة.
+- [x] Safe redirect ثابتة إلى Workspace مسموحة؛ URL مطلقة و//host وencoded/next لا تغير الوجهة، واختبار Browser يثبت تجاهل external next.
 
 #### A5-T3 — Design System وLocalization وRouting Shell
 
@@ -685,6 +685,31 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 - [x] **Checkpoint Manifest حصرية CP-01..24** في التقرير 13.4: 7 Modified و17 New تتضمن Documentation/Tests، وتستبعد env/backups/build/dependencies/caches/scanner files/temporary fixtures. لا tempfile يحتاج Git.
 - [x] **التوصية: Ready for Development Checkpoint**؛ ينتظر اعتماد المالك الصريح للحفظ في GitHub. Legacy Unresolved وF2 وB/C وبقية Production gates باقية؛ لا Git أوT2 أوDeployment الآن.
 
+### 10.9 A5-T2 — التنفيذ المحلي والتحقق النهائي
+
+- [x] baseline والفرع وRemote صحيحة، وWorking Tree نظيفة قبل التنفيذ عند HEAD `de4d0e36f00cfcb7a8352baee6b94e3e0eff8bb3` بعد حفظ T1 باعتماد صريح. لا Git mutations في مهمة T2.
+- [x] Isolation Gate قبل الوظائف **3 passed /12.49s**. الاختبارات تستعمل allowlisted environment ومفاتيح اصطناعية وdotenv/read/driver guards وPostgreSQL جديدة فقط؛ لا DB قديمة أوBootstrap/Legacy invocation.
+- [x] Backend relevant regression: **303 passed /0 failed /1 skipped /2 deselected /446.22s**؛ **196 PostgreSQL passed /0 skipped** و107 unit/memory passed +1 skipped. Skip نسخة SQLite لاختبار Collation ونسخة PostgreSQL ناجحة؛ حالتان bootstrap deselected. ليست bare full suite ولا إعادة لنتيجة T1 ذات399 حالة.
+- [x] Browser فعلية محلية على Edge profile جديدة وVite/FastAPI/PostgreSQL مملوكة: **1 pytest passed /25.55s** تغطي **12 سيناريوًا**؛ Login/recovery/network/role/disabled/switch/logout/invitation/replay/expiry/redirect/storage failure. جميع Finalizers نجحت وثبت غياب Run roots؛ لا توقف خدمة سابقة.
+- [x] Frontend **33 passed /0 failed /0 skipped /423.43ms**: 13 Client T1 و14 Auth/Scope و6 Invitation. Typecheck للتطبيق/الاختبارات/config ناجحة؛ Production Build **254ms** وLint **0 errors /0 warnings**.
+- [x] أضيف اختبار RED ثم GREEN لفلتر مخرجات Runner حتى لا ينسخ Traceback/rawstderr عند البحث عن Metadata. مسارات أدوات Browser/Node تمر صراحة عبر CLI وتُتحقق؛ لا مسار جهاز ثابت في الاختبارات ولا تثبيت جديد.
+- [x] UI الحالية محفوظة؛ لا تغييرات Backend runtime/Models/Migrations/JWT v2/Permission Matrix/Bootstrap أوLegacy stubs. لا كلمات مرور قديمة في ملفات جديدة؛ نتائج Scanner الحالية والManifest في تقرير T2.
+- [x] Gitleaks v8.30.1 بعد integrity/synthetic redaction/template verification: **28 ملفًا، 0 Findings**؛ فحص وثيقتي التسليم النهائي إضافي دون تغيير العدد الفريد. Manifest مطابقة Git وStaging فارغة وgit diff --check ناجحة؛ لا raw secrets أو.env reads.
+- [x] الحالة **Ready for Development Checkpoint Review** ضمن العزل المحلي فقط. JWT/sessionStorage مؤقتة، Logout محلي ولا Revocation؛ Demo retirement Unresolved وF2/B/C وبقية Production gates باقية. Email link formatter والتسليم الحقيقي إلى D؛ i18n/RTL/Design System/Router إلى T3.
+
+### 10.10 A5-T2 Final Development Checkpoint Review
+
+- [x] Branch/Remote/HEAD مطابقة، و9 Modified +19 New =28 دون Staging. Manifest مطابقة، والوثائق داخلbackend/docs الصحيح دون نسخ إضافية؛ لاحفظ فيGitHub.
+- [x] مراجعة الملفات وعقودA2/A3 وJWT v2 والاستعادة وGeneration وScoped gateway والمنح وقبول الدعوة. Backend runtime وModels/Migrations وPermission Matrix وBootstrap وLegacy stubs وDependencies دون تغيير؛ لاPublic Signup أوAuto-login.
+- [x] **R-T2-01:** كانت أعطالLogin برمزي503 و408 تصنف كخطأ اعتماد. RED ثمGREEN؛ التصنيف النهائي يحفظ408/429/500/503 كعدم توفر دون تفاصيل، مع401/422 و403 المستقلة. اختبارات التبديل مع pending success/401 لمستخدم آخر داخل المؤسسة نفسها أوإلى مؤسسة أخرى نجحت؛ لا إصلاح إنتاجي إضافي لهذا السلوك الصحيح.
+- [x] مجموعةBackend الواسعة من18 ملفًا: **426 Passed /0 Failed /1 Skipped /23 Deselected /552.55s**؛ منها **262 PostgreSQL Passed /0 Skipped** و164 unit/memory Passed +1 Skipped.
+- [x] جردCollect-only حدد18 Legacy invocation وخمس حالات تحملbootstrap فيالاسم/البيانات. مراجعتها أثبتت أنهاConstraints وFixture membership فقط دونBootstrap invocation. أُكملت منفصلة فيCluster جديدة: **5 Passed /0 Failed /0 Skipped /176 Deselected /40.56s**، منها4 PostgreSQL و1memory. الحالات الخمس لا تتداخل مع426؛ و176 مجرد فلترة بقية ملفات التشغيل الثاني. يبقى18 Legacy invocations غير منفذة عمدًا.
+- [x] Skip الوحيدةSQLite Collation ونسختهاPostgreSQL ناجحة. حواجزT1 وChild env allowlist ومفتاح اصطناعي ومنعdotenv/read/driver/target والملكية محفوظة. انتهى التنظيف وثبت غيابRun roots. جردCollection تعثر فيحذف مجلد فارغ تحتSandbox ثمأعيد ونُظف المسار المحدد دونDB أوACL changes؛ ليس فشل اختبارBackend.
+- [x] Browser النهائية: **1 pytest Passed /0 Failed /0 Skipped /27.06s** تغطي **13 سيناريوًا** علىEdge headless بملف تعريف جديد وFastAPI/PostgreSQL حقيقيتين معزولتين. شُملت استجابةHTTP حقيقية معلقة عبرCDP ثمLogout/Login لمؤسسة أخرى قبل تحريرها، دون ظهور بيانات قديمة. لاMock Authentication أوResponse bodies؛ تحكم الأعطال وStorage والعضوية للاختبار فقط.
+- [x] Frontend النهائية: **35 Passed /0 Failed /0 Skipped /539.70ms**؛ App/Tests/Vite config Typecheck وBuild **281ms** وLint **0 Errors /0 Warnings**. المخرجات مؤقتة معenvDir=false دون تعديلdist أوDependencies. لا فشل نهائي غير محسوم؛ نتائج33/303 السابقة تاريخية.
+- [x] Gitleaks v8.30.1 بعد سلامة الحزمة وChecksums وexe واختبارSynthetic redaction/template: **28 ملفًا، 0 Findings**، مع إعادة فحص وثيقتي التسليم. Python AST/UTF-8 وdiff check وManifest ناجحة؛ لا قيم سرية أوملفات بيئة/أرشيفات ضمن المدخلات.
+- [x] **Ready for Development Checkpoint** ضمن التطوير الاصطناعي المعزول فقط؛ ينتظرGit اعتمادًا جديدًا. Demo retirement Unresolved وF2/B/C وبقيةProduction gates مفتوحة؛ Logout محلي وsessionStorage مؤقتة، وQA/i18n/RTL/Router/Design System إلىT3.
+
 ## 11. عوائق وحدود المعرفة وخطة إغلاقها
 
 - **عائق استخدام قاعدة قديمة/Production:** نُفذ مسار A5-T1 الاصطناعي المعتمد مع إثبات العزل؛ لا إعادة تصنيف 21 موضعًا أوPRE-04 بلا دليل جديد. تقاعد Demo Unresolved ولا يجوز استخدام قاعدة قديمة قبل إثبات تقاعد أوDEMO-R1..R6 مصرح بها. Exposure للأسرار المحلية وتوزيع الأرشيفات غير محسومين؛ لا Rotation تلقائية أوإغلاق Risk/CAB/F2 بواسطة نجاح T1.
@@ -698,11 +723,11 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 
 ## 12. إدارة التقدم وCheckpoint والاستئناف
 
-| المرحلة | الحالة عند نهاية Planning Gate | ما يمنع الانتقال |
+| المرحلة | الحالة الحالية؛ الأدلة السابقة محفوظة تاريخيًا | ما يمنع الانتقال |
 |---|---|---|
 | A1–A4 | Checkpoints موجودة؛ قبول Development فقط ضمن حدود التقارير | High B/C وF2 وبقية سجل المخاطر |
 | Stage 0 | Audit/Plan مكتملتان؛ اتجاه الخطة والقرارات المحددة معتمدة | لا اعتماد Production أوباقي المراحل |
-| Stage 1 A5 | A5-T1 اجتازت المراجعة النهائية وBackend الواسعة بعد التصحيح؛ Ready for Development Checkpoint | اعتماد المالك الصريح للحفظ في GitHub؛ لا Stage/Commit/Push أوT2 تلقائيًا ولا استخدام قاعدة قديمة |
+| Stage 1 A5 | T1 محفوظة في de4d0e3؛ T2 نُفذت واختُبرت محليًا وجاهزة لمراجعة Checkpoint | اعتماد جديد لحفظ T2 أوبدء T3؛ لا استخدام قاعدة قديمة أوProduction claim |
 | Stage 2 B | Not started | اعتماد A5، وRisk/Migration design |
 | Stage 3 C | Not started | B وCAB policy/Legacy treatment |
 | Stage 4 D | Not started | C وSession/Email/F2 decisions |
@@ -711,10 +736,10 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 
 بعد كل مرحلة يسجل التقرير: ما نُفذ، قرارات المعمارية، Files Changed، API/DB Changes، Security Findings، Commands/Passed/Failed/Skipped، المخاطر، Git status، والمرحلة التالية. إذا فشل Gate، تُصلح المرحلة نفسها دون بدء التالية.
 
-**Git Checkpoint الحالي:** HEAD `5ef6a68df8a5ef1293dfbe0a605e53fefa8afec5` والفرع المعتمد وmaster دون تغيير. Working Tree **7 Modified +17 Untracked =24 ملفًا**؛ 21 ملفًا في نطاق T1/الاختبارات/التوثيق و3 تغييرات عزل سابقة محفوظة. القائمة الحصرية CP-01..24 في التقرير 13.4 تطابق Git. Staging فارغة، ولا .env/Backup/Build/Scanner/Temp ضمنها. لا Reset/Clean/Stash/Checkout/Stage/Commit/Push/PR/Merge أوHistory Rewrite.
+**Git Checkpoint الحالي:** HEAD `de4d0e36f00cfcb7a8352baee6b94e3e0eff8bb3` والفرع المعتمد وmaster دون تغيير. Working Tree **9 Modified +19 Untracked =28 ملفًا** في نطاق T2/الاختبارات/التوثيق. القائمة المقترحة في تقرير T2؛ Staging فارغة، ولا .env/Backup/Build/Scanner/Temp ضمنها. لا Reset/Clean/Stash/Checkout/Stage/Commit/Push/PR/Merge أوHistory Rewrite في مهمة T2.
 
-**خطوة الاستئناف الدقيقة:** اقرأ هذه الخطة والتقرير 13، وتحقق من Git واحفظ التغييرات. اكتملت Final Checkpoint Review؛ ينتظر الحفظ في GitHub موافقة المالك الصريحة على الملفات الـ24. لا إعادة تنفيذ T1 أوStage/Commit/Push تلقائية. T2 تحتاج موافقة تنفيذ مستقلة، وتبقى على موارد اختبار جديدة معزولة دون .env/DB القديمة.
+**خطوة الاستئناف الدقيقة:** اقرأ هذه الخطة وتقرير phase2_a5_t2.md، وتحقق من Git واحفظ التغييرات الحالية. اكتمل التنفيذ والتحقق المحليان لـT2؛ ينتظر الحفظ في GitHub موافقة المالك على Manifest الجديدة. لا تعِد تنفيذ T1/T2 من البداية أوStage/Commit/Push تلقائية. T3 تحتاج موافقة تنفيذ مستقلة؛ لا .env/DB قديمة.
 
-**التحقق التاريخي في Stage 0:** حفظت جميع المراحل والمخاطر العشرة والقرارات الستة عشر. نتائج Stage 0 وPreflight وعزل Setup وScanner في 10.1–10.6 تاريخية بترتيبها؛ نتائج A5 الحالية في 10.7 والتقرير 12. لا تجمع الأعداد المتداخلة أوتعد الاختبارات المتخطاة نجاحًا.
+**التحقق التاريخي في Stage 0:** حفظت جميع المراحل والمخاطر العشرة والقرارات الستة عشر. نتائج Stage 0 وPreflight وعزل Setup وScanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 وتقريرها، وT2 الحالية في 10.9 وتقريرها. لا تجمع الأعداد المتداخلة أوتعد الاختبارات المتخطاة نجاحًا.
 
-**التوقف المطلوب الآن:** **Ready for Development Checkpoint** ضمن النطاق المحلي المعتمد، مع 1 Skip SQLite و18 Legacy invocation deselected و6 Lint warnings قديمة؛ تفاصيلها في التقرير 13. لا Production/E2E claim، ولا إغلاق Demo retirement/F2/B/C أوSEC-01..10. لا حفظ Git أوT2/Deployment/Rotation دون موافقة لاحقة صريحة.
+**التوقف المطلوب الآن:** اكتملت اختباراتA5-T2 Final Review: عددحالاتBackend الناجحة426+5 غيرمتداخلة، مع1 Skip SQLite و18 Legacy invocation غيرمنفذة، و0 Lint warnings. Browser E2E محلية مثبتة ضمن13 سيناريوًا؛ Gitleaks النهائي ناجح:28 ملفًا و0 Findings؛ قرار10.10 هوReady for Development Checkpoint. لاProduction claim أوإغلاقDemo retirement/F2/B/C أوSEC-01..10، ولاGit أوT3/Deployment/Rotation دون موافقة لاحقة صريحة.

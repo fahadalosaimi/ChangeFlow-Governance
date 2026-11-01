@@ -60,3 +60,13 @@ def test_child_environment_discards_inherited_settings_and_generates_fresh_keys(
     assert first["CHANGEFLOW_ISOLATED_JWT_KEY"] != os.environ["JWT_SECRET_KEY"]
     assert all(name not in first for name in ("PGPASSWORD", "PGSERVICE", "NODE_OPTIONS", "GEMINI_API_KEY"))
     assert Path(first["CHANGEFLOW_TEST_POSTGRES_BIN"]) == directory
+
+
+def test_metadata_filter_does_not_echo_traceback_copies_of_browser_output():
+    sanitize = getattr(runner, "safe_output", None)
+    assert callable(sanitize), "Safe metadata output filter is missing"
+    metadata = 'A5_BROWSER_METADATA={"passed":0,"failed":1,"phase":"workspace-login"}'
+    output = metadata + '\nE + CompletedProcess(stdout=' + metadata + ', stderr="synthetic private marker")\n1 failed in 1.00s'
+    result = sanitize(output)
+    assert metadata in result
+    assert all("synthetic private marker" not in line and "CompletedProcess" not in line for line in result)
