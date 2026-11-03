@@ -7,7 +7,7 @@ import subprocess
 PREFIX = "A5_BROWSER_DIAGNOSTIC="
 SCHEMA = json.loads((Path(__file__).resolve().parents[2] / "frontend/e2e/diagnostic-schema.json").read_text(encoding="utf-8"))
 FIELDS, DEFAULTS = SCHEMA["fields"], SCHEMA["defaults"]
-NUMBERS = ("exit_code", "browser_exit_code")
+NUMBERS = ("exit_code", "browser_exit_code", "startup_elapsed_ms")
 
 
 def canonical(value):
@@ -20,7 +20,8 @@ def canonical(value):
         return None
     for key in NUMBERS:
         code = value[key]
-        if code is not None and (type(code) is not int or not -2147483648 <= code <= 4294967295):
+        lower, upper = (0, 300000) if key == "startup_elapsed_ms" else (-2147483648, 4294967295)
+        if code is not None and (type(code) is not int or not lower <= code <= upper):
             return None
     return {key: value[key] for key in (*FIELDS, *NUMBERS)}
 

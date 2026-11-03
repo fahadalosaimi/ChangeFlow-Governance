@@ -148,7 +148,8 @@
       "process_exit",
       "lifecycle",
       "transition",
-      "resource"
+      "resource",
+      "startup"
     ],
     "failure_kind": [
       "none",
@@ -318,6 +319,68 @@
       "timed-out",
       "failed",
       "unconfirmed"
+    ],
+    "startup_phase": [
+      "none",
+      "unknown",
+      "profile-created",
+      "spawn",
+      "spawned",
+      "spawn-error",
+      "child-exit",
+      "port-wait",
+      "port-read",
+      "port-result",
+      "cdp-connect",
+      "cdp-connected"
+    ],
+    "pid_presence": [
+      "none",
+      "unknown",
+      "present",
+      "absent"
+    ],
+    "startup_process_state": [
+      "none",
+      "unknown",
+      "running",
+      "exited",
+      "spawn-failed"
+    ],
+    "os_error_code": [
+      "none",
+      "ENOENT",
+      "EACCES",
+      "EPERM",
+      "EBUSY",
+      "EIO",
+      "EINVAL",
+      "UNKNOWN",
+      "EISDIR",
+      "EMFILE",
+      "ENFILE",
+      "EADDRINUSE",
+      "OTHER"
+    ],
+    "port_file_state": [
+      "none",
+      "unknown",
+      "missing",
+      "empty",
+      "partial",
+      "invalid",
+      "valid",
+      "unreadable"
+    ],
+    "read_attempt": [
+      "none",
+      "unknown",
+      "first-read",
+      "read-success",
+      "read-failure",
+      "deadline",
+      "child-exit",
+      "observation"
     ]
   },
   "assertions": [
@@ -384,6 +447,13 @@
     "lifecycle_phase": "none",
     "resource_type": "none",
     "ownership_status": "none",
-    "completion_state": "none"
+    "completion_state": "none",
+    "startup_phase": "none",
+    "pid_presence": "none",
+    "startup_process_state": "none",
+    "os_error_code": "none",
+    "port_file_state": "none",
+    "read_attempt": "none",
+    "startup_elapsed_ms": null
   }
 }

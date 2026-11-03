@@ -10,13 +10,13 @@
 
 **Spec:** طلب المستخدم «ChangeFlow Governance — Enterprise SaaS Transformation — Master Development Prompt»، خاصة القسم 22: **Planning Gate Only**، بتاريخ 2026-11-01 بتوقيت Asia/Riyadh. مصدره المرفق المحلي [نص الطلب](<C:/Users/W10/.codex/attachments/9f871ecd-ce7d-43dd-a1cc-bcc9e4f247e2/نص ملصق.txt>). المرفق خارج Git؛ المتطلبات والقيود التنفيذية محفوظة هنا كي تبقى الخطة قابلة للاستخدام عند غياب المرفق. تقارير [A1](phase2_a1.md) و[A2](phase2_a2.md) و[A3](phase2_a3.md) و[A4](phase2_a4.md) أدلة تاريخية تُراجع مقابل الكود وGit.
 
-**حالة الوثيقة المحدثة — Investigation Development Checkpoint approval (2026-11-03):** موافقة صريحة من المالك على Commit واحدة وPush للفرع الحالي فقط لحفظ مخرجات T4-A والتحقيق والاختبارات. خط الأساس المحلي والبعيد `48c1e8ef46d60c1ed85ebc7c59ed3dfbcde8fded` وmaster محفوظة؛ Manifest16 هي7 Modified+9 New. A06 وStartup-cleanup المحددة مثبتتان ومصححتان؛A05 وP02 وStartup DevTools Port Failure وHistorical Cleanup Failure تبقىUNRESOLVED. **Browser Quality Gate = OPEN / NOT PASSED؛T4-B = NOT AUTHORIZED؛التصنيف الشاملC.** لاProduction readiness أوبدءB/C/D. فحصIndex الصريحة مطلوبقبلCommit؛SHA وPush verification الفعليةفيالتقريرالنهائيوسجلGit. التفاصيلفي [تقريرT4 §16](phase2_a5_t4.md).
+**حالة الوثيقة المحدثة — Browser Startup /DevTools Port investigation (2026-11-03):** Checkpoint0ada30a محفوظة،والفرع/Remote HEAD مطابقان وWorking Tree نظيفة عند البدء. أضيف رصد Startup آمن وFault Injection دون تغيير سلوك الانتظار أوالقراءة. Auth13/13 وPresentation62/62 نجحتا؛لم يتكرر read failure الحقيقي. القفل الاصطناعي علىWindows أعادEBUSY ثمValid بعدunlock؛هذا ليس إثباتًا لسببEdge التاريخي. **Root Cause UNRESOLVED؛Browser Gate OPEN / NOT PASSED؛T4-B NOT AUTHORIZED؛التصنيف الشاملC.** Frontend68 Passed وTypecheck/Build/Lint ناجحة؛Python diagnostics9 Passed. لاfunctional fix أوTimeout/Retry جديدة أوCombined بلاسببمثبت. Manifest9 Modified/0 New؛لاGit writes. الأدلة والحدود في [تقريرT4 §17](phase2_a5_t4.md).
 
 ## Global Constraints
 
 - المستودع `bigest11/ChangeFlow-Governance` فقط، والمسار `C:\Users\W10\AI_Change_Impact_Analyzer`؛ ArchitectAI خارج النطاق تمامًا.
-- الفرع المعتمد `feature/phase2-batch-a-tenant-security`، وخط أساس T4-A الحالي `48c1e8ef46d60c1ed85ebc7c59ed3dfbcde8fded`؛ عند اختلاف Branch أوRemote أوHEAD المتوقع، توقف واشرح قبل تعديل الملفات. بيانات Stage 0 أدناه تاريخية.
-- التفويض الأحدث **T4-A Investigation Development Checkpoint** يسمحبـCommit واحدةبالرسالةالمعتمدة وPush إلىorigin/feature/phase2-batch-a-tenant-security فقط بعدManifest/Index/Secrets checks. لاAmend/Rebase/Merge/ForcePush/PR أوتغييرmaster،ولاApp/Auth/JWT/Permissions/Models/Migrations/Credentials/Deployment changes. Browser Gate تبقىOPEN / NOT PASSED وT4-B NOT AUTHORIZED؛لاBrowser reruns أوتطويرجديدفيهذهالمهمة.
+- الفرع المعتمد `feature/phase2-batch-a-tenant-security`، وخط أساس التحقيق الحالي `0ada30aba8d50b94180b305edcbc0c35fea4634e`؛ عند اختلاف Branch أوRemote أوHEAD المتوقع، توقف واشرح قبل تعديل الملفات. بيانات Stage 0 أدناه تاريخية.
+- التفويض الأحدث **Browser Startup /DevTools Port Root Cause Investigation** يسمح بتشخيص Startup ورصد منقح وfault injection مملوكة،وإصلاح Test Infrastructure فقط بعدRootCause مثبتة وRED→GREEN. لاAppBusiness/JWT/PermissionMatrix changes،ولاTimeout increase أوFixedSleep/BlindRetry أوCredentials/DB قديمة/Legacy/Bootstrap. لاCommit/Push/PR/Merge/Deployment/master changes أوT4-B/B/C/D.
 - لا Commit أوPush أوPR أوMerge أوRebase أوForce Push أوتعديل `master` دون الموافقة المحددة؛ Git Checkpoint يأتي بعد اعتماد نتائج المرحلة فقط.
 - لا تشغيل Bootstrap فعلي أوSeed أوSetup على قاعدة قائمة، ولا بريد حقيقي أوخدمات مدفوعة أوDeployment أوDomains أوProduction Secrets أوProduction Migrations دون موافقة صريحة منفصلة.
 - لا اختبار على قاعدة إنتاجية، ولا حذف بيانات Legacy أوHistory، ولا اعتبار `create_all()` بديلًا لـMigrations.
@@ -824,9 +824,9 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 
 بعد كل مرحلة يسجل التقرير: ما نُفذ، قرارات المعمارية، Files Changed، API/DB Changes، Security Findings، Commands/Passed/Failed/Skipped، المخاطر، Git status، والمرحلة التالية. إذا فشل Gate، تُصلح المرحلة نفسها دون بدء التالية.
 
-**Git Checkpoint الحالي:** HEAD `48c1e8ef46d60c1ed85ebc7c59ed3dfbcde8fded` والفرع المعتمد وmaster دون تغيير؛Manifest الحالية16 ملفًا:7 Modified+9 New،والقائمة في القسم14.8 منphase2_a5_t4.md. Staging فارغة؛لا.env/Backup/Build/Dependency/Scanner/Temp artifacts ضمنManifest،ولاGit writes.
+**Development Checkpoint المعتمدة:** حفظManifest27 فيتقريرT4 §19.7 فوقمرجعالبداية`0ada30aba8d50b94180b305edcbc0c35fea4634e` بالرسالة`test(a5): establish playwright security gate for t4 development`،معPush للفرعالمعتمدفقط. SHA الفعليةفيGit وتقريرالتسليمبعدالتنفيذ؛السياسةالمعتمدةوحدودالحفظفيT4 §20. لاProduction Approval أوبدءT4-B ضمنالحفظ،ولا تغييرmaster.
 
-**خطوة الاستئناف الدقيقة:** اقرأالقسم15 من تقريرT4. انتهت خمسجولات؛لا تكرار دونفرضيةجديدة. A06 ثابتة؛startup-cleanupfix مثبتة باختبارينRED→GREEN وCombined ناجحةبعدها،لكنStartup وP02 وA05 وpost-functional cleanup باقيةUnresolved. أوصي بمراجعةحفظ Investigation Development Checkpoint بتفويضGit منفصل،معBrowser Gate مفتوحة ودونT4-B. أي عمللاحقيحددفرضيةواحدةوحدودًا جديدة؛لا.env/DB قديمة أوLegacy/Bootstrap.
+**خطوة الاستئناف الدقيقة:** اقرأ تقريرT4 §20 وسياسةالقسم17 أدناه. **Playwright Security Gate = APPROVED for T4-B Read-Only Development**؛Security7/7 وPresentation4/4 وCombined11/11 بالترتيبين وBackend63/63 معتمدة. **T4-B: READY FOR SEPARATE EXECUTION APPROVAL — NOT STARTED**. CDP القديمةLegacy غيرمعتمدةللإصداروالfindings تبقىOpen؛لاFull Browser Suite Parity أوProduction Readiness. لايلزمتحقيقCDP جديددوندليلأمنيمؤثر،ولايبدأتنفيذالصفحاتتلقائيًا.
 
 **التحقق التاريخي:** المراحل والمخاطر العشرة والقرارات الستة عشر محفوظة. Stage0/Preflight/Setup/Scanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 ، T2 في 10.9–10.10 ، T3 في 10.11–10.12 ، T4-A في 10.13 وتقاريرها. لا جمع لأعداد الجولات المتداخلة، و Skipped ليست نجاحًا.
 
@@ -838,3 +838,60 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 موافقة حفظ التحقيق في Git منفصلة عن Browser Gate وعن بدء T4-B. النطاق هو Manifest16 في تقريرT4 §14.8/15.6؛ Index صريحة وكامل staged blobs تخضع لـGitleaks دون قيم سرية قبل Commit. تحفظ findings المفتوحة ومخاطرDemo/B/C/D/F2/Session Revocation كما هي. رسالةCommit: `test(a5): document t4 architecture and harden browser diagnostics`. لاCommit SHA متوقعة قبل التنفيذ؛ النتيجة الفعلية في التقرير النهائي وسجل Git.
 
 بعد حفظ Checkpoint: التوقف للمراجعة. الخطوة الهندسية الموصى بها عند تفويض لاحق هي تحقيق واحد في Startup DevTools port read بأكوادOS وحالات قراءة ثابتة منقحة، دون زيادةTimeout أوRetry أوفتحT4-B تلقائيًا.
+
+
+## 14. Startup investigation current disposition — 2026-11-03
+
+- [x] Baseline المحلي والبعيد0ada30aba8d50b94180b305edcbc0c35fea4634e وmaster10faab2 محفوظان؛Staging فارغة؛لاعملسابقغيرمتوقع.
+- [x] startup/file/process/OS/error/duration allowlists وnumeric Python validation؛لاPID values أوprofile paths أوURLs/rawerrors/environment values محفوظة. إصدارEdge المحلي156.0.4314.58؛لا تثبيت أوتغييرarguments.
+- [x] controlledMissing/Empty/Partial/Invalid/Valid،spawnENOENT،childexit7 قبلالملف،وWindows FileShare.None→EBUSY ثمunlock→Valid. الرصدخضعRED→GREEN؛ليستRootFix للفشلالتاريخي.
+- [x] Auth13/13 وPresentation62/62 عبرHTTP/PG اصطناعيتين،Node/runner0 وcleanup completed. قراءتاالملفValid معprocess running،عند618ms و372ms؛CDP متصلةعند1118ms و755ms. لاreal startup failure أعيدت.
+- [x] Frontend68 Passed/0 Failed/0 Skipped وTypecheck/Build/Lint0 warnings/errors؛Pythondiagnostics9 Passed/0 Failed/0 Skipped. لاFullBackend190 جديدة. Combinedلمتعمل لعدموجودRootFix مثبتة؛لاopen loop.
+- [ ] **Root Cause UNRESOLVED؛Browser Gate OPEN / NOT PASSED؛T4-B NOT AUTHORIZED.** A05/P02/Startup/HistoricalCleanup باقية؛A06 وstartup-cleanup المعتمدانمحفوظان. لاAntivirus/Windows blame بلاEvidence،ولاfunctional fix تخمينية.
+- [ ] Manifest9 Modified/0 New فيتقريرT4 §17؛التوقف للمراجعة دونGit writes. Gitleaks8.30.1:9 files،0 Findings و0 historical literal matches؛integrity وsynthetic redaction ناجحة. diff/syntax ناجحة؛0 owned rooted processes/run roots مرصودة،و2 metadata artifacts فقط؛الحدودفيالتقرير. المخاطرDemo/B/C/D/F2/SessionRevocation لا تتغير.
+
+خطوةلاحقةموصىبهافقطعندتفويضجديد: استخدامالرصدالحالي عندإعادةالفشل لتحديدOS code وfile/process states قبلقرارreadiness condition أوغيره؛لازيادةTimeout أوRetry احترازي،ولابدءT4-B. حفظهذهالتغييراتغيرمعتمدفيهذهالمهمة.
+
+## 15. Browser Harness Architecture Decision — أحدث قرار،2026-11-03
+
+- [x] **A — Adopt Playwright Incrementally** فيTest Infrastructure فقط؛الحزمة1.63.0 مستقلةومثبتة،Node24.17.0 متوافقة،وChromium153 managed؛لا تعديلEdge أوApplication/JWT/Permission Matrix.
+- [x] PostgreSQL schema/cluster وFastAPI اصطناعيتان معحواجزالملكية؛ORM create_all فقط،**لا Database Migrations** حتىفيCDP controls؛لاقراءة.env أواعتماداتفعليةأوMedia/Trace/HAR حساسة.
+- [x] Pilot تغطيLogin/Recovery وA05 وA06 control/race وP02 وContext/Cookie/SessionStorage isolation والتنظيف؛identity/grants/403/404 وstale-response assertions إيجابية،لااختزالالأمانإلىإخفاءعناصر.
+- [x] ثلاثجولات: R1 منفردة5 pytest passed/6 cases؛R2 أماميةfailed بسببP02 advanced=false معنجاحالأمانوالتنظيف؛R3 بعدانتظارAnimation events أمامية6/6 وعكسية6/6،2 pytest passed/128.48s،exit0 وbrowser exits0 وcontexts0. فحصالـP02 النهائيالموجه32.25s passed بعدحفظقياسopacity أثناءالحركة؛ليسجولةمقارنةإضافية.
+- [ ] CDP Controls لمتجتزالبوابة: أمامية2 failed/75.98s (Auth13 نجحتثمcleanup timeout،PresentationP02 failed+cleanup timeout)؛عكسية1 failed/1 passed/53.89s (P02 failed،Auth13/13). لاRCA تخمينيةأوادعاءأنPlaywrightتمنعFlakiness.
+- [x] Frontend68/68 وprivacy reporter2/2؛Typecheck app/test/config وBuild98 modules وLint0/0 ناجحة. Backendsubset17 passed/1 failed/0 skipped؛الفشل القائم`test_metadata_filter_does_not_echo_traceback_copies_of_browser_output` موثقفيتقريرT4 §18.8،لاFullBackendأوmigrations suites.
+- [ ] **Browser Quality Gate = OPEN / NOT PASSED؛T4-B NOT AUTHORIZED.** نجاحPilot لايغلقStartup/A05/P02/HistoricalCleanup بأثررجعيولايثبتparity معAuth13+Presentation62. خطرDemo/B/C/D/F2/SessionRevocation محفوظ.
+- [ ] خطةالمراجعةمحددة: نقلAuth معassertion map،ثمPresentation/layout/axe،ثمقبولparity/exit/cleanup/order قبلتبديلdefault؛القديميبقىحتىيثبتالبديل. تقدير8–14 يومعملمستقبلي،بلاعملإضافيهنا.
+
+Manifest9 Modified محفوظة+9 New،Staging فارغة؛Gitleaks8.30.1 شملت18 files و0 Findings بعدintegrity/synthetic detection/redaction؛0 matching test processes و0 run roots متبقية. الحدودفيتقريرT4 §18.8. التوقفبعدالتقريروالقرار؛لاT4-B أوهجرةشاملةأوCommit/Push/Deployment. هذهالفقرةتحلالمحلخطوةالاستئنافالمقترحةفي§14؛نتائجهاالتاريخيةمحفوظة.
+
+## 16. Playwright Security Gate — أحدث توصية جاهزية،2026-11-03
+
+- [x] البداية0ada30a والفرعالمطلوب،9 Modified+9 New وStaging فارغة؛كلالعملالسابقمحفوظ،لاReset/Clean/Checkout/Stash أوGit writes.
+- [x] **Backend failure RCA:** `tests/test_a5_runner_configuration.py::test_metadata_filter_does_not_echo_traceback_copies_of_browser_output` فشلتعند`assert metadata in result`؛fixture phase=workspace-login غيرمسموحة. أُعيدالفشلبـHEAD-only blobs دونPilot. إصلاحfixture إلىA02 فقط،مع3 رفضunknown phase،بلاFilter/Security Logic changes؛GREEN9/9.
+- [x] **Relevant Backend63/63،0 failed/skipped،91.11s**؛43 PostgreSQL+20 Unit/Memory. Assertions الهوية/الدور/claims/foreign tenant/nested resources/count/search/notifications الأصليةمستضافةعلىORM-owned schema؛لاAlembic أوmigrations execution.
+- [x] **Security Gate7/7**:Login/Recovery،A05،A06 control/race،Context/Storage isolation بمافيهاA13 memory-only،ProtectedRoutes/Forbidden،network/401/expiry boundaries. 403/404/megrants مثبتةبـBackend حقيقية؛لاDOM-only success.
+- [x] **Presentation Gate4/4**:P02 RTL/LTR،1440/390،Axe وfocus وReducedMotion؛disabled/frozen negative faults ترفضهاassertion الإيجابيةنفسها. ليستترحيل62 سيناريوأوWCAG audit.
+- [x] **Strict Runner**:missing/skipped/failed/unclean لايمربـexit0؛unknown gate أعادتexit1 فعليًا معcleanup. Frontend suite القياسيةتضمinfra unit tests الآن.
+- [x] أولCombined:forward11/11،reverse10/11 وفشلsession-boundaries عندإلزامme401 والاشتراكمتأخرًا؛لميُخفالفشل. Probeواحدفشلكذلكعندانتظارمصدر401 محدد. التصحيحفيfixture:الاشتراكقبلdisable،401 authenticated حقيقيةثممسحsession/DOM،ومطالبةme برفضالتوكنالقديممباشرة. لاتوسعةtimeout/retry أوتغييرالتطبيق؛دقةتسلسلreverse الأولليستRCA كاملة.
+- [x] **التحقق النهائي:**Security7/7 ثمforward11/11 ثمreverse11/11؛3 pytestpassed/0 failed/skipped،173.65s؛browser/runner exits0 وcontexts0 وcleanup passed. إعادةمحدودةبسببخللfixture الجديدالمحدد،لاتكرارإحصائيأوتحقيقمفتوح.
+- [x] Frontend72/72،Typecheck app/test/config وBuild98modules وLint0/0؛diff/syntax ناجحة. Gitleaks8.30.1:27 files،0 Findings بعدintegrity/synthetic detection/redaction. 0 matching test processes/run roots/HEAD export roots مرصودة.
+- [x] **Coverage equivalence لنطاقبدءT4-B Read-Only مثبتة** بمصفوفةتقريرT4 §19.5. A09/A10 invitation write workflows وبقيةPresentation62 لمتُنقل؛خارجالدفعة،وتبقىLegacy. Feature tests للـDTO/API/latest-request/loading/error والعزلومتطلباتالعرضتضافعندتنفيذصفحاتT4-B قبلقبولها.
+- [ ] **التوصية:**اعتمادPlaywright Security Gate بوابةتطويرمستقبلية؛Security وPresentation scoped وCombined=PASS. **T4-B Read-Only READY FOR OWNER AUTHORIZATION،NOT STARTED**؛لا مانعفني مثبت متبقٍ ضمنالبدءالمختبر،والتنفيذيتطلبتفويضالمالكالمستقل.
+- [ ] CDP Historical Findings تبقىOpen/Unresolved دونإغلاقبأثررجعي؛CDP Legacy coverage غيرمعتمدةللإصدار. لاProduction readiness أوإغلاقRisk/CAB/SessionRevocation/Demo/F2،ولاFull Backend/Migration parity claim.
+
+Manifest الفعلية **11 Modified+16 New** فيتقريرT4 §19.7؛HEAD وmaster محفوظتان،Staging فارغة. التوقفبعدالتقرير؛لاT4-B أوهجرةكاملةأوCommit/Push/PR/Merge/Deployment. هذاالقسمهوأحدثقرار؛حالاتالحظرالأقدمفي§§14–15 وT4 §18 تبقىسجلًاتاريخيًاولا تُنسبإلىنتيجةالبوابةالجديدة.
+
+## 17. Approved Playwright Development Gate & Git Checkpoint — 2026-11-03
+
+**Playwright Security Gate = APPROVED for T4-B Read-Only Development.** اعتمادالمالكصريحللبوابةولـCommit واحدةوPush لحفظManifest27؛لايشملتفوّيضتنفيذT4-B أوRelease/Production Approval. هذاالقسموتقريرT4 §20 هماالسياسةالأحدث؛التوصياتوالقيودالتاريخيةفيالأقسامالسابقةمحفوظةكسجل.
+
+كلصفحةجديدةتتطلب **Real Backend Integration،Tenant Isolation،Permission Enforcement،Runtime DTO Validation،Stale Response Protection،Loading/Empty/Error States،RTL/LTR،Responsive UI،Accessibility،Relevant Playwright Regression**. Security Gate كاملة،وPresentation علىالوظائفالمتأثرة،وCombined عندتغييرAuth/session/resource lifecycle وقبلقبولدفعةأوCheckpoint. لاتنجحالبوابةباستبعادفشلدونبديلمتكافئموثق.
+
+أدلةالقبولالمعتمدة:Security7/7،Presentation4/4،Forward11/11،Reverse11/11،Backend63،Frontend72،Typecheck/Build/Lint Passed،Gitleaks27files/Zero Findings وCleanup Passed. مراجعةالحفظلمتغيرسلوكالكود؛تحديثوثيقتيالسياسةوإزالةسطرEOF فارغزائدفيfixtures.mjs فقط،معإثباتفرقwhitespace وفحصsyntax،لذلكلاتُعادالاختباراتالطويلةدونسبب. يُفحصالـIndex صراحةوتُمسحStaged Blobs بـGitleaks قبلCommit؛أيمشكلةأمنيةجديدةأوتغيرغيرمتوقعيوقفالحفظ.
+
+Commit المصرح بها:`test(a5): establish playwright security gate for t4 development`،ودفععاديفقطإلى`origin/feature/phase2-batch-a-tenant-security`؛لاForce/Amend/Rebase/PR/Merge أوتغييرmaster. SHA وRemote HEAD وclean tree تُثبتفيالتقريرالنهائي. Manifest27 فيT4 §19.7؛لاnode_modules/Binaries/Media/Traces/HAR/DB dumps،ولاProduction Auth/JWT/Permissions أوModels/Migrations changes.
+
+Historical CDP Findings **Open/Unresolved**،والـCDP Harness واختباراتها محفوظةLegacy غيرمعتمدةللإصدار. **Full Browser Suite Parity وProduction Readiness غيرمتحققتين**؛المخاطرRisk/CAB/SessionRevocation/Demo/F2 والحدودفيT4 §§19–20 محفوظة. لاتُفتحتحقيقاتCDP قديمةإلابدليلأمنيجديدمؤثر.
+
+**T4-B: READY FOR SEPARATE EXECUTION APPROVAL — NOT STARTED.** التوقفبعدالحفظوالدفعوالتقرير. لاT4-B/C/D/E أوBatch B/C/D الأمنيةأوMigration/Deployment/Credential changes ضمنهذهالمهمة.

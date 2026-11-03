@@ -46,6 +46,14 @@ export function createDiagnostics(suite, output = row => console.log('A5_BROWSER
   const emit = event => { state.event = event; output({ ...state }) }
   return {
     snapshot: () => ({ ...state }),
+    startup(phase, observation = {}) {
+      state.startup_phase = safe('startup_phase', phase)
+      for (const [field, input] of [['pid_presence', 'pid'], ['startup_process_state', 'process'],
+        ['port_file_state', 'file'], ['read_attempt', 'attempt']]) state[field] = safe(field, observation[input] ?? 'none')
+      state.os_error_code = allowed('os_error_code', observation.code ?? 'none') ? observation.code ?? 'none' : 'OTHER'
+      state.startup_elapsed_ms = Number.isInteger(observation.elapsed) && observation.elapsed >= 0 && observation.elapsed <= 300000 ? observation.elapsed : null
+      emit('startup')
+    },
     resource(phase, type, ownership, completion) {
       state.lifecycle_phase = safe('lifecycle_phase', phase)
       state.resource_type = safe('resource_type', type)

@@ -939,3 +939,472 @@ Security Assertions محفوظة؛لم تسجل الجولات فشلًا في f
 Gate الحفظ: staging صريحة بأسماء Manifest فقط؛ مطابقة Index وقائمة الملفات، وdiff --cached --check، وفحص Gitleaks محلي على **كامل blobs المفهرسة للملفات16** مع Redaction/Metadata فقط قبل Commit. نتيجة Git الفعلية وSHA وRemote verification تسجل في التقرير النهائي وسجل Git؛ لاSHA ذاتية داخلCommit. لاAmend/Rebase/Merge/ForcePush/PR/Deployment أوتغيير master.
 
 التوصية الهندسية التالية للمراجعة فقط: تحقيق واحد محدد في Startup DevTools port read، بتمييز حالات وجود واكتمال قراءة الملف وأكوادOS المسموحة دون قيم خام، وقبل أيRetry أوتعديل Timeout. لا يبدأ هذا التحقيق ولاT4-B في هذه المهمة.
+
+
+## 17. Browser Startup / DevTools Port investigation — 2026-11-03
+
+**Goal:** إثبات سبب startup port-read failure أوتحديد حدود الإثبات، وإصلاح Test Infrastructure فقط بعد Root Cause مثبتة وRED→GREEN؛ لاT4-B أوGit writes.
+**Architecture:** رصد منقح حول owned child/file، وcontrolled missing/empty/partial/invalid/locked-file faults. القراءة والانتظار وآلية الاتصال القائمة محفوظة؛ لازيادةTimeout أوSleep/Blind Retry.
+**Spec:** طلب المالك «Browser Startup /DevTools Port Root Cause Investigation». Baseline المحلي وRemote HEAD مطابقان `0ada30aba8d50b94180b305edcbc0c35fea4634e`؛Working Tree وStaging نظيفتان عند البدء؛master المحلي والبعيد `10faab20b1c61b5476165bbc1f5d28a2a85e2652` محفوظة.
+**Review Focus:** spawn errors وchild exit؛وجود الملف مقابل صحة محتواه؛OS read codes؛profile ownership/reuse؛CDP failure بعدvalid port؛original failure وcleanup strictness.
+
+- [x] S1: مصدر startup وPython guards قُرئا؛ safe instrumentation RED→GREEN.
+- [x] S2: faults اصطناعية وجولتاAuth/Presentation محددتان،دونتكرارمفتوح.
+- [x] S3: القرار **Unresolved**؛لم تثبت Root Cause للفشل الحقيقي،ولم يطبق إصلاح وظيفي تخميني.
+- [x] S4: اختبارات Frontend/Python وTypecheck/Build/Lint وGitleaks/diff وManifest وقرارالبوابة أدناه؛التوقف للمراجعة.
+
+### 17.1 Actual startup sequence and ownership
+
+1. Python runner تنشئ private `changeflow-a5-run-*` جديدة،وتبني child environment من allowlist نظامية؛لاDATABASE_URL/JWT/PG/provider secrets موروثة. audit تمنع.env،وconnections غيرالمملوكة مرفوضة قبل الاتصال.
+2. executable تأتي من `--browser-bin` صريحة وتتحقق Python أنها file. executable الحالية Edge **156.0.4314.58**،مقاسة منFileVersion/ProductVersion،لا تحديث أوتثبيت.
+3. لكلtest `tmp_path` مملوكة،وNode تنشئ profile جديدة عبرmkdirSync دونrecursive؛وجودالمجلد مسبقًا يفشل بدل إعادةاستخدامه. لاProfile شخصية أومتصفح قائم.
+4. spawn تستخدم flags الحالية headless/disable-background-networking/component-update/sync وremote-debugging-port=0. لا تغيرArguments؛الأرقام0 تعني اختيارمنفذ ديناميكي،ولاport ثابتةأوتعارض مثبت. القيم الفعلية للـArguments والمسارلا تسجل.
+5. ChildProcess/PID تبقى داخلprivate process reference؛الرصد يعيد **presence فقط**. Nodeobserved state running/exited تعتمد exitCode/signalCode والأحداث؛ليست فحصًا مستقلاً لكلOS handle.
+6. المسار القديم ينتظروجودDevToolsActivePort حتى300×100ms أوchild exitCode غيرnull. نافذة30s ومعدلpoll لم يتغيرا. أضيفت observation لنهايةالانتظار تميز missing-at-deadline عنchild-exit،دونتغييرتدفقه.
+7. `readDevToolsPort` تستدعيreadFileSync مرةواحدة؛تسجل Missing/Unreadable وOS code عندالخطأ،أوتصنفEmpty/Partial/Invalid/Valid داخل الذاكرة. مازالالـconsumer يعيدNumber لأولسطر كماكان؛لاvalidation enforcement أوإعادةقراءة جديدة.
+8. بعدالقراءة،JSON page discovery وWebSocket CDP كماكانا. لاRaw URL أوbrowser identifier محفوظة؛validity التشخيصية ليست إثباتًا مستقلاً لملكيةendpoint،بلowned process/profile وloopback controls هيحدودالبنيةالقائمة.
+9. بعدالاتصال تعملscenarios الحالية دونتغييرAssertions أوAuth/JWT/Matrix.
+10. cleanup المعتمدة منCheckpoint السابقة محفوظة: Browser.close عندوجودCDP،وإنهاءchild المملوكة عندفشلStartup قبلCDP،معnonzero strictness؛ثمVite/Node/Python/FastAPI/PG cleanup. لا توقفProcess غيرمملوكة.
+
+fixtures القائمة تهيئschema الاختبار الاصطناعية فقط؛لم تمسقاعدة قائمة أوModels/Migrations files،ولم يُشغّلLegacy/Bootstrap. startup investigations لا تقرأCredentials فعلية أو.env.
+
+### 17.2 Failure location and Windows evidence
+
+**الدليل التاريخي المحفوظ:** failure في`browser-start/read-debug-port`،Error/unknown،Browser running،ولاCDP context/target. لاOS code أومحتوىملفمنالمحاولةالقديمة؛لايمكن إعادةبناءهذهالمعلومات بأثررجعي. وجودفشل بعدexists-loop لايثبتأنالملف كانValid؛قدتكوننهايةالانتظارأوقراءةغيرمتاحةأوسببآخر. لاRoot Cause عميقةمثبتةمنالسجل القديم.
+
+**الدليل الحالي الحقيقي:** جولتان فقط،كلتاهما fresh process/profile. pid present وprocess running عندread؛الملفValid وOS code none؛CDP نجحت؛لمتخرجBrowser قبلقراءةالمنفذ. لاread failure أوspawn error أوport conflict أعيدتفيEdge الحالية. لادليل علىAntivirus أوWindows interference أوprofile reuse أوتداخلBrowser processes؛لاSecurity Policy أوسلوكOS تغير.
+
+| Real run | File read observation | CDP connected observation | Test result | Exit /cleanup |
+|---|---|---|---|---|
+| Auth |Valid؛read attempt618ms بعدspawn start؛pid present/running |1118ms |**1 pytest Passed؛13/13 scenarios؛38.73s** |Node/runner0؛Browser/Vite/FastAPI/PG cleanup completed |
+| Presentation |Valid؛read attempt372ms؛pid present/running |755ms |**1 pytest Passed؛62/62 scenarios؛47.00s** |Node/runner0؛cleanup completed |
+
+كلجولة0 Failed/0 Skipped/0 Deselected. لاجمع للأعدادالمتداخلة معCheckpoint أوأيtests أخرى. مددms أعلاه elapsed cumulative observations منspawn start،وليستbenchmark أورفعًا لميزانيةTimeout. أضيفتحسيندقةtimestamp عندنتيجةالقراءة وwait-end metadata وspawn-errorMonitor بعدالجولتين؛اختُبرتفياختباراتالرصد النهائية،ولم يعدBrowser لمجردتغييرtelemetry.
+
+**Combined الحالية: NOT RUN**. الطلبيربطها بإصلاح Root Cause مثبت؛لاRoot Fix وظيفية هنا،فلا تُنسبCombined القديمة لهذهالمهمة ولاتنفذجولةإضافيةبلافرضية. نجاحالجولتينلايغلقفشلStartup التاريخي.
+
+### 17.3 Safe instrumentation and OS categories
+
+Schema مشتركةNode/Python أضيفلها startup phase وpid presence وobserved process state وOS error code وfile state وread-attempt category. elapsed duration رقمصحيح0..300000 أوnull؛bool/negative/out-of-range/strings مرفوضة. historical records تستخدمnone/null؛لا تُخترعمدةأوكودقديم.
+
+OS Allowlist: none/ENOENT/EACCES/EPERM/EBUSY/EIO/EINVAL/UNKNOWN/EISDIR/EMFILE/ENFILE/EADDRINUSE/OTHER. OTHER يستبدلأيcode غيرمسموح،ولاينسخالنصالخام. `errorMonitor` ترصدspawn-error دوناستهلاكerror event أوتبديلexit semantics. فشلspawn الاصطناعي سجلENOENT معpid absent/spawn-failed؛الرصدلايسجلactualPID.
+
+لاabsolute profile paths أوURLs/tokens/headers/cookies/bodies/rawstacks/environment values/browser argv/screenshots/traces تُحفظ. private file content تستخدم للتصنيف فقط،ثملا تدخلdiagnostic record. Python canonical boundary ترفضunknown fields/codes،ومخرجاتsubprocess الخاملا تُعاد. لاsettings/providers أوservices خارجية.
+
+### 17.4 Controlled fault injection and causal limits
+
+| Owned synthetic experiment | Actual observation | Causal meaning |
+|---|---|---|
+| Missing file |ENOENT؛Missing؛child مرصودةrunning |يثبتتصنيفread failure،لايثبتأنملفEdge لمينشأ تاريخيًا |
+| Empty file |Empty |يثبتالتصنيف فقط؛لاenforcement أوانتظارجديد |
+| Port-only partial file |Partial |snapshot اصطناعية،ليستقياسًا لكتابةEdge متزامنة |
+| Invalid content |Invalid |لاRaw content سجلت؛سلوكالـconsumer القديمباقٍ |
+| Complete synthetic content |Valid؛port returned12345 داخلfixture |لااختبارمفتاحأوخدمةخارجية |
+| Missing executable |عمليةspawn حقيقية فشلتENOENT؛pid absent/spawn-failed |الرصد يميزفشلspawn منfile-read؛لاprocess أخرىأُوقفت |
+| Child exits beforeport |child اصطناعيةتنتهيexit7؛fileMissing/ENOENT؛process exited/pid present |تمييزالخروجمبكرًا؛exit7 لمتتحول0 |
+| Windows exclusive sharing |PowerShell FileStream علىfile المملوكة بـFileShare.None؛read عاد **EBUSY/Unreadable**،وبعدunlock عبرstdin عادValid |يثبتعلاقةexclusive lock→EBUSY فيالمختبر فقط؛لايثبتأنEdge أوAntivirus أقفلتاالملف التاريخي |
+
+PowerShell المساعدة تستخدمNoProfile/NonInteractive ومجلدًا جديدًا وenv منقحة،وتنتظرhandshake ثمunlock،بلاSleep. finally تنهيchild المملوكة وتنتظرclose قبلحذفroot المؤقتة. لم يضبطExecutionPolicy أوACL أوAntivirus.
+
+محاولةقفلداخلSandbox فشلتفيready handshake (**19 Passed/1 Failed** فيمجموعة20)،قبلفحصlock؛لمتسجلقفلًاكاذبًا. نفسالاختبار دونتغييرنجحخارجSandbox (**20 Passed**) وسجلEBUSY. لايعتبرهذاإصلاحًا أوفشلStartup الحقيقي؛سببقيودالمساعدداخلالـSandboxغيرمحسوموrawstderrلمتُعرض.
+
+### 17.5 RED→GREEN and functional-fix decision
+
+- startup redaction method:17 Passed/1 Failed قبلوجودها،ثم18/0.
+- one-shot file observation:18 Passed/1 Failed قبلوجودhelper،ثم19/0؛استخراجالقراءةيحافظعلىنفسقراءةأولسطرمرةواحدة.
+- spawn failure observation:21 Passed/1 Failed قبلobserver،ثم22/0 ضمنFinal suite.
+- Python canonical injection/backward defaults:9 Passed/0 Failed؛تغطيnumeric duration والحقولالجديدة.
+
+هذهRED→GREEN **للرصد وتصنيفالأعطال**،وليستRED→GREEN لسببEdge التاريخي. لاRoot Cause reproduced فيBrowser؛لذلكلم تُطبقfunctional fix أوزيادةTimeout أوFixedSleep أوBlindRetry أوتغييرbrowser arguments/validation policy.
+
+يبقىقصورقراءةأولسطرقبلenforcement لاكتمالالملفمرئيًاوموثقًا؛لمتثبتعلاقتهبالفشلالتاريخيوعلاجهبالانتظارأوإعادةالقراءةقديخفيسببًا آخر. لايُقدمكإصلاحجاهزدونEvidence إضافية.
+
+### 17.6 Final verification and manifest
+
+| Check | Actual result |
+|---|---|
+| Final Frontend |**68 Passed /0 Failed /0 Skipped /0 Cancelled /0 Todo**؛46 baseline +22 diagnostics/fault/helper tests؛ليستنتيجة63 السابقةمضافة |
+| Typecheck /Build /Lint |app/test/config Typecheck وProduction Build ناجحة؛Lint0 warnings/errors |
+| Relevant Backend |**9 Passed /0 Failed /0 Skipped،0.47s**؛test_a5_browser_diagnostics.py عبرisolated runner؛لاDBconnection لهذاsubset |
+| Real PostgreSQL/HTTP integration |Auth وPresentation الموثقتانفي17.2؛fresh owned clusters/schemas وFastAPI؛لاclaim بتشغيلFull Backend190 مجددًا |
+| Combined |NOT RUN؛لاRoot Fix مثبتةتستوجبها،ولاopen loop |
+| Gitleaks8.30.1 |**9 files،0 Findings،0 historical literal matches**؛binary integrity verified؛synthetic detection/redaction/template passed؛Rule/Line metadata فقط |
+| Diff /syntax /Git |**diff --check وUTF-8/AST/JSON/Node syntax ناجحة**؛HEAD0ada30a وmaster محفوظة،9 Modified/0 New،Staging فارغة،لاGit writes |
+| Resource and artifact audit |0 عملياتEdge/PostgreSQL مرصودة تطابقowned run paths،و0 owned run roots متبقية؛2 artifact directories و2 diagnostics.json و693 canonical records؛0 raw artifacts |
+
+**Final Changed-File Manifest:9 Modified /0 New**؛لاملفحُذفأوstaged:
+
+1. `backend/docs/development_master_plan.md` — أحدثstatus/authorization/gates.
+2. `backend/docs/phase2_a5_t4.md` — هذاالتحقيق؛كلالأقسام1–16 محفوظة.
+3. `backend/tests/a5_browser_diagnostics.py` — numeric duration boundary.
+4. `backend/tests/test_a5_browser_diagnostics.py` — injection/backward-default checks.
+5. `backend/tests/test_a5_t2_browser.py` — تمريرstartup metadata فقط.
+6. `frontend/e2e/browser.mjs` — one-shot read observer وspawn/wait/CDP telemetry؛سلوكالقراءةوالانتظارمحفوظ.
+7. `frontend/e2e/diagnostic-schema.json` — startup allowlist/defaults.
+8. `frontend/e2e/diagnostics.mjs` — sanitizedstartup record.
+9. `frontend/tests/browser-diagnostics.test.mjs` —5 اختباراتإضافيةضمن22؛owned fault resources وprivacy assertions.
+
+لاApplicationBusiness/Auth/JWT/PermissionMatrix/Models/Migrations/dependencies changes. Auth وPresentation assertions وإصلاحاA06/Startup-cleanup المعتمدانمحفوظان. لاSecrets أو.env/Backups/build/DB dumps/scanner tools/temporary artifacts ضمنManifest. لاCommit/Push/PR/Merge/Deployment أوتغييرmaster.
+
+فحصالعملياتيطابقمساراتالتشغيلالمملوكةولايدعيجردكلWindows handles أوdescendants التيفقدتمرجعالمسار. children الاصطناعيةأُغلقتوانتُظرclose قبلإزالةجذورها. نتيجةGitleaks تخصالملفات9 الحالية،ولاتثبتتقاعدDemo أوعدمExposure تاريخية. لاقيمسريةطُبعتأونُقلت.
+
+### 17.7 Decision and remaining unknowns
+
+**Startup DevTools Port Root Cause: UNRESOLVED /not reproduced in realBrowser runs.** الضبطالاصطناعييثبتقدرةالرصدعلىتمييزMissing/Unreadable/Partial/Invalid/exited/spawnfailed؛لايثبتأيًا منهاكسببالفشلالقديم. لاWindows/Antivirus blame،ولاRootFix claim.
+
+**Browser Quality Gate = OPEN / NOT PASSED؛التصنيف الشاملC. T4-B = NOT AUTHORIZED.** A05 وP02 وHistorical Cleanup afterfunctional success تبقىUnresolved؛A06 وstartup-cleanup المحددةالمثبتتانلا تتغيران. المخاطرLegacy Demo Credentials وB Risk Isolation وC CAB Enforcement وD/F2/Session Revocation محفوظة.
+
+التوصية: مراجعةوحفظهذهالأدلةبتفويضمنفصلإنرغبالمالك؛عندتفويضتحقيقلاحق تُستخدمmetadata الحاليةعندإعادةالفشل،لتحديدOS code/file state/child state قبلقرارcondition-based readiness أوغيره. لااستمرارفيتشغيلCombined بلافرضية،ولارفعTimeout أوRetry احترازي،ولابدءT4-B.
+
+التوقفبعدالتقرير؛انتظارموافقةالمالكقبلأيخطوةأخرى.
+
+## 18. Browser Harness Architecture Decision & Playwright Pilot — 2026-11-03
+
+**القرار: A — Adopt Playwright Incrementally.** اعتماد تدريجي لبنية الاختبارات، مع إبقاء CDP Harness واختباراتها. هذه نتيجة Pilot محدودة، وليست اجتيازًا لبوابة المتصفح القديمة أو تصريحًا ببدء T4-B.
+
+### 18.1 Baseline والحدود
+
+البداية مطابقة للمطلوب: `bigest11/ChangeFlow-Governance`، الفرع `feature/phase2-batch-a-tenant-security`، HEAD `0ada30aba8d50b94180b305edcbc0c35fea4634e`، وتسعة ملفات Modified وStaging فارغة. حُفظت التعديلات التسعة؛ أضيفت نتائج هذه المهمة إلى الوثيقتين، ولم تُحرر ملفات التحقيق السبعة الأخرى. master بقيت `10faab20b1c61b5476165bbc1f5d28a2a85e2652`.
+
+لا تغييرات على التطبيق أو JWT أو Permission Matrix أو Models أو Migration files؛ **لم تُنفذ Alembic upgrades/downgrades**. لا T4-B أو Deployment أو Commit/Push أو Reset/Clean/Stash/Checkout. لم تُقرأ `.env` الفعلية ولم تُستخدم Credentials فعلية.
+
+### 18.2 تقييم البنية الحالية
+
+المصدر: `frontend/e2e/browser.mjs` و`auth.mjs` و`presentation.mjs` و`a06Recovery.mjs`، وPython runner/fixtures في `backend/tests`.
+
+- تشغّل Harness عملية Edge المملوكة مع Profile جديدة و`--remote-debugging-port=0`؛ تقرأ DevToolsActivePort، ثم تتصل بصفحة عبر WebSocket وتدير Page/Runtime/Fetch/Network مباشرة. هذا يتيح اختبار Edge الموجودة دون Dependency خاصة بـBrowser Runner. **هذا تفسير لما يتيحه التصميم من الكود، وليس إثباتًا لمبرر تاريخي موثق بقرار ADR.**
+- تنفذ بنفسها اكتشاف Port، اختيار Target، إدارة الرسائل وPromises، تصنيف الأخطاء، tracking للـexecution context، الانتظار على DOM، تعبئة React inputs، السيناريوهات والمهلات والعدادات، وBuild/Preview وAxe وMotion وDiagnostics والتنظيف. `until` تستطلع predicate؛ ليست Locator ذات actionability checks.
+- كل suite لها عملية وProfile مستقلتان، لكن تستخدم default Browser Context؛ لا BrowserContext مستقلة لكل سيناريو. سلسلة التنظيف موزعة بين CDP وWebSocket وEdge child وVite وNode وPython وFastAPI وPG. إقرار Browser.close أوdisconnect لا يثبت child exit؛ إرسال kill لا يثبت خروج كل descendants. بعض هذه الحدود موثقة أصلًا في §§15–17.
+- PostgreSQL ownership registry وguard ضد `.env` والاتصالات غير المملوكة، وFastAPI dependency override، وبيانات المؤسسات الاصطناعية قابلة لإعادة الاستخدام. ليست مرتبطة بـCDP. السيناريوهات القديمة مرتبطة بـprotocol.evaluate وFetch events، لذلك لا تُنقل حرفيًا كـFixtures جاهزة.
+- Playwright لا يستلزم تغيير عقود التطبيق: نفس Login form وJWT v2 و`/auth/me` وBackend authorization. إدارة Browser/Context/Locator/Assertion تنتقل إلى Runner؛ PostgreSQL وحواجزها تبقى في Python. اختلاف المتصفح وطبقة interception يظل حدًا للمقارنة.
+
+### 18.3 تصميم Pilot والعزل
+
+توجد الحزمة المستقلة في `frontend/e2e/playwright/`؛ لم تتغير `frontend/package.json` أوLockfile التطبيق. النسخة الدقيقة **@playwright/test 1.63.0**؛ تعتمد `playwright` و`playwright-core` بالنسخة نفسها، مع Lockfile وintegrity. Node الحالي **24.17.0** يفي بشرط `>=20` في [الحزمة الرسمية](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-test/package.json).
+
+نُزل **Playwright-managed Chromium Headless Shell 153.0.8010.12، revision1243** إلى مجلد `.browsers` المتجاهل محليًا؛ FFmpeg وWinldd أدوات تابعة للتنزيل، دون تشغيل تسجيل. لم يُثبت Edge أو يُحدّث. النسخ مثبتة في [browser manifest الرسمي](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-core/browsers.json).
+
+`test_a5_playwright_pilot.py` يعيد استخدام cluster/schema ownership وحواجز runner وseed الـworkspace، لكنه يستبدل fixture الدعوات بإنشاء **Base.metadata.create_all داخل Schema جديدة مملوكة فقط**، دون استدعاء migrate. لذلك هذه الأدلة تخص عقود التطبيق على ORM schema؛ **لا تثبت Migration parity**. حتى CDP Controls في هذه المهمة استخدمت fixture نفسها دون migrations.
+
+كل pytest item يحصل على seed/schema وFastAPI loopback جديدتين؛ كل Playwright test يحصل على Context/Page جديدة. `workers=1` و`retries=0` و`repeatEach=1`. لا fixed sleeps أوblind retries؛ Locators ذات assertions منتظرة، وinterception barriers، وأحداث Animation. تستخدم worker fixture واجهة launchServer/connect العامة لإتاحة child exitCode، ثم تتحقق من صفر contexts وdisconnection وexit0. يتحقق Python من exit0 للـRunner ومن join لـFastAPI؛ registry teardown وتنظيف private root يغلقان PG.
+
+لا storageState أوCookies/Tokens تُحفظ على القرص. trace/screenshot/video معطلة صراحة وHAR غير مفعلة، وpreserveOutput=never، وReporter يحجب Error messages/call logs/stdout/attachments/URLs. المسموح أسماء حالات ثابتة وحالات وقياسات رقمية فقط. اختبار Reporter رفض canary في عنوان مجهول: **RED1 failed/1 passed ثم GREEN2/2**. سطور `A5_FAILURE_METADATA` الخاصة بالـPilot هي قناة metadata يمررها runner القديم؛ `status=passed` فيها نجاح وليست Failure.
+
+### 18.4 Assertions المنقولة تجريبيًا
+
+| الحالة | الدليل الإيجابي والأمني؛ غياب DOM وحده غير كافٍ |
+|---|---|
+| Login + Session Recovery | Login حقيقية؛ Local Change ظاهرة؛ إيقاف استجابة `/auth/me` حقيقية ثم checking بلا protected shell؛ تحريرها يعيد الهوية والبيانات؛ session token موجود وlegacy localStorage token غائب؛ me200/org1 وforeign change200 يعيد404 |
+| A05 Tenant switch/pending response | route.fetch ينتظر 200 حقيقية من FastAPI/PG وتحتوي Local Change قبل الحجز؛ إزالة shell القديمة في أول frame بعد logout ومسح session token؛ Login tenant2 وempty state وforeign change100=404؛ تحرير الاستجابة القديمة بعد الهوية الجديدة؛ MutationObserver يرفض عودة Local Change/notification؛ العودة للمؤسسة الأولى تعرض بياناتها |
+| A06 control | تغيير Role في PG إلى Viewer؛ فتح وتأكيد verify مرة؛ me200 تثبت Viewer وغياب changes.read؛ shell+forbidden وغياب البيانات وNavigation grant؛ الطلب المحمي403 مع بقاء session token |
+| A06 race/403 recovery | حجز business requests قبل وصولها للخادم، ثم Role change وفتح الحوار؛ تحريرها يعطي403 حقيقية، ثم me200 بالصلاحيات الجديدة وforbidden وإزالة confirmation dialog دون ضغطه؛ تأكيد403 مباشر وعدم عودة البيانات |
+| P02 | Animation موجودة وتقدمت، duration150..250ms، opacity≥.9 وform أثناء الحركة؛ reduced-motion يزيل animations ويجعل transitions<.001s؛ focus مرئي وLogin تظل قابلة للاستخدام |
+| Context isolation/cleanup | Cookie اصطناعية وsession للمؤسسة الأولى لا تصلان للسياق الثاني؛ sessionStorage فارغة في Context جديدة؛ tenant2 لا ترى بيانات tenant1، وlogout الأولى لا ينهي الثانية؛ إغلاق السياقات الإضافية ثم إنشاء بديل نظيف؛ صفر contexts قبل browser shutdown وchild exit0 |
+
+في A05 يمكن أن تنتهي الاستجابة القديمة بـdelivery أوabort بسبب AbortSignal التطبيق؛ لا نبتلع أخطاء اعتباطية: مسار abort يتطلب request.failure، مع Assertions الهوية و404 وempty state ومنع stale DOM في الحالتين. `route.fetch/fulfill` يعيد استجابة الخادم الفعلية، لكنه ليس interception عند wire-level مطابقًا لـCDP. لا Mock Auth أوbody مصطنعة.
+
+Pilot لا تنقل بقية Auth13 أوPresentation62؛ الدعوات/expiry/network/storage failure/redirect وجرد layout/axe الكامل ما زالت مملوكة للاختبارات القديمة. لا ادعاء تكافؤ شامل.
+
+### 18.5 التنفيذ والنتائج؛ ثلاث جولات مقارنة فقط
+
+| الجولة | Playwright | CDP Control دون تغيير Assertions |
+|---|---|---|
+| R1؛ الحالات منفردة | **5 pytest passed،6/6 Playwright cases،100.10s،exit0**؛ Login/A05/A06 بمساريها/P02/isolation، كل مجموعة في Runner جديد | Auth ثم Presentation: **2 failed،75.98s،exit1**؛ Auth13 سيناريوًا نجحت ثم browser cleanup timeout؛ Presentation1 passed ثمP02 entry-no-progress مع cleanup timeout |
+| R2؛ مشتركة أماميًا | **1 pytest failed،80.59s،exit1**؛ Login/A05/A06-control/A06-race/isolation نجحت، P02 وحدها فشلت في advanced؛ contexts0 وbrowser exit0 وRunner cleanup passed | لم تُعد controls؛ R1 مرجع أمامي. لا ادعاء نجاح R2 ككل |
+| R3؛ بعد تصحيح رصد P02 | **2 pytest passed،128.48s،exit0**؛ أمامي6/6 ثم عكسي6/6؛ لكل item Schema وFastAPI وRunner جديد، وContext جديدة لكل case؛ كلا browser exits0 وcontexts0 وcleanup passed | Presentation ثم Auth: **1 failed/1 passed،53.89s،exit1**؛ Presentation توقفت عندP02 entry-no-progress؛ Auth13/13 وexit0؛ لم تسجل هذه الجولة cleanup timeout |
+
+R3 ترتيبها الأمامي: Login→A05→A06-control→A06-race→P02→isolation؛ العكسي: isolation→P02→A06-race→A06-control→A05→Login. مجموع أزمنة case bodies: **37.186s أمامي و52.790s عكسي**؛128.48s تشمل setup/build/HTTP/teardown. لا تُجمع الجولات كتغطية فريدة أوتُستخدم لحساب معدل Flakiness.
+
+**P02 disposition:** R2 أثبتت أن عينة إطارين أعادت advanced=false؛ لا تثبت تجمد التطبيق. استُبدل أخذ العينتين بانتظار `animation.ready` ثم `animation.finished` مع مقارنة currentTime، دون Sleep/Retry أوتغيير motion التطبيق. أبقيت شروط مدة الحركة ووضوح المحتوى أثناءها وReduced Motion. هذا تصحيح لطريقة الرصد داخل Pilot؛ لا RCA لفشل CDP ولا إغلاق للواقعة التاريخية. عند المراجعة النهائية نُقل قياس opacity/form إلى بداية الحركة بدل نهايتها، وأُجري تحقق P02 موجه إضافي موضح أدناه؛ ليس جولة مقارنة رابعة ولا توسيع تحقيق.
+
+**حدود الزمن والمقارنة:** نطاقا Playwright وCDP مختلفان، وكذلك Chromium153 مقابل Edge156 الموجودة. R2 وControl الأمامي تداخلا زمنيًا؛ ليست النتائج benchmark معزولة. لا نسبة تسريع أوإسناد كل الفرق للـRunner. R3 الناجحة ليست دليلًا على استحالة Flakiness؛R2 الفاشلة محفوظة وليست ممسوحة بنجاح لاحق.
+
+**تجهيز البيئة قبل المقارنة:** فشل npm وChromium DNS داخل Sandbox، فتم التنزيل خارجها. تجربة PG داخله فشلت قبل المتصفح مع صلاحيات temp/cleanup؛ إعادة مماثلة خارجها بدأت قبل اكتمال تنزيل Chromium وفشلت تجهيزًا أيضًا. ليست هذه جولات نجاح أوفشل وظيفي للـPilot. لم تُرفع timeout أوتُضف retries للاختبارات. أزيل control.log اليتيم الخاص بالـfixture الفاشلة فقط بعد التحقق من مساره ومحتواه وغياب عملية تستخدمه.
+
+### 18.6 المقارنة والتكلفة
+
+| البعد | الإبقاء على CDP الحالية | Playwright تدريجيًا |
+|---|---|---|
+| Reliability | أدلة تاريخية وحالية على P02 وcleanup failures؛ تشخيص مفصل موجود | Pilot أنهت الحالات بالترتيبين بعد تصحيح observer؛ فشلR2 يحذر من افتراض أن Runner وحدها تصلح أي assertion |
+| Security coverage | Auth13 وPresentation62 والـA06 directed cases الحالية | الست حالات أعلاه مع positive identity/backend403/404 وstale guards؛ parity شاملة لم تتحقق |
+| Lifecycle | ملف Port وTarget وWebSocket/pending promises/child/profile يديرها المشروع | Browser/context fixtures وlaunchServer/close من المكتبة؛exit child مثبت عبر API عامة، دون قراءة DevToolsActivePort في كود المشروع |
+| Cleanup | Python/Node/CDP/Edge متداخلة؛timeout أعيدت فيControl الأمامي | Browser exits0 وسياقات0 وتنظيف HTTP/PG ناجح فيPilot؛ ليس ضمانًا لكل OS أوcrash mode |
+| Complexity | بروتوكول وانتظار وlifecycle خاص بالمشروع فوق سيناريوهات التطبيق | كود صيانة أقل في تلك الطبقات؛يبقى seed/guard وprivacy reporter وinterception logic محليًا |
+| Dependency cost | لا Playwright packages أوbrowser download؛اعتماد على Edge المثبتة | 3 حزم مباشرة/انتقالية مثبتة بالإصدار نفسه؛node_modules≈18.58MB،browser/tools≈286.99MB على القرص؛download shell114.6MiB وFFmpeg1.3MiB وWinldd0.1MiB؛الأحجام تقريبية وقابلة للاختلاف |
+| Execution time | الجدول أعلاه،نطاق أوسع | لا حكم speedup؛setup وbuild لكل Runner كلفة ظاهرة،يمكن مشاركتهما مستقبلاً ضمن fixtures بعد إثبات العزل |
+| Migration effort | لا نقل فوري،مع بقاء كلفة صيانة البروتوكول | إعادة كتابة scenario actions والتزامن وربط assertion map؛Python PG guards وHTTP contracts قابلة لإعادة الاستخدام |
+
+الحزمة معزولة ولا تُضاف إلى production bundle. صيانة مستقبلية مطلوبة لتحديث Playwright والمتصفح معًا ومراجعة supply-chain وNode compatibility؛ لا version range عائمة داخلPilot. [Playwright configuration](https://playwright.dev/docs/test-use-options) يدعم ضبط التسجيل؛تعطيله هنا مقصود لمنع حفظ معلومات الجلسة.
+
+تقدير هندسي، لا قياس تنفيذي: **4–7 أيام عمل** لبقية Auth/A06 والتكافؤ الأمني، **3–5 أيام** لـPresentation/layout/axe، **1–2 يوم** لتوصيل CI/privacy/lifecycle gates؛المجموع **8–14 يوم عمل** لمهندس ملم بالمشروع، بعد اعتماد مستقل. لا إعادة كتابة Backend أوMigration أوAuth policy ضمن هذا التقدير. لا نقل إضافي نُفذ هنا.
+
+### 18.7 خطة الهجرة المقفلة بمعايير قبول
+
+1. مراجعة واعتماد Test Infrastructure Pilot كحزمة مستقلة؛تبقى CDP default والاختبارات القديمة كاملة. لا Git write ضمن هذه المهمة.
+2. نقل Auth/A06 فقط بدفعة مفوضة: mapping لكل assertion قديمة إلى بديلها،بما فيها invitation replay/expiry و401 وnetwork/storage failure وredirect. القبول: كل حالات Auth13 والـ403 race/control مع tenant first-frame وstale-response وbackend denials،دون Skip يخفي غياب المتصفح.
+3. نقل Presentation بدفعة منفصلة: 62 حالة وlayout/theme/language/axe/reduced motion/focus؛القبول coverage map ومخرجات نظيفة وexit codes وتنظيف مؤكد. لا اختزالها إلى P02 وحدها.
+4. قبل تبديل default Runner: مراجعة equivalence كاملة،ترتيبان مستقلان،failure/timeout cleanup وnonzero propagation،ومراجعة مالك صريحة لحالة البوابة القديمة. إبقاء القديم حتى ثبوت التكافؤ وموثوقية البديل؛لا حذف فيهذا التشغيل. هذه Deliverables محددة،وليست تفويضًا لتحقيق مفتوح النطاق.
+
+### 18.8 نتائج التحقق وManifest
+
+| Check | النتيجة الحالية |
+|---|---|
+| Frontend suite | **68 passed/0 failed/0 skipped** خارجSandbox؛المحاولةداخله67/1 بسبب Controlled Windows lock fixture readiness،فصُنفت بيئية؛لا تعديل الاختبار القديم |
+| Pilot reporter privacy | **2 passed**؛دورةRED→GREEN موثقةأعلاه |
+| Typecheck | app/test/config كلها نجحت عبرverify all؛لا تغيير فيTypeScript التطبيق |
+| Production build | نجحت؛98 modules،Vite8.1.4؛envDir=false وoutput مؤقت |
+| Lint | **0 warnings/0 errors** بعد تسميةcallback fixture بـprovide بدلuse؛الاسمuse التبس علىReact hooks rule.لا تعطيل lint rule |
+| Backend relevant subset | **17 passed/1 failed/0 skipped،16.15s**؛runner configuration/isolation gate/diagnostics؛1 PG و17 Unit/Memory إجمالاً.الفشل`test_metadata_filter_does_not_echo_traceback_copies_of_browser_output`:يتوقع phase القديمworkspace-login بينماschema الحاليةتقبلAxx؛لم تُغيّر هذهالملفات فيالمهمة ولم يُخف الفشل |
+| Full Backend | لم تُشغل؛تتضمنFixtures بها migrations ومساراتlegacy خارجالتفويض. ليست النتيجة السابقة190 إعادة جديدة |
+| Pilot / CDP | النتائج التفصيلية R1–R3 أعلاه؛لا Full Browser Gate pass |
+| P02 final directed check | **1 passed/0 failed/0 skipped،32.25s**؛case body2914ms،browser/runner exit0 وcontexts0 وcleanup passed؛سببها المحدد حفظ قياسopacity/form أثناء الحركة،دون مقارنة جديدة |
+| Gitleaks8.30.1 | **18 files،0 Findings**؛SHA-256 للحزمةوchecksum manifest مطابقانللإثباتالسابق،exe مطابقةللـZIP،synthetic detection وredaction وmetadata-only template ناجحة؛defaults وignore فارغة وignore-gitleaks-allow وstdin محلي؛لاraw matches أوsource upload. النطاقManifest الحالية،لاGit history scan ولاادعاءفحصhistorical literals جديد |
+| Resource audit | **0 matching test processes،0 normal temp run roots،0 known failed Sandbox roots متبقية**؛فحصCIM لأسماءعملياتBrowser/Node/PG ومساراتالاختبارات. حذفجذريSandbox فقطبعدإثباتفراغهما؛هذاحدمطابقةمساراتوليسجردكلWindows handles أوdescendants فاقدةالمسار |
+
+**Manifest:9 Modified محفوظة +9 New؛لا حذف أوStaging.**
+
+- Modified documents: `backend/docs/phase2_a5_t4.md` و`backend/docs/development_master_plan.md` — نتيجةPilot/المقارنة/القرار مع فصل البوابة.
+- Modified سابقة فقط،بلا تحرير فيهذه المهمة: `backend/tests/a5_browser_diagnostics.py` و`backend/tests/test_a5_browser_diagnostics.py` و`backend/tests/test_a5_t2_browser.py` و`frontend/e2e/browser.mjs` و`frontend/e2e/diagnostic-schema.json` و`frontend/e2e/diagnostics.mjs` و`frontend/tests/browser-diagnostics.test.mjs`.
+- New: `backend/tests/test_a5_playwright_pilot.py` — ORM-only owned seed وHTTP وassertions لـrunner exit/artifact policy،معCDP controls دونmigrations.
+- New: `frontend/e2e/playwright/package.json` و`package-lock.json` و`.gitignore` — pinned isolated dependency ومنع إدراجbrowsers/dependencies/results.
+- New: `frontend/e2e/playwright/playwright.config.mjs` و`run.mjs` — إعدادات/no-recording وbuild/preview وCLI exit propagation/cleanup.
+- New: `frontend/e2e/playwright/pilot.spec.mjs` — الست حالات وترتيباالتشغيل وContext/lifecycle fixtures.
+- New: `frontend/e2e/playwright/reporter.mjs` و`reporter.test.mjs` — metadata allowlist واختبار الخصوصية.
+
+إعادة التشغيل،منمجلد`backend` وبمساراتأدواتصريحةفقط؛لاDatabase URL أوcredentials:
+
+```powershell
+.\venv\Scripts\python.exe -B tests/a5_isolated_runner.py `
+  --postgres-bin '<PG_BIN>' --node-bin '<NODE_BIN>' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[forward]' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[reverse]' -s
+```
+
+للحالاتالمنفردةاخترlogin/A05/A06/P02/isolation بدلforward/reverse. Controls مخصصتانباسميtest_cdp_auth_control وtest_cdp_presentation_control وتحتاجانأيضًا`--browser-bin '<EXISTING_EDGE_BIN>'`؛لا تشغلهماكإصلاحللبوابة. تجهيزPilot منمجلد`frontend/e2e/playwright`: `npm ci --ignore-scripts --no-audit --no-fund` ثمضبط`PLAYWRIGHT_BROWSERS_PATH` على`.browsers` فيهذاالمجلدوتشغيل`node node_modules/@playwright/test/cli.js install chromium --only-shell`. فحوصFrontend:`node scripts/verify.mjs all` و`node --test e2e/playwright/reporter.test.mjs`. Gitleaks summary المنقحةمحفوظةخارجالمستودعفي`C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\gitleaks-pilot-summary.json`؛لاMedia أوSource أواسرارداخلالتقرير.
+
+### 18.9 القرار والبوابة وT4-B
+
+**A — Adopt Playwright Incrementally**: الـPilot أثبتت إمكانية الحفاظ على assertions الأمنية المطلوبة،وإعادة استخدامPG/FastAPI دون تغييرالتطبيق،وفائدةفيإخراجport/CDP/context/lifecycle منمسؤوليةكودالمشروع. لا claim بتكافؤ75 حالة أوإصلاحكلFlakiness؛اختلافbrowser وinterception وORM/migration schemas وصغرالعينة ومخاطرcrash cleanup باقية.
+
+**Browser Quality Gate القديمة: OPEN / NOT PASSED.** Control الحالية أعادتP02 وcleanup failure؛R3 CDP العكسيةبقيتfailed رغمAuth13/13. فشلconfiguration test أيضًايعنيأنمجموعةBackend ذاتالصلةليستgreen بالكامل. نتائجPilot لا تغلقStartup/A05/HistoricalCleanup السابقةبأثررجعي ولا تمنحProduction readiness.
+
+**هل يوجد مانع فعلي منT4-B؟ نعم فيحالةالبوابةالحالية:** لم تثبتparity كاملة ولم تُعتمد disposition للبوابة،ولا يوجد تفويضبدءT4-B. لا مانع معماري مثبتلاستخدامPlaywright نفسه. القرارالمطلوب هوالموافقةعلىالهجرةالمحدودةالموصوفة،معقرارGate/T4-B منفصل بعدمعاييرالقبول،لااستئنافتحقيقCDP مفتوحالنطاق. تبقىمخاطرDemo/B/C/D/F2/SessionRevocation كماوثقتسابقًا.
+
+التوقف بعد التقرير. لاجولةمقارنةرابعة،ولاT4-B أونقلإضافي أوGit writes.
+
+## 19. Playwright Stabilization & T4-B Readiness Gate — 2026-11-03
+
+**النطاق:** تثبيت بوابة تطوير أمنية صغيرة بعد اعتماد القرار A، وليس هجرة كاملة أو بدء T4-B. هذا القسم يحل محل توصية الاستئناف في §18؛ نتائج CDP التاريخية تبقى محفوظة دون إغلاق بأثر رجعي.
+
+### 19.1 Baseline والحفاظ على العمل
+
+تحققت البداية من origin `https://github.com/bigest11/ChangeFlow-Governance.git`، والفرع `feature/phase2-batch-a-tenant-security`، وHEAD `0ada30aba8d50b94180b305edcbc0c35fea4634e`: **9 Modified +9 New، وStaging فارغة**. لم يُنفذ Reset أوClean أوCheckout أوStash أوأي Git write. حُفظت التعديلات المحلية؛ جرى تعديل ملفات Pilot الموجودة وإضافة بنية اختبار محدودة. لا تغيير في التطبيق أوJWT أوPermission Matrix أوProduction Security/Business Logic أوModels أوMigration files. لا Deployment أوCommit/Push/PR/Merge، ولا بدء T4-B.
+
+### 19.2 Backend failure FIRST — السبب المثبت والإصلاح
+
+الاسم الكامل: **`tests/test_a5_runner_configuration.py::test_metadata_filter_does_not_echo_traceback_copies_of_browser_output`**.
+
+الـAssertion الفاشلة هي `assert metadata in result`، عند السطر71 قبل التعديل. الـfixture كانت ترسل `phase="workspace-login"`؛ `canonical_summary` تقبل فقط phases وscenario IDs المحددة في `diagnostic-schema.json`، ومنها `A02`، ولذلك ترفض تلك القيمة وتعيد `None`. `safe_output` يحذف السجل غير المطابق بصورة صحيحة. لم تكن المشكلة تسريبًا أوفقدان metadata صالحة؛ الاختبار استخدم بيانات خارج عقده.
+
+**التصنيف: Test Fixture.** لا Application/Security failure مثبتة. أُعيد إنتاج الاختبار في working tree: **1 failed،0.44s،exit1**. ثم صُدّرت أربعة blobs من HEAD إلى مجلد مؤقت مستقل باستخدام `git show`، وشُغّل الاختبار نفسه مع نسخ runner/diagnostics/schema من HEAD فقط: **الفشل نفسه وAssertion نفسها،exit1**، دون استيراد التطبيق أوأي ملفات Pilot ودون Checkout. هذا يثبت وجوده في Baseline قبل Pilot، وليس استنتاجًا من عدم وجود diff فقط.
+
+الإصلاح محصور في الاختبار: استبدال قيمة fixture بـ`A02`. بقيت Assertion الاحتفاظ بالسجل الصالح وAssertion عدم إخراج نسخة traceback أوprivate marker. أضيفت ثلاث حالات رفض لقيم phase غير معروفة، تشمل القيمة القديمة؛ لم تُوسع Allowlist ولم يُغيّر `canonical_summary` أو`safe_output`. نتيجة ملف الإعداد بعد الإصلاح **9 passed/0 failed/0 skipped،0.17s**. الحالة لم تُحذف ولم تتحول إلىSkipped.
+
+محاولة تصدير HEAD الأولى داخل Sandbox تعثرت بصلاحيات إنشاء temp قبل تنفيذ الاختبار؛ إعادة العمل نفسه خارجها نجحت وأثبتت RED. هذا عائق بيئي منفصل، وليس سبب فشل الاختبار الأصلي.
+
+### 19.3 P02 Assertion review والدليل السلبي
+
+الرصد في §18 انتقل من مقارنة عينتي frame إلى انتظار `animation.ready` ثم `animation.finished`. المراجعة الحالية نقلت نفس العقد إلى `motion.mjs`: وجود Animation فعلية، تقدم `currentTime`، مدة150..250ms، opacity≥.9 وform موجودة **أثناء الحركة قبل finished**. يرفض الرصد animation paused أوplaybackRate0 بدل انتظارها بلا تقدم. لا seek أوتعديل للساعة أومدة اختبار اعتباطية أوfixed sleep أوblind retry. مهلات Runner العامة تحد الاختبار ولا تُستخدم كدليل نجاح.
+
+- `P02-rtl`: تحريك سطح Login عند الانتقال إلى العربية، مع تأكيد `lang=ar-SA` و`dir=rtl`.
+- `P02-ltr`: التحريك عند العودة من العربية إلى الإنجليزية، مع `lang=en` و`dir=ltr`.
+- كلا المسارين يتحقق من عرض1440 و390 بلا overflow، وlabels، وAxe على main وفق wcag2a/2aa/21aa/22aa، ثم Reduced Motion يلغي animations ويخفض transitions إلى<.001s مع focus مرئي.
+- `P02-disabled`: fault في Browser Context الاختبار فقط تلغي Animation الحقيقية للـRouteSurface؛ يتحقق الاختبار من أن الحقن استُدعي فعليًا، ثم إن **نفس assertion المستخدمة في الاختبار الإيجابي ترمي خطأ لغياب الحركة**.
+- `P02-frozen`: fault توقف Animation الحقيقية؛ نفس assertion ترفض عدم تقدمها. لا تعطيل assertion أوقبول عنصر ثابت نجاحًا، ولا تعديل لمصدر التطبيق أوBuild الخاص به.
+
+اختبار Node للعقد خضع **RED Missing expected exception →GREEN**، ويثبت رفض غياب الحركة والتجمد وتأخير المحتوى وغيابform والمدة خارج العقد. الاختبارات السلبية في المتصفح تمر فقط عند كشف الخلل المتوقع؛ ليست Skips أوexpected-pass لحركة متعطلة. تغطية Accessibility الحالية تخص سطح Login وحجمين واتجاهين؛ ليست WCAG audit أوScreen Reader أوكل62 سيناريو Presentation.
+
+**الفرق المثبت بين التطبيق والاختبار:** fixture phase القديمة خالفت عقد diagnostic schema؛ وP02 القديمة اشترطت تقدمًا بين frame samples، بينما العقد الحالي يقيس دورة Animation ويشترط تقدمها ووضوح المحتوى. لا تغيير في سلوك الإنتاج ولا ادعاءRCA لمشكلات CDP التاريخية.
+
+### 19.4 Gate architecture
+
+**Security Gate (`selection=security`)**: سبع حالات ثابتة، بلا Presentation في هذه المجموعة:
+
+| الحالة | شرط النجاح |
+|---|---|
+| login | Workspace login فعلية؛me200/org1؛Session Recovery محجوبة بـchecking قبلme؛البيانات تظهر بعد التحقق؛session token موجود وlegacy localStorage token غائب؛foreign record404 |
+| A05 | حجز200 حقيقية قبل وصولها للتطبيق؛logout يزيل shell القديمة في أولframe ويمسحtoken؛tenant2 هوية مثبتة وempty state وforeign record404؛تحريرold response لا يعيد بياناتtenant1؛العودة إلىtenant1 تعمل |
+| A06-control | تبديلRole فيPG،verify يحدّثme إلىViewer بلاchanges.read؛forbidden معshell وغيابgrant/data؛Backend403 مع بقاءsession |
+| A06-race | business request محجوزة ثمRole revocation وفتحdialog؛403 حقيقية تشغّلme/recovery؛الصلاحيات الجديدة وforbidden مثبتتان،والحوار يزال دونconfirm |
+| isolation | Context/Cookie/SessionStorage لا تتشارك،logout الأولى لا ينهي الثانية،والبديلة نظيفة؛تغطية A13 أيضًا:SessionStorage methods ترمي في Context منفصلة،ومع ذلكme200 وLocal Change وMemory-only session مثبتة،ثمreload يرجعLogin دون استعادةsession |
+| routes | anonymous deep link يرجعLogin بلاshell أوbusiness calls؛generic login failures متطابقة؛Requester يصلforbidden عند/users معBackend403 وغيابnavigation grant؛external next لا يغادرorigin ولا/workspace |
+| session-boundaries | فشلnetwork فيme يخفيprotected DOM ويبقيtoken ثمretry صريحة؛تعطيلmembership يعطي401 حقيقية لطلبauthenticated ويمسحsession وDOM؛التوكنالقديميرفضهme مباشرةبـ401؛JWT اصطناعيةexpired لا تستعيدالدخول |
+
+المؤسسة والصلاحيات تُثبت من استجابات Backend حقيقية وعزلPG،لا بمجرد اختفاء عنصر. Role/disable controls محلية داخل fixture loopback؛لا Mock Auth أوpermissions. A05 تقبل delivery أوabort المثبتة بـrequest.failure،معنفسشروطهويةtenant2 و404 ومنععودةالبيانات.
+
+**Presentation Gate (`selection=presentation`)**: أربع حالات P02-rtl/ltr/disabled/frozen السابقة. كل دفعة Feature مستقبلية تضيف Responsive/RTL/LTR/Motion/A11y على الوظائف التي تؤثر فيها؛لا ربط تلقائي بترحيل62 حالة الآن. فصلها عن Security ليس حذفًا لفشلP02: لها بديل مشترك العقد،واختبارات سلبية،ويجب نجاحها عندما تتأثر وظيفة عرض.
+
+**Integration محددة:** `forward` يشغّل Security ثمPresentation في worker/browser مشتركتين وسياق جديد لكلcase؛`reverse` يعكس ترتيب المجموعتين والحالات. التشغيلان في pytest items مستقلين،كل منهماSchema/FastAPI/Runner جديدة. يُعاد هذا integration عند تغييرAuth/session/resource lifecycle،وقبل قبول دفعةT4-B أوCheckpoint تطوير؛لا سياسةإعادةواسعة أوتشغيلدوري أوتحقيقمفتوح.
+
+**Strict exit contract:** أسماء الحالات المطلوبة وترتيبها مثبتان في `gate-contract.mjs`. exit0 منPlaywright لا يكفي: يُرفضcase مفقود أوskipped أوfailed أوinterrupted أوglobal error أوغيابlifecycle metadata أوcontexts غيرصفرية أوbrowser exit غيرصفر. Python يتحقق بصورة مستقلة منعدد7/4/11 ومنالتنظيف والـexit. اختيارunknown/empty ثبت فعليًا أنه يعيد **Runner exit1 وcleanup passed** دون تشغيلBrowser. اختبارات العقد تثبت أنfailed/skipped/missing/unclean لا تتحولإلىنجاح حتىلوchild exit0.
+
+لا Traces/Screenshots/Videos/HAR أوstorageState؛Reporter محدودبأسماء ثابتة وحقولرقمية. عزل.env وcredentials الموروثة وownedPG وسلوكenvDir=false محفوظة. لاmigrations؛Backend regression تضيفautouse guard يرفضAlembic upgrade/downgrade قبلتنفيذهما.
+
+**Session boundary fixture correction المحدودة:** أول combined نجحت أماميًا11/11 وفشلت عكسيًا10/11،عندwaitForResponse الخاصةبـme401 فيsession-boundaries. لم يُحسبالتشغيلنجاحًا؛Runner exit1 والتنظيفناجحان. الافتراضفيالاختباركانأنme يجبأنتكونأولمنيرىتعطيلالعضوية،والاشتراكفيانتظارهاكانبعدطلبdisable. كودApiClient القائمينهيالجلسةعندأيauthenticated401؛طلبbusiness pending قديرىالتعطيلأولًا،فتمسحالجلسةولايعودme طلبًاواجبًا. هذاالتداخلليسفقدصلاحياتفيالتطبيق.
+
+أُجريprobe موجهواحدبحجزطلبbusiness ثمrelease بعدdisable؛بقيwait لمصدر401 محددًا،وفشلأيضًا(**1 failed،39.82s**). هذاالـprobeلميثبتوصول401 منpaged تحديدًا،ولاننسبكلتفاصيلفشلreverse إلىسجلشبكةلميُجمع. لكنه كشفأنإلزاممصدرالحدثوالاشتراكبعدسببهشرطtest fixture غيرصالحلإثباتالعقدالأمني. لاادعاءRCA أعمقللـscheduler أوالمتصفح.
+
+التصحيحفيالاختبارفقط: تسجيلwait لرد401 authenticated حقيقيقبلdisable،ثمrelease barrier،ثمفرضLogin وغيابshell ومسحtoken،وreload لايعيدالجلسة،ومطالبةBackend me401 صراحةباستخدامالتوكنالقديمعبرHTTP. لاقبولDOM وحدهاولاresponsemock أوتوسعةtimeout/retry؛لمتُحذفsession-boundaries أوتُستثنَ منالبوابة. التصنيفلهذاالافتراض**Test Fixture**؛سببالترتيبالزمنيالدقيقلفشلreverse الأولغيرمرصودبالكامل. سُمحبتحققنهائيواحدلـSecurity والترتيبينبعدهذاالتصحيح؛إذالمينجحكاملاًتبقىT4-B محظورةدونفتحسلسلةجولاتأخرى.
+
+### 19.5 Coverage Equivalence Matrix — نطاق T4-B Read-Only
+
+| الأصل/الخطر | البديل أوالدليل الحالي | الحكم |
+|---|---|---|
+| A01 generic credential errors | routes؛Backend/shared client unit tests | منقول فيالمتصفح |
+| A02 Workspace login | login +identity/tenant assertions | منقول |
+| A03 recovery/checking/no legacytoken | login | منقول |
+| A04 network recovery | session-boundaries | منقول |
+| A05 tenant switch/pending/firstframe/stale data | A05 وisolation؛Frontend transport tests تشملlate success/401/generation | منقول ضمنالعقد الأصلي،معاختلافinterception الموثق |
+| A06 role change و403 dialog race | A06-control/race +currentPG role/grants regressions | منقول وموسع بـBackend403 وmegrants |
+| A07 disabled membership/401/token removal | session-boundaries +PG active-session tests | منقول |
+| A08 tenant logout | A05/isolation؛Context مستقلة وsecond-session survival | منقول |
+| A09/A10 invitation acceptance/replay | لم تُنقلBrowser workflows؛Frontend invitation tests القائمة نجحت | خارجT4-B Read-Only؛تبقىLegacy،وليستparity عامة أواعتمادإصدار |
+| A11 expired token | session-boundaries +Frontend expiry/invalid-token tests | منقول |
+| A12 safe redirect | routes +safe route unit tests | منقول |
+| A13 Storage unavailable | fault حقيقية فيContext ضمنisolation؛memory-only login/me200 ثمreload بدونsession | منقول؛أُضيف بعدمراجعةفجوةالتغطية،لامجرداستبعاد |
+| Protected route/Forbidden/Auth claims | routes وA06 +Frontend permission tests؛Backend signedclaim/header/foreignJWT/unknownrole tests | متكافئ لمخاطرحدودالقراءةالمشتركة |
+| Systems/Dependencies/Incidents/ImpactProfile/Changes/Notifications foreign data | Assertions Backend الأصلية مستوردةدوننسخ أوتخفيف،علىORM-owned seed | PG regression فعلية،معحدعدمإثباتmigration parity |
+| nested foreign actors/counts/search وRequester own-only | Backend isolation/dashboard/notification regressions الأصلية | متحقق ضمنالقراءة |
+| Process exit/context/storage/cleanup | launchServer public child.exitCode،contexts0،Context بديلةنظيفة،emptygate exit1،strict result validator وHTTP/PG cleanup | متحقق فيالمساراتالمشغلة؛ليسكلcrash mode أوWindows handles |
+| Presentation62 | P02 بديل محدود بأربعحالات؛بقيةresponsive/layout/theme/axe القديمةمحفوظة | لاparity شاملة؛tests علىالوظائفالمتأثرةمطلوبةمعأيFeature |
+
+**حد التكافؤ:** مخاطرهويةالجلسة والصلاحيات والعزل والقراءة المشتركة اللازمةلبدءT4-B،وليستكلسياساتB/C/D أوعملياتالدعوات أوتدفقاتالكتابة. T4-B نفسها ستحتاجاختباراتالـresource/DTO/404/loading/error/same-binding latest-request الخاصةبصفحاتهاقبلقبولها؛لااختباراتلوظيفةلمتُنفذبعدولاادعاءأنالبوابةالحاليةتثبتها.
+
+### 19.6 Bounded verification
+
+| التحقق | النتيجة |
+|---|---|
+| Backend failure الحالي | RED1 failed/0.44s؛HEAD-only reproduction يفشلAssertion نفسها؛GREENملفconfiguration9/9 |
+| Relevant Backend Regression | **63 passed/0 failed/0 skipped،91.11s**:43 PostgreSQL +20 Unit/Memory؛الأصل18 صار21 بعدإضافة3 رفضphase،و42 PG security tests الأصليةمستضافةعلىORMfixture؛لاfullBackend أوmigrations suites |
+| Security منفصلة | الأولى7/7 قبلإضافةA13،ثم **النسخةالنهائية7/7** بعدإضافةA13 وتصحيحsession fixture؛exit0 وcontexts0 وbrowser exit0 وcleanup passed؛لاتُضافالجولتانكتغطيةفريدة |
+| Presentation منفصلة | **4/4**؛RTL/LTR ومقاسان وAxe وReducedMotion،والـnegative controls كشفتdisabled/frozen كماهوالمتوقع؛exit0 وتنظيفناجح |
+| Strict Runner negative | pytestpassed لأنunknown/empty gate أعادتRunner exit1 المتوقع؛cleanup passed،لاBrowser نُشئت |
+| مجموعالتشغيلاتالمنفصلة | **3 pytest passed/0 failed/0 skipped،91.87s**؛لا جمع معالجولاتالمتداخلةكتغطيةفريدة |
+| Combined الأول قبلتصحيحsession fixture | **1 pytest passed/1 failed،189.17s**؛forward11/11،reverse10/11 وفشلsession-boundaries؛contexts0 وbrowser exits0 وcleanup passed؛لااعتبارهاجولةخضراء |
+| Probe موجهواحد | **1 failed،39.82s**؛wait لمصدر401 محددفشل،ولميُعدتصنيفهكانجاحأمناختباري |
+| Final Security +Combined forward/reverse | **3 pytest passed/0 failed/0 skipped،173.65s**؛Security7/7،forward11/11 ثمreverse11/11؛كلBrowser/Runner exit0،contexts0 وcleanup passed؛لاCDP comparison جديدةولاstatistical repetitions |
+| Frontend suite | **72 passed/0 failed/0 skipped**؛68 القائمة+4 reporter/motion/exit contract tests؛موصولةالآنفيverify.mjs test القياسي |
+| Typecheck/Production Build/Lint | app/test/config ناجحة،Build98modules ناجحة،Lint0 warnings/0 errors |
+| Gitleaks8.30.1 | **27 files،0 Findings**؛تحققSHA-256 للحزمةوchecksum manifest ومطابقةexe معZIP،وsynthetic detection/redaction/template ناجحة؛defaults وignore فارغة وstdin محلي دونraw matches؛ليستhistory scan |
+| diff / syntax / resource audit | `git diff --check` وNode/Python syntax ناجحة؛**0 matching test processes،0 run roots،0 HEAD export roots،0 failed Sandbox export roots**. التدقيقيطابقأسماءومساراتالاختبارولايدعيكلWindows handles أوdescendants فاقدةالمسار |
+
+### 19.7 Manifest وحدودالتغيير
+
+الحالة الفعلية بعد العمل: **11 Modified +16 New**، بلا Deleted أوStaged. الملفات التسعة Modified عند البداية محفوظة. لم تُحرر سبعة ملفات التحقيق القديمة في هذه المهمة:
+
+`backend/tests/a5_browser_diagnostics.py`،`backend/tests/test_a5_browser_diagnostics.py`،`backend/tests/test_a5_t2_browser.py`،`frontend/e2e/browser.mjs`،`frontend/e2e/diagnostic-schema.json`،`frontend/e2e/diagnostics.mjs`،`frontend/tests/browser-diagnostics.test.mjs`.
+
+تعديلاتالجولةعلىملفاتموجودة:
+
+- `backend/docs/phase2_a5_t4.md` و`backend/docs/development_master_plan.md`:الدليلومصفوفةالتكافؤوالقرارومعاييرالبوابتين.
+- `backend/tests/test_a5_runner_configuration.py`:إصلاحfixture phase وإضافةرفضunknown phases؛الفلترنفسهلميتغير.
+- `frontend/scripts/verify.mjs`:تشغيلاختباراتinfra الجديدةضمنFrontend suite القياسية.
+- منملفاتPilot الجديدةالموجودةعندالبداية:`backend/tests/test_a5_playwright_pilot.py` و`frontend/e2e/playwright/{pilot.spec.mjs,run.mjs,reporter.mjs}`:مجموعاتالبوابات،session failure controls،expired JWT اصطناعية،عددالحالاتوالخروجالصارم.
+
+سبعةملفاتأُضيفتفقطفيهذهالجولة:
+
+1. `backend/tests/test_a5_security_gate_backend.py` — استضافة42 اختبارPG أمنيأصليعلىfixture معزولةدونmigrations،وحظرAlembic.
+2. `frontend/e2e/playwright/fixtures.mjs` — Browser/context/credentials وlogin helpers المشتركةالمستخرجةمنPilot.
+3. `frontend/e2e/playwright/gate-contract.mjs` — قائمةالحالاتوالتحققمننتائجRunner.
+4. `frontend/e2e/playwright/gate-contract.test.mjs` — رفضmissing/skipped/failed/unclean/exit1.
+5. `frontend/e2e/playwright/motion.mjs` — observation/assertion مشتركةللإيجابي والسلبي.
+6. `frontend/e2e/playwright/motion.test.mjs` — negative assertion contract.
+7. `frontend/e2e/playwright/presentation.mjs` — Presentation Gate المحدودة.
+
+بقيةالملفاتالجديدةالخمسةمنPilotمحفوظةدونتعديل:`.gitignore` و`package.json` و`package-lock.json` و`playwright.config.mjs` و`reporter.test.mjs` داخلمجلدPilot. النسخة1.63.0 والمتصفحالمُداركماهما؛لامكتبةأومتصفحجديدفيهذهالجولة.
+
+### 19.8 Remaining CDP findings وقرار T4-B
+
+Startup DevToolsActivePort وP02 frame-sampling وA05 التاريخية وpost-functional cleanup findings تبقىبحالتهاالتاريخيةOpen/Unresolved؛إصلاحاA06 وstartup-cleanup المحددانالسابقانمحفوظان. لاRCA جديدة ولاإغلاقبأثررجعي. CDP القديمةتبقىLegacy coverage غيرمعتمدةللإصدار،ولايلزمإبقاؤهاحاجزًاوحيدًالكلتطويربعدقبولبوابةبديلةمتكافئةللنطاق.
+
+**التوصية النهائية: نعم، يمكن اعتماد Playwright Security Gate بوابة تطوير مستقبلية لنطاق T4-B Read-Only.** نجحت Assertions مخاطر الهوية والصلاحيات والعزل والاستجابات القديمة اللازمة لهذا النطاق، بما فيها A13 التي كانت فجوة مؤقتة، مع Backend Regression خضراء وPresentation بديلة لـP02 واختبارات سلبية. لم تُمرر البوابة بإقصاء حالة فاشلة؛ session-boundaries بقيت مطلوبة وصُححت fixture الخاصة بها، ثم نجحت منفردة وداخل الترتيبين.
+
+| سؤال القرار | الجواب |
+|---|---|
+| هل تغطي Security Gate مخاطر بدء T4-B Read-Only؟ | نعم، ضمن العقود والموارد المقروءة القائمة ومصفوفة19.5؛ ليست موافقة على صفحات كتابة أوRisk/CAB أوصلاحيات جديدة |
+| هل توجد Assertions قديمة ذات صلة لم تُنقل؟ | لا فجوة مثبتة في حدودالجلسة والقراءة المشتركة المحددة للبوابة؛A09/A10 invitation workflows لم تُنقلا وهما خارجهذهالدفعة،والتغطيةالبصريةالكاملةليستمنقولة. يلزم اختبار Feature الخاصة بصفحاتT4-B عندتنفيذها |
+| هل بقي فشل Backend متعلق بالأمان؟ | لا ضمن63 اختبارًا ذاتصلة؛الفشل الأصلي كانTest Fixture،وثبت فيHEAD،وأُصلح دونتغييرSecurity Logic |
+| هل يوجد فرق موثق بين التطبيق والاختبار؟ | phase fixture غيرمطابقةللـschema،وافتراضمصدر401 والاشتراكبعدسببه،ورصدP02؛كلهافيTest Infrastructure. لااختلافمثبتيتطلبProduction Security fix |
+| هل يمكن استبدال تعليق التطوير على CDP؟ | نعم،بعداعتمادالمالك لهذهالبوابةكسياسةتطويرمحدودة؛CDP تبقىLegacy غيرمعتمدةللإصدار،والfindings لا تُغلق بأثررجعي |
+
+**الحالة المقترحة:** Security Gate **PASS**، وPresentation Gate علىسطحLogin المتأثر **PASS**، وCombined بالترتيبين **PASS**؛ **T4-B Read-Only: READY FOR OWNER AUTHORIZATION،NOT STARTED**. لا مانع فني مثبت متبقٍ ضمن نطاق البدء المختبر. قبول الصفحة الجديدة لاحقًا يتطلب اختبارات API/DTO/data isolation/loading/error/latest-request الخاصة بها وPresentation على الوظائف المتأثرة؛هذا معيار قبول لتنفيذ جديد،وليس طلب تحقيق مفتوح في CDP.
+
+المخاطر المتبقية: عينة تشغيل محدودة لا تنفيFlakiness؛متصفحChromium المُدار واحد؛ORM schema لا تثبتmigration parity؛فحصAxe ليسWCAG/ScreenReader audit؛ولا إثباتلكلcrash cleanup أوWindows handle. مخاطرRisk/CAB/SessionRevocation/Demo/F2 والتفويضاتالأخرى لا تتغير. لاProduction readiness أوRelease approval.
+
+أوامر إعادة التحقق المحددة منمجلد`backend`،بمساراتأدواتصريحة فقط:
+
+```powershell
+.\venv\Scripts\python.exe -B tests/a5_isolated_runner.py `
+  --postgres-bin '<PG_BIN>' `
+  tests/test_a5_runner_configuration.py tests/test_a5_isolation_gate.py `
+  tests/test_a5_browser_diagnostics.py tests/test_a5_security_gate_backend.py
+
+.\venv\Scripts\python.exe -B tests/a5_isolated_runner.py `
+  --postgres-bin '<PG_BIN>' --node-bin '<NODE_BIN>' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[security]' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[presentation]' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[forward]' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[reverse]' `
+  tests/test_a5_playwright_pilot.py::test_playwright_runner_rejects_empty_gate -s
+```
+
+Frontend:`node scripts/verify.mjs all` منمجلدfrontend،و`git diff --check` منالمستودع. لا تشغلmodule الـPilot كاملةلإعادةالمقارنة؛تحتفظبالـCDP controls القديمةتعريفًاولمتُشغّلفيهذهالمهمة. الملخصالمنقحلفحصالأسرارخارجالمستودع:`C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\stabilization-scan\gitleaks-stabilization-summary.json`.
+
+HEAD وmaster محفوظتان،وStaging فارغة. **التوقف بعد هذا التقرير؛لا T4-B أوهجرةإضافية أوGit writes أوDeployment.**
+
+## 20. Approved Development Gate & Checkpoint Authorization — 2026-11-03
+
+**Playwright Security Gate = APPROVED for T4-B Read-Only Development.** اعتمد المالك هذه السياسة صراحة بعد مراجعة §19 ومصفوفة التكافؤ في §19.5. هذا اعتماد بوابة تطوير محدودة، وليس Release أوProduction Approval، ولا تفويضًا ببدء T4-B ضمن مهمة الحفظ الحالية. هذا القسم هو أحدث سياسة معتمدة؛ صياغات التوصية أوالحظر السابقة محفوظة كسجل تاريخي.
+
+### 20.1 شروط قبول كل صفحة جديدة
+
+كل صفحة ضمن A5-T4-B Read-Only مطالبة بالأدلة التالية قبل قبولها:
+
+- Real Backend Integration على FastAPI وPostgreSQL اصطناعيتين معزولتين.
+- Tenant Isolation، بما فيها الموارد المرتبطة والـcounts/search عند انطباقها.
+- Permission Enforcement من Backend وProtected Routes؛ إخفاء عنصر وحده ليس إثباتًا.
+- Runtime DTO Validation وفشل آمن للاستجابات غير المطابقة.
+- Stale Response Protection عند تبدل الجلسة أوالمؤسسة، وعند سباق طلبات المورد نفسه.
+- Loading/Empty/Error States صحيحة دون بيانات قديمة أوصلاحية ضمنية.
+- RTL/LTR وResponsive UI على الوظائف المتأثرة.
+- Accessibility، بما فيها Labels/Focus/Keyboard والفحوص الآلية ذات الصلة؛ لا ادعاء WCAG شامل دون تدقيقه.
+- Relevant Playwright Regression: نجاح Security Gate كاملة، وPresentation على الوظائف المتأثرة، وCombined بالترتيبين عند تغيير Auth/session/resource lifecycle وقبل قبول دفعة أوCheckpoint.
+
+لا يجوز إنجاح بوابة باستبعاد حالة فاشلة دون بديل مكافئ موثق. الحالة الأمنية الجديدة أوفشل مؤثر يمنعان الحفظ والقبول حتى قرار منفصل محدد النطاق. لا تكرار واسع أوBlind Retries، ولا إعادة فتح تحقيقات CDP القديمة دون دليل أمني جديد مؤثر.
+
+### 20.2 أدلة القبول المعتمدة للحفظ
+
+| المعيار | الدليل المقبول |
+|---|---|
+| Playwright Security Gate | 7/7 Passed؛ النسخة النهائية تشمل A13 و401 fixture correction |
+| Presentation Pilot | 4/4 Passed، مع RTL/LTR وReduced Motion وnegative controls |
+| Combined Forward / Reverse | 11/11 Passed لكل ترتيب؛ التحقق النهائي3 pytest passed خلال173.65s |
+| Relevant Backend | 63 Passed،0 Failed/Skipped؛91.11s،دون migrations |
+| Frontend | 72 Passed،0 Failed/Skipped |
+| Typecheck /Build /Lint | app/test/config Passed،Build98modules Passed،Lint0 warnings/errors |
+| Gitleaks السابق | 27 files،Zero Findings،مع integrity وsynthetic detection/redaction؛يجب إعادة الفحص علىStaged Blobs قبلCommit |
+| Cleanup | contexts0 وbrowser/runner exits0؛0 matching test processes/run roots/HEAD export roots في التدقيق النهائي |
+
+رُوجعت صلاحية الأدلة ومحتويات الملفات الـ27 في مهمة الحفظ. لم يتغير سلوك الكود أوالاختبارات أوDependencies منذ التحقق النهائي؛ التعديل الحالي في وثيقتي السياسة، مع إزالة سطر فارغ زائد بنهاية`fixtures.mjs` كشفه`git diff --cached --check` لأول مرة لأن الملف كانNew. ثُبت أن هذا الفرق تنسيقEOF فقط وفُحصNode syntax. لذلك تُعتمد نتائج §19 دون إعادة اختبارات طويلة؛ يُعاد فحص الوثائق والفهرس والأسرار المتأثرة. Package/Lockfile متطابقتان: Playwright1.63.0 وثلاث حزم مثبتة،دون Dependency إنتاجية جديدة. لا Production Auth/JWT/Permissions أوModels/Migrations changes،ولاnode_modules أوBrowser Binaries أوTraces/Screenshots/Videos/HAR/DB dumps ضمنManifest.
+
+### 20.3 حدود Git والتفويض
+
+تحققت البداية المحلية والبعيدة: HEAD `0ada30aba8d50b94180b305edcbc0c35fea4634e`،الفرع `feature/phase2-batch-a-tenant-security`،origin الرسمي،و**11 Modified +16 New =27 files** مطابقة تمامًا لـ§19.7؛Staging فارغة. master المحلية والبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`.
+
+التفويض: Commit واحدة بالرسالة `test(a5): establish playwright security gate for t4 development` ثمPush عادي إلى `origin/feature/phase2-batch-a-tenant-security` فقط. Stage بأسماءManifest صراحة عبر`git add --`،ثممطابقةالفهرس و`git diff --cached --check` وGitleaks علىكاملStaged Blobs؛أيfinding أوتغيرغيرمتوقع يوقفالحفظ. لاForce Push أوAmend أوRebase أوMerge أوPR،ولا تعديلmaster. SHA الفعلية ونتيجةRemote HEAD ونظافةالشجرة تُسجل في تقريرالتسليم بعدالتنفيذ؛لا SHA متوقعة مُختلقة داخلالمصدر.
+
+### 20.4 حدود الجاهزية
+
+Historical CDP Findings تبقى **Open/Unresolved**؛لمتنجحالبوابةالقديمةبأثررجعي،ولميتحقق **Full Browser Suite Parity** أو **Production Readiness**. تبقىCDP Harness واختباراتها محفوظة كتغطيةLegacy غيرمعتمدةللإصدار. مخاطرRisk/CAB/SessionRevocation/Demo/F2 وحدودChromium-only وORM-vs-migrations وصغرعينةالموثوقية محفوظة.
+
+**T4-B: READY FOR SEPARATE EXECUTION APPROVAL — NOT STARTED.** لاT4-B/C/D/E أوBatch B/C/D الأمنية،ولاDatabase Migrations أوDeployment أوCredential changes فيمهمةالحفظ. التوقفبعدCommit وPush والتحققوالتقرير؛الهدفالتاليبتفويضمنفصل هوتطويرصفحاتChangeFlow وفقهذهالبوابة،دونتحقيقCDP مفتوحالنطاق.

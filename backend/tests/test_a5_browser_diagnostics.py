@@ -16,18 +16,22 @@ def test_metadata_rejects_unknown_fields_and_sensitive_values():
     assert canonical(row) == row
     for key in ("scenario_id", "substep_id", "category", "phase", "error_name", "document_state",
                 "context_state", "target_state", "browser_state", "dom_state", "transition_id",
-                "lifecycle_phase", "resource_type", "ownership_status", "completion_state"):
+                "lifecycle_phase", "resource_type", "ownership_status", "completion_state", "startup_phase",
+                "pid_presence", "startup_process_state", "os_error_code", "port_file_state", "read_attempt"):
         assert canonical({**row, key: "synthetic-sensitive-marker"}) is None
     assert canonical({**row, "url": "https://example.test/#synthetic-sensitive-marker"}) is None
     assert canonical({**row, "exit_code": True}) is None
     assert canonical({**row, "browser_exit_code": True}) is None
+    for value in (True, -1, 300001, "synthetic-sensitive-marker"):
+        assert canonical({**row, "startup_elapsed_ms": value}) is None
 
 
 def test_historical_rows_are_normalized_with_unknown_lifecycle_not_invented_evidence():
     row = initial_record("auth")
     historical = {k: v for k, v in row.items() if k not in {
         "error_name", "document_state", "context_state", "target_state", "browser_state", "browser_exit_code", "dom_state", "transition_id",
-        "lifecycle_phase", "resource_type", "ownership_status", "completion_state"}}
+        "lifecycle_phase", "resource_type", "ownership_status", "completion_state", "startup_phase",
+        "pid_presence", "startup_process_state", "os_error_code", "port_file_state", "read_attempt", "startup_elapsed_ms"}}
     assert canonical(historical) == row
 
 

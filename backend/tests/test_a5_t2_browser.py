@@ -101,7 +101,7 @@ def run_browser_flow(workspace, mailbox, tmp_path, script="auth.mjs", a06_mode=N
         completed = collect_process(arguments, cwd=frontend, env=env, timeout=240, suite=script.removesuffix(".mjs"))
         diagnostic = completed.rows[-1]
         for row in completed.rows:
-            if row["event"] in {"failure", "cdp_error", "cleanup", "process_exit", "transition", "resource"} or row["scenario_id"] == "A05":
+            if row["event"] in {"failure", "cdp_error", "cleanup", "process_exit", "transition", "resource", "startup"} or row["scenario_id"] == "A05":
                 print(PREFIX + json.dumps(row))
         if artifact_root:
             # Only canonical finite metadata, never screenshots, bodies or traces.

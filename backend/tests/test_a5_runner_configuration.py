@@ -65,11 +65,18 @@ def test_child_environment_discards_inherited_settings_and_generates_fresh_keys(
 def test_metadata_filter_does_not_echo_traceback_copies_of_browser_output():
     sanitize = getattr(runner, "safe_output", None)
     assert callable(sanitize), "Safe metadata output filter is missing"
-    metadata = 'A5_BROWSER_METADATA={"passed":0,"failed":1,"phase":"workspace-login"}'
+    metadata = 'A5_BROWSER_METADATA={"passed":0,"failed":1,"phase":"A02"}'
     output = metadata + '\nE + CompletedProcess(stdout=' + metadata + ', stderr="synthetic private marker")\n1 failed in 1.00s'
     result = sanitize(output)
     assert metadata in result
     assert all("synthetic private marker" not in line and "CompletedProcess" not in line for line in result)
+
+
+@pytest.mark.parametrize("phase", ["workspace-login", "synthetic private marker", "https://example.test/private"])
+def test_metadata_filter_rejects_unknown_phases_without_echo(phase):
+    import json
+    output = "A5_BROWSER_METADATA=" + json.dumps({"passed": 0, "failed": 1, "phase": phase})
+    assert runner.safe_output(output) == []
 
 
 def test_visual_artifacts_stay_outside_checkout_and_preserve_existing_files(tmp_path, monkeypatch):

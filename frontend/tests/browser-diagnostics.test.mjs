@@ -3,10 +3,115 @@ import { test } from 'node:test'
 import { runInNewContext } from 'node:vm'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const diagnostics = await import('../e2e/diagnostics.mjs').catch(() => null)
 const browser = await import('../e2e/browser.mjs')
 const a06 = await import('../e2e/a06Probe.mjs').catch(() => null)
+
+test('one-shot port observation distinguishes owned missing, empty, partial, invalid and valid files', () => {
+  assert.equal(typeof browser.readDevToolsPort, 'function')
+  const root = mkdtempSync(join(tmpdir(), 'changeflow-startup-fault-'))
+  const active = join(root, 'DevToolsActivePort')
+  const rows = [], log = diagnostics.createDiagnostics('auth', row => rows.push(row))
+  const child = { pid: process.pid, exitCode: null, signalCode: null }
+  try {
+    let code
+    try { browser.readDevToolsPort(active, child, log, performance.now()) } catch (error) { code = error.code }
+    assert.equal(code, 'ENOENT')
+    assert.equal(rows.at(-1).port_file_state, 'missing')
+    for (const [content, want] of [['', 'empty'], ['12345\n', 'partial'], ['not-a-port', 'invalid'],
+      ['12345\n/devtools/browser/12345678-1234-1234-1234-123456789abc\n', 'valid']]) {
+      writeFileSync(active, content)
+      browser.readDevToolsPort(active, child, log, performance.now())
+      assert.equal(rows.at(-1).port_file_state, want)
+    }
+    assert.ok(!JSON.stringify(rows).includes(root))
+    assert.ok(!JSON.stringify(rows).includes('12345678-1234'))
+  } finally { rmSync(root, { recursive: true }) }
+})
+
+test('a real spawn failure is observed before a port read without logging the executable path', async () => {
+  assert.equal(typeof browser.observeSpawnFailure, 'function')
+  const root = mkdtempSync(join(tmpdir(), 'changeflow-startup-spawn-'))
+  const rows = [], log = diagnostics.createDiagnostics('auth', row => rows.push(row))
+  try {
+    const child = spawn(join(root, 'missing-browser.exe'), [], { stdio: 'ignore', windowsHide: true })
+    browser.observeSpawnFailure(child, log, performance.now())
+    await once(child, 'error')
+    assert.equal(rows.at(-1).startup_phase, 'spawn-error')
+    assert.equal(rows.at(-1).pid_presence, 'absent')
+    assert.equal(rows.at(-1).startup_process_state, 'spawn-failed')
+    assert.equal(rows.at(-1).os_error_code, 'ENOENT')
+    assert.ok(!JSON.stringify(rows).includes(root))
+  } finally { rmSync(root, { recursive: true }) }
+})
+
+test('a real child exit before port creation remains distinguishable from a live missing file', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'changeflow-startup-exit-'))
+  const rows = [], log = diagnostics.createDiagnostics('auth', row => rows.push(row))
+  const child = spawn(process.execPath, ['-e', 'process.exit(7)'], { stdio: 'ignore', windowsHide: true })
+  try {
+    await once(child, 'close')
+    let code
+    try { browser.readDevToolsPort(join(root, 'DevToolsActivePort'), child, log, performance.now()) } catch (error) { code = error.code }
+    assert.equal(code, 'ENOENT')
+    assert.equal(rows.at(-1).startup_process_state, 'exited')
+    assert.equal(rows.at(-1).pid_presence, 'present')
+    assert.equal(rows.at(-1).port_file_state, 'missing')
+    assert.equal(child.exitCode, 7)
+  } finally { rmSync(root, { recursive: true }) }
+})
+
+test('exclusive Windows sharing is classified without raw errors and unlock restores readability',
+  { skip: process.platform !== 'win32' }, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'changeflow-startup-lock-'))
+    const active = join(root, 'DevToolsActivePort'), script = join(root, 'lock.ps1')
+    writeFileSync(active, '12345\n/devtools/browser/12345678-1234-1234-1234-123456789abc\n')
+    writeFileSync(script, 'param([string]$File)\n$stream=[IO.File]::Open($File,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)\ntry { [Console]::Out.WriteLine("ready"); [Console]::In.ReadLine() | Out-Null } finally { $stream.Dispose() }\n')
+    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+      ['SYSTEMROOT', 'WINDIR', 'PATH', 'PATHEXT', 'COMSPEC'].includes(key.toUpperCase())))
+    const child = spawn(join(process.env.SYSTEMROOT, 'System32/WindowsPowerShell/v1.0/powershell.exe'),
+      ['-NoProfile', '-NonInteractive', '-File', script, active],
+      { env: { ...env, TEMP: root, TMP: root }, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true })
+    const closed = once(child, 'close')
+    const rows = [], log = diagnostics.createDiagnostics('auth', row => rows.push(row))
+    try {
+      const ready = await Promise.race([once(child.stdout, 'data'), closed.then(() => null)])
+      assert.ok(ready && String(ready[0]).trim() === 'ready', 'Controlled lock fixture must be ready')
+      let rejected = false
+      try { browser.readDevToolsPort(active, child, log, performance.now()) } catch { rejected = true }
+      assert.equal(rejected, true)
+      assert.equal(rows.at(-1).port_file_state, 'unreadable')
+      assert.ok(['EBUSY', 'EACCES', 'EPERM', 'UNKNOWN'].includes(rows.at(-1).os_error_code))
+      console.log('STARTUP_FAULT_METADATA=' + JSON.stringify({ file_state: rows.at(-1).port_file_state, os_code: rows.at(-1).os_error_code }))
+      child.stdin.end('\n'); await closed
+      assert.equal(browser.readDevToolsPort(active, child, log, performance.now()), 12345)
+      assert.equal(rows.at(-1).port_file_state, 'valid')
+      assert.ok(!JSON.stringify(rows).includes(root))
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill()
+      await closed
+      rmSync(root, { recursive: true })
+    }
+  })
+
+test('startup observations redact file content, paths and unknown OS codes while retaining duration', () => {
+  const rows = []
+  const log = diagnostics.createDiagnostics('auth', row => rows.push(row))
+  assert.equal(typeof log.startup, 'function')
+  log.startup('port-read', { pid: 'present', process: 'running', code: 'EBUSY', file: 'unreadable', attempt: 'read-failure', elapsed: 12 })
+  assert.equal(rows.at(-1).os_error_code, 'EBUSY')
+  assert.equal(rows.at(-1).port_file_state, 'unreadable')
+  assert.equal(rows.at(-1).startup_elapsed_ms, 12)
+  log.startup('synthetic-sensitive-marker', { pid: 'synthetic-sensitive-marker', process: 'synthetic-sensitive-marker',
+    code: 'synthetic-sensitive-marker', file: 'synthetic-sensitive-marker', attempt: 'synthetic-sensitive-marker',
+    elapsed: 'synthetic-sensitive-marker', path: 'synthetic-sensitive-marker', body: 'synthetic-sensitive-marker' })
+  assert.ok(!JSON.stringify(rows).includes('synthetic-sensitive-marker'))
+  assert.equal(rows.at(-1).startup_elapsed_ms, null)
+})
 
 test('startup cleanup terminates its owned live child when CDP was never connected', async () => {
   const child = spawn(process.execPath, ['-e', "process.on('message',()=>{}); process.send('ready')"],

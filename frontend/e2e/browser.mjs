@@ -5,8 +5,41 @@ import { parseArgs } from 'node:util'
 import { setTimeout as pause } from 'node:timers/promises'
 import { build, preview } from 'vite'
 import { gzipSync } from 'node:zlib'
+import { errorMonitor } from 'node:events'
 import { createDiagnostics, DiagnosticError, cdpCategory, evaluationError } from './diagnostics.mjs'
 import { a06ProbePlugin, probeSource } from './a06Probe.mjs'
+
+function startupProcess(browser) {
+  return { pid: Number.isInteger(browser?.pid) ? 'present' : 'absent',
+    process: browser?.exitCode !== null || browser?.signalCode !== null ? 'exited' : 'running' }
+}
+
+export function observeSpawnFailure(browser, diagnostics, started) {
+  // errorMonitor observes without consuming the launcher's existing error event.
+  browser.once(errorMonitor, error => diagnostics.startup('spawn-error', {
+    pid: Number.isInteger(browser.pid) ? 'present' : 'absent', process: 'spawn-failed',
+    code: error?.code, elapsed: Math.round(performance.now() - started),
+  }))
+}
+
+export function readDevToolsPort(active, browser, diagnostics, started) {
+  const observation = { ...startupProcess(browser), elapsed: Math.round(performance.now() - started) }
+  diagnostics.startup('port-read', { ...observation, attempt: 'first-read' })
+  let content
+  try { content = readFileSync(active, 'utf8') }
+  catch (error) {
+    diagnostics.startup('port-result', { ...observation, elapsed: Math.round(performance.now() - started), code: error?.code,
+      file: error?.code === 'ENOENT' ? 'missing' : 'unreadable', attempt: 'read-failure' })
+    throw error
+  }
+  const lines = content.trim().split(/\r?\n/), port = Number(lines[0])
+  const validPort = /^\d+$/.test(lines[0]) && Number.isInteger(port) && port > 0 && port <= 65535
+  const file = !content.trim() ? 'empty' : !validPort ? 'invalid' : !lines[1] ? 'partial'
+    : /^\/devtools\/browser\/[a-f0-9-]+$/i.test(lines[1]) ? 'valid' : 'invalid'
+  diagnostics.startup('port-result', { ...observation, elapsed: Math.round(performance.now() - started), file, attempt: 'read-success' })
+  // Keep the existing one-shot reader's behavior during causal diagnosis.
+  return Number(content.split('\n')[0])
+}
 
 // Recovery can replace the shell before or during the manual refresh dialog.
 // Only the caller's strict security outcome can replace manual confirmation.
@@ -167,6 +200,7 @@ export async function runBrowser(suite, suiteId = 'unknown') {
   if (api.hostname !== '127.0.0.1' || api.protocol !== 'http:') throw new Error('Unapproved test origin')
   const profile = join(resolve(values['temporary-root']), 'edge')
   mkdirSync(profile)
+  diagnostics.startup('profile-created', { pid: 'absent', process: 'unknown', attempt: 'observation', elapsed: 0 })
   const port = Number(values['frontend-port'])
   const origin = `http://127.0.0.1:${port}`
   let browser, protocol, vite, deadline
@@ -202,24 +236,35 @@ export async function runBrowser(suite, suiteId = 'unknown') {
     setPhase('browser-start')
     diagnostics.step('launch-browser')
     diagnostics.resource('browser-launch', 'browser-process', 'not-created', 'requested')
+    const startupStarted = performance.now()
+    diagnostics.startup('spawn', { pid: 'absent', process: 'unknown', elapsed: 0 })
     browser = spawn(values['browser-bin'], ['--headless=new', '--no-first-run', '--no-default-browser-check',
       '--disable-background-networking', '--disable-component-update', '--disable-sync', '--metrics-recording-only',
       '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore', windowsHide: true })
+    observeSpawnFailure(browser, diagnostics, startupStarted)
     browser.once('spawn', () => {
       diagnostics.browser('running')
       diagnostics.resource('browser-launch', 'browser-process', 'owned', 'completed')
+      diagnostics.startup('spawned', { ...startupProcess(browser), elapsed: Math.round(performance.now() - startupStarted) })
     })
     browser.once('exit', (code, signal) => {
       diagnostics.browser('exited', code)
       diagnostics.resource('browser-exit', 'browser-process', 'owned', signal ? 'signaled' : 'completed')
       diagnostics.resource('browser-exit', 'default-context', 'owned', 'completed')
+      diagnostics.startup('child-exit', { ...startupProcess(browser), attempt: 'child-exit', elapsed: Math.round(performance.now() - startupStarted) })
     })
     const active = join(profile, 'DevToolsActivePort')
     diagnostics.step('wait-debug-port')
+    diagnostics.startup('port-wait', { ...startupProcess(browser), file: 'missing', attempt: 'observation', elapsed: Math.round(performance.now() - startupStarted) })
     for (let i = 0; i < 300 && !existsSync(active) && browser.exitCode === null; i++) await pause(100)
+    const observedPortFile = existsSync(active)
+    diagnostics.startup('port-wait', { ...startupProcess(browser), file: observedPortFile ? 'unknown' : 'missing',
+      attempt: observedPortFile ? 'observation' : browser.exitCode !== null || browser.signalCode !== null ? 'child-exit' : 'deadline',
+      elapsed: Math.round(performance.now() - startupStarted) })
     diagnostics.step('read-debug-port')
-    const debugPort = Number(readFileSync(active, 'utf8').split('\n')[0])
+    const debugPort = readDevToolsPort(active, browser, diagnostics, startupStarted)
     setPhase('browser-connect')
+    diagnostics.startup('cdp-connect', { ...startupProcess(browser), attempt: 'observation', elapsed: Math.round(performance.now() - startupStarted) })
     let page
     for (let i = 0; i < 150 && !page; i++) {
       page = (await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json()).find(item => item.type === 'page')
@@ -233,6 +278,7 @@ export async function runBrowser(suite, suiteId = 'unknown') {
     })
     protocol = new Protocol(socket, diagnostics)
     diagnostics.resource('cdp-connect', 'cdp', 'owned', 'completed')
+    diagnostics.startup('cdp-connected', { ...startupProcess(browser), attempt: 'observation', elapsed: Math.round(performance.now() - startupStarted) })
     await protocol.send('Page.enable')
     await protocol.send('Runtime.enable')
     if (traceEnabled) await protocol.send('Page.addScriptToEvaluateOnNewDocument', { source: probeSource })
