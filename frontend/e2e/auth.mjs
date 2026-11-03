@@ -1,6 +1,6 @@
-import { runBrowser } from './browser.mjs'
+import { runBrowser, verifyIdentity } from './browser.mjs'
 
-await runBrowser(async ({ api, origin, protocol, fixture, check, navigate, until, fill, login: baseLogin, pause, capture }) => {
+await runBrowser(async ({ api, origin, protocol, fixture, check, navigate, until, fill, login: baseLogin, pause, capture, step, observeFailure, trace }) => {
   await protocol.send('Page.addScriptToEvaluateOnNewDocument', { source: "if(!localStorage.getItem('changeflow_language'))localStorage.setItem('changeflow_language','en')" })
   const login = async (fixture, second = false, openLegacy = true) => {
     await baseLogin(fixture, second)
@@ -13,11 +13,7 @@ await runBrowser(async ({ api, origin, protocol, fixture, check, navigate, until
       await until('!!document.querySelector("[data-legacy-shell]")')
     }
   }
-  const verify = async () => {
-    await protocol.evaluate('document.querySelector("[data-action=verify]").click()')
-    await until('!!document.querySelector("dialog[open] [data-action=confirm-verify]")')
-    await protocol.evaluate('document.querySelector("[data-action=confirm-verify]").click()')
-  }
+  const verify = expected => verifyIdentity(protocol, until, step, expected)
   await check('generic-login-failure', async () => {
     await navigate('/login')
     const errors = []
@@ -68,6 +64,7 @@ await runBrowser(async ({ api, origin, protocol, fixture, check, navigate, until
   await check('pending-response-tenant-switch', async () => {
     // Pause real HTTP responses after FastAPI/PostgreSQL have produced them;
     // do not replace auth, requests, or response bodies with browser mocks.
+    step('hold-response')
     const paused = []
     const unsubscribe = protocol.on('Fetch.requestPaused', (event) => { paused.push(event.requestId) })
     await protocol.send('Fetch.enable', { patterns: [{ urlPattern: api.origin + '/change-management/requests/paged*', requestStage: 'Response' }] })
@@ -76,40 +73,55 @@ await runBrowser(async ({ api, origin, protocol, fixture, check, navigate, until
       await until('!!document.querySelector("[data-workspace-shell]")')
       for (let attempt = 0; attempt < 100 && paused.length === 0; attempt++) await pause(50)
       if (paused.length === 0) throw new Error('No real tenant response was held')
+      step('logout-first-frame')
       const removed=await protocol.evaluate(`(async()=>{
         const previous=document.querySelector('[data-workspace-shell]');document.querySelector('[data-action=logout]').click();
         await new Promise(resolve=>requestAnimationFrame(resolve));
         return !previous.isConnected&&!document.querySelector('[data-workspace-shell]')&&document.querySelectorAll('[data-route-surface]').length<=1;
       })()`)
       if(!removed)throw new Error('Old tenant DOM survived a transition frame')
+      step('logged-out-clean')
       await until('!!document.querySelector("#workspace")')
       if (await protocol.evaluate('document.body.innerText.includes("Local Change")')) throw new Error('Old tenant remains after logout')
+      step('login-replacement')
       await login(fixture, true)
       await until(`document.querySelector('.workspace-identity')?.textContent.includes(${JSON.stringify(fixture.other_workspace)})`)
+      step('release-old-response')
       // Release any old response still held by CDP only after the new identity.
       await protocol.send('Fetch.disable')
+      step('replacement-empty')
       await until('document.body.innerText.includes("No change records match")')
       await protocol.evaluate(`[...document.querySelectorAll('p')].find(node=>node.textContent.includes('No change records match')).scrollIntoView({block:'center'})`)
       await capture('empty-other-workspace-safe')
+      step('replacement-clean')
       if (await protocol.evaluate('document.body.innerText.includes("Local Change") || document.body.innerText.includes("Local notification")'))
         throw new Error('Old tenant data reappeared in replacement session')
       await protocol.evaluate('document.querySelector("[data-action=logout]").click()')
       await until('!!document.querySelector("#workspace")')
+      step('restore-original')
       await login(fixture)
       await until('document.body.innerText.includes("Local Change")')
+    } catch (error) {
+      observeFailure(error)
+      throw error
     } finally {
+      step('release-interception')
       await protocol.send('Fetch.disable')
       unsubscribe()
     }
   })
   await check('role-change', async () => {
+    if (trace.enabled) await trace.start()
+    step('role-update')
     await fetch(api.origin + '/_test/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'limit' }) })
-    await verify()
+    await verify('!!document.querySelector("[data-workspace-shell]") && !!document.querySelector("[data-state=forbidden]")')
+    step('verify-forbidden-ready')
     await until('!!document.querySelector("[data-workspace-shell]") && !!document.querySelector("[data-state=forbidden]")')
+    if (trace.enabled) await trace.stop()
   })
   await check('disabled-membership', async () => {
     await fetch(api.origin + '/_test/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'disable' }) })
-    await verify()
+    await verify('!!document.querySelector("#workspace")')
     await until('!!document.querySelector("#workspace")')
     if (await protocol.evaluate('!!sessionStorage.getItem("changeflow_session_token")')) throw new Error('Stale token persisted')
   })
@@ -167,4 +179,4 @@ await runBrowser(async ({ api, origin, protocol, fixture, check, navigate, until
     await until('!!document.querySelector("#workspace")')
     await protocol.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: injected.identifier })
   })
-})
+}, 'auth')

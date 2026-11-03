@@ -9,13 +9,14 @@ import subprocess
 import sys
 import tempfile
 import re
+from a5_browser_diagnostics import PREFIX, canonical, canonical_summary, initial_record
 
 BACKEND = Path(__file__).resolve().parents[1]
 
 
 def safe_output(output):
     result = []
-    tags = ("A5_FAILURE_METADATA=", "A5_COUNTS_METADATA=", "A5_BROWSER_METADATA=")
+    tags = ("A5_FAILURE_METADATA=", "A5_COUNTS_METADATA=", "A5_BROWSER_METADATA=", PREFIX)
     for line in output.splitlines():
         included = False
         for tag in tags:
@@ -26,8 +27,14 @@ def safe_output(output):
                 value = json.loads(line[offset+len(tag):])
             except (ValueError, TypeError):
                 continue
-            if tag == "A5_BROWSER_METADATA=" and set(value) != {"passed", "failed", "phase"}:
-                continue
+            if tag == PREFIX:
+                value = canonical(value)
+                if value is None:
+                    continue
+            if tag == "A5_BROWSER_METADATA=":
+                value = canonical_summary(value)
+                if value is None:
+                    continue
             result.append(tag + json.dumps(value, separators=(",", ":")))
             included = True
             break
@@ -108,9 +115,26 @@ def child():
         def pytest_runtest_logreport(self, report):
             for line in (getattr(report, "capstdout", "").splitlines() if report.when == "call" else []):
                 if line.startswith("A5_BROWSER_METADATA="):
-                    evidence = json.loads(line.split("=", 1)[1])
-                    if set(evidence) == {"passed", "failed", "phase"}:
+                    evidence = canonical_summary(json.loads(line.split("=", 1)[1]))
+                    if evidence:
                         print("A5_BROWSER_METADATA=" + json.dumps(evidence))
+                elif line.startswith(PREFIX):
+                    try:
+                        evidence = canonical(json.loads(line[len(PREFIX):]))
+                    except (ValueError, TypeError):
+                        evidence = None
+                    if evidence:
+                        print(PREFIX + json.dumps(evidence))
+            browser_suites = {"test_a5_t2_browser.py": "auth", "test_a5_t3_browser.py": "presentation",
+                              "test_a5_a06_recovery.py": "recovery"}
+            browser_suite = next((suite for name, suite in browser_suites.items() if name in report.nodeid), None)
+            if report.when == "teardown" and browser_suite:
+                evidence = initial_record(browser_suite)
+                evidence.update(event="cleanup", phase="cleanup", cleanup_kind="resources",
+                                cleanup_status="failed" if report.failed else "passed")
+                if report.failed:
+                    evidence["failure_kind"] = "runner_failure"
+                print(PREFIX + json.dumps(evidence))
             if report.failed:
                 self.outcomes[report.nodeid] = "failed"
             elif report.skipped and self.outcomes.get(report.nodeid) != "failed":
@@ -129,7 +153,13 @@ def child():
         def pytest_sessionfinish(self):
             print("A5_COUNTS_METADATA=" + json.dumps(self.totals()))
 
-    raise SystemExit(pytest.main(sys.argv[2:], plugins=[Evidence()]))
+    result = pytest.main(sys.argv[2:], plugins=[Evidence()])
+    resource = initial_record("unknown")
+    resource.update(event="resource", phase="cleanup", lifecycle_phase="postgres-cleanup",
+                    resource_type="postgresql", ownership_status="owned",
+                    completion_state="unconfirmed" if a5_isolation._servers else "completed")
+    print(PREFIX + json.dumps(resource))
+    raise SystemExit(result)
 
 
 def main():

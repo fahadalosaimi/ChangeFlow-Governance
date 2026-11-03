@@ -10,13 +10,13 @@
 
 **Spec:** طلب المستخدم «ChangeFlow Governance — Enterprise SaaS Transformation — Master Development Prompt»، خاصة القسم 22: **Planning Gate Only**، بتاريخ 2026-11-01 بتوقيت Asia/Riyadh. مصدره المرفق المحلي [نص الطلب](<C:/Users/W10/.codex/attachments/9f871ecd-ce7d-43dd-a1cc-bcc9e4f247e2/نص ملصق.txt>). المرفق خارج Git؛ المتطلبات والقيود التنفيذية محفوظة هنا كي تبقى الخطة قابلة للاستخدام عند غياب المرفق. تقارير [A1](phase2_a1.md) و[A2](phase2_a2.md) و[A3](phase2_a3.md) و[A4](phase2_a4.md) أدلة تاريخية تُراجع مقابل الكود وGit.
 
-**حالة الوثيقة المحدثة — A5-T3 Final Visual Review (2026-11-02):** استُكملت المراجعة وتحسينات Motion محليًا مع الحفاظ على الهوية المعتمدة. أُصلح auto-focus frame وpre-paint theme وCSS compatibility cascade وScroll الجديد بأدلة RED→GREEN؛ لا تغيير لسياسات Auth/Backend. Frontend **46 Passed**؛ Browser **2 Passed** تغطي **13 Auth +62 Presentation** و**80 حالة تخطيط**؛ axe **36 فحصًا، 0 Violations** و3 Incomplete موثقة بقياسات إضافية13.76/17.45:1. Typecheck/Build/Lint ناجحة. Manifest **19 Modified +39 New =58**؛ الملف الجديد الوحيد فوق57 هوRouteSurface. Gitleaks النهائية **58 ملفًا، 0 Findings**. التفاصيل في [تقرير T3](phase2_a5_t3.md) والقسم10.12. **Ready for Development Checkpoint** فقط؛ لا Git أوA5-T4 أوProduction claim.
+**حالة الوثيقة المحدثة — Investigation Development Checkpoint approval (2026-11-03):** موافقة صريحة من المالك على Commit واحدة وPush للفرع الحالي فقط لحفظ مخرجات T4-A والتحقيق والاختبارات. خط الأساس المحلي والبعيد `48c1e8ef46d60c1ed85ebc7c59ed3dfbcde8fded` وmaster محفوظة؛ Manifest16 هي7 Modified+9 New. A06 وStartup-cleanup المحددة مثبتتان ومصححتان؛A05 وP02 وStartup DevTools Port Failure وHistorical Cleanup Failure تبقىUNRESOLVED. **Browser Quality Gate = OPEN / NOT PASSED؛T4-B = NOT AUTHORIZED؛التصنيف الشاملC.** لاProduction readiness أوبدءB/C/D. فحصIndex الصريحة مطلوبقبلCommit؛SHA وPush verification الفعليةفيالتقريرالنهائيوسجلGit. التفاصيلفي [تقريرT4 §16](phase2_a5_t4.md).
 
 ## Global Constraints
 
 - المستودع `bigest11/ChangeFlow-Governance` فقط، والمسار `C:\Users\W10\AI_Change_Impact_Analyzer`؛ ArchitectAI خارج النطاق تمامًا.
-- الفرع المعتمد `feature/phase2-batch-a-tenant-security`، وخط أساس T3 الحالي `a89468f82c3edbb0d252dd2788e243e162358524`؛ عند اختلاف Branch أوRemote أوHEAD المتوقع، توقف واشرح قبل تعديل الملفات. بيانات Stage 0 أدناه تاريخية.
-- التفويض الأحدث **A5-T3 Final Visual Review & Premium Motion Refinement** يسمح بالمراجعة والتحسينات المحدودة والاختبارات والتوثيق محليًا، مع حفظ التعديلات الحالية والهوية المعتمدة. لا Stage/Commit/Push/PR/Merge/Deployment أوA5-T4 دون اعتماد لاحق صريح. لا قاعدة قديمة أو.env/Backup secrets أوRotation أوBootstrap/Legacy execution أوMigrations تشغيلية أوB/C/D/Gemini.
+- الفرع المعتمد `feature/phase2-batch-a-tenant-security`، وخط أساس T4-A الحالي `48c1e8ef46d60c1ed85ebc7c59ed3dfbcde8fded`؛ عند اختلاف Branch أوRemote أوHEAD المتوقع، توقف واشرح قبل تعديل الملفات. بيانات Stage 0 أدناه تاريخية.
+- التفويض الأحدث **T4-A Investigation Development Checkpoint** يسمحبـCommit واحدةبالرسالةالمعتمدة وPush إلىorigin/feature/phase2-batch-a-tenant-security فقط بعدManifest/Index/Secrets checks. لاAmend/Rebase/Merge/ForcePush/PR أوتغييرmaster،ولاApp/Auth/JWT/Permissions/Models/Migrations/Credentials/Deployment changes. Browser Gate تبقىOPEN / NOT PASSED وT4-B NOT AUTHORIZED؛لاBrowser reruns أوتطويرجديدفيهذهالمهمة.
 - لا Commit أوPush أوPR أوMerge أوRebase أوForce Push أوتعديل `master` دون الموافقة المحددة؛ Git Checkpoint يأتي بعد اعتماد نتائج المرحلة فقط.
 - لا تشغيل Bootstrap فعلي أوSeed أوSetup على قاعدة قائمة، ولا بريد حقيقي أوخدمات مدفوعة أوDeployment أوDomains أوProduction Secrets أوProduction Migrations دون موافقة صريحة منفصلة.
 - لا اختبار على قاعدة إنتاجية، ولا حذف بيانات Legacy أوHistory، ولا اعتبار `create_all()` بديلًا لـMigrations.
@@ -312,17 +312,19 @@ Stage 0 approval
 
 #### A5-T4 — نقل الصفحات المدعومة تدريجيًا
 
+**الاعتماد الحالي T4-A فقط؛ الدفعات T4-B/C/D/E غير معتمدة للتنفيذ.** الجرد والعقود وخطة Feature modules و resource lifecycle والـ Quality Gates مفصلة في [phase2_a5_t4.md](phase2_a5_t4.md). لا Feature page انتقلت بعد، ولا Shared abstraction غيرمستهلكة؛ Layer النقل والجلسة الحالية معاد استخدامها. إزالة Legacy Adapter لا تجوز قبل إثبات Function parity أوتقاعد معتمد للوظائف المتعذرة بسبب B/C/D. Browser Regression تحتاجحسمًا قبل الدفعة التالية.
+
 **Files:** إنشاء `frontend/src/pages/{Dashboard,Changes,ChangeDetails,Systems,SystemDetails,Notifications,Users}Page.tsx`؛ مجلدات `frontend/src/features/{changes,systems,notifications,users}/` بـAPI/Types/Hooks/Components؛ اختبارات Feature و`frontend/e2e/supported-pages.spec.ts`. تقليص App.tsx وCSS القديمة فقط بعد نقل السلوك والتحقق منه.
 
 | Route مقترحة | المصدر الفعلي والحد |
 |---|---|
-| `/login` و`/accept-invitation` | A2/A3، دون Registration |
+| `/login` و`/invitations/accept` | A2/A3، دون Registration |
 | `/dashboard` | Change overview/queues لمن يملك changes.read؛ إدارة Users لمن يملكها؛ لا Change Dashboard لمسؤول لا يملك Permission |
 | `/changes` و`/changes/new` و`/changes/:id` و`/changes/:id/revise` | Paged/Details/Create/Revision/History/Audit الحالية، مع ملكية Requester |
 | `/systems` و`/systems/:id` | Catalog/Dependencies/Incidents/Impact Profile، لا Graph متقدمة قبل S6 |
 | `/notifications` | APIs A4 R1 وقيد قراءة المورد الحالي |
 | `/users` و`/users/invitations` | User administration وA3 مع Permissions المناسبة؛ لا Role Designer |
-| `/preferences` | لغة/Theme محليتان، وبيانات Profile للقراءة من me؛ لا حفظ Profile وهمي |
+| Presentation preferences الحالية داخلShell | لغة/Theme محليتان؛ لاRoute جديدة أوحفظProfile وهمي فيT4-A |
 
 - [ ] نقل كل Feature مع اختبارات سلوك وLoading/Error/Empty منفصلة؛ Page failure لا تسقط بقية التطبيق أوالهوية.
 - [ ] حفظ Search/Filters/Page في URL حيث يلزم، وCancel لطلبات تغير المرشحات ومنع نتائج قديمة من الكتابة فوق الجديدة.
@@ -735,6 +737,67 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 - [x] Dependencies/Lockfile/Readex OFL دون تغيير في هذه المراجعة؛ لا Install جديدة. Theme shifts=0 في العينة المحلية؛ Entry Opacity/Transform فقط، ولا ادعاء60fps أوCore Web Vitals.
 - [x] Gitleaks8.30.1: **58 ملفًا،0 Findings** مع توثيق binary integrity وsynthetic detection/redaction/template؛ أعيد فحص الوثيقتين بعد الخلاصة. Manifest58 مطابقة، Staging فارغة، diff/UTF-8/Python AST ناجحة، وجذور الاختبار النهائية المملوكة منظفة. **Ready for Development Checkpoint** فقط؛ انتظار اعتماد المالك. Legacy/F2/B/C/D باقية؛ لا Commit/Push أوT4 أوDeployment.
 
+### 10.13 A5-T4 / T4-A — Architecture & Contracts Review — 2026-11-02
+
+- [x] Baseline48c1e8e والفرع/Remote صحيحان و Working Tree نظيفة عندالبدء؛ master10faab20 دونتغيير. قراءة T1/T2/T3 وطبقات Auth/Router/Shell/Client والعقودالفعلية.
+- [x] جرد 54 function و 84 useState و 8 useEffect/8 useEffectEvent في App5227 سطرًا؛ 56 registered handler ، مع Permissions/Tenant/DTO/State/Error/Owner/Target وتصنيف Safe/Security-Limited/Missing/Deferred.
+- [x] T4-A docs-only: لا API جديدة أو Models/Migrations أو JWT/Matrix changes أو Dependency install. Shared transport/session الحالية كافية؛ Runtime decoders و same-binding latest-request protection مطلوبة مع أول consumer في T4-B ، وليستمنفذة الآن.
+- [x] Frontend46 Passed ؛ Typecheck/Production Build98 modules/Lint0 Warnings/0 Errors ناجحة. Backend relevant21 Passed/0 Failed/0 Skipped/0 Deselected ، منها 19 PostgreSQL و 2 unit ؛ ليست Full Backend Regression306 التاريخية.
+- [ ] Browser Regression Gate غير ناجحة؛ الجولة المشتركةالأولى 1 Passed/1 Failed (Auth4 pass ثم pending-response-tenant-switch fail ، Presentation62 pass). إعادة Auth منفردةسجلت 13/0 في metadata ؛ الجولة المشتركةالثانية 1 Passed/1 Failed مع Auth13/0 و Presentation62/0 لكن Auth process exit غيرصفر. لاتجمعالجولاتالمتداخلة ولاتعد Metadata وحدهانجاح pytest. التفاصيلوالتشخيصفيتقرير T4.
+- [x] الفجواتموثقة: RiskGLOBAL/missing→0 و aggregates غير latest ؛ CAB/implementation writes مؤجلة C ؛ maildelivery/sessionrevocation/F2 إلى D ؛ businesscasts و same-session query race و UTC و encodedslash query قبلالنقل. لا تصنيفجديدلأسرارقديمةبلادليل.
+- [x] Gitleaks8.30.1 النهائية: وثيقتان،0 Findings و0 historical literal matches؛ integrity وsynthetic detection/redaction/template ناجحة. diff check ناجحة؛ Manifest1 Modified+1 New وStaging فارغة. لاT4-B أوGit writes.
+
+### 10.14 T4-A Browser Regression Investigation — 2026-11-02
+
+- [x] Baseline والوثيقتان الحاليتان محفوظتان؛ لا مصدر تطبيقي أواختبار أوتبعية متغير. لا Reset/Clean/Checkout/Stash أو Git writes.
+- [x] Reproduction matrix محدودة: Auth وحدها 1 Passed/46.27s ؛ Presentation وحدها 1 Passed/65.24s ؛ Auth→Presentation2 Passed/107.84s ؛ Presentation→Auth2 Passed/105.38s. جميعها 0 Failed/Skipped/Deselected ، و Auth13/Presentation62 scenarios حيثينطبق، و Node exit0 بلا stderr.
+- [x] جولة observer مشتركة:2 Passed/0 Failed/0 Skipped/0 Deselected/72.15s ؛ Auth0 CDP/JS/Console/uncaught errors ؛ Presentation0 CDP/JS/uncaught و Console event واحدةغيرمصنفة. Network cancellation و blocking counters موثقة دون values أو URLs. ليستدليلًا علىغياب Race تحتتوقيتآخر.
+- [x] محاولة observer preparation منفصلة:2 pytest Failed قبلبدءالسيناريوهات،لامخرجات A5_BROWSER_METADATA ، 32.84s. تصحيحتحميلالأداةالمؤقتة إلى file URI ، دونتغييرالمشروع؛ ليستإعادةإنتاجللحادثةالأصلية.
+- [x] Frontend46 Passed/0 Failed/0 Skipped و app/test/node Typecheck/Build98 modules/Lint0 warnings0 errors ناجحة. Relevant Backend181 Passed/0 Failed/1 Skipped/0 Deselected/197.05s:105 PostgreSQL و 76 Unit/Memory ؛ skip للـ SQLite collation case فقط، PG counterpart passed.
+- [ ] **Root Cause Unresolved / incident gate open.** لا Application/Infrastructure fix ، ولااختبار RED/ادعاء GREEN لإصلاحغيرموجود. الفشلانالتاريخيانفي 10.13 والقسم 8 من T4 محفوظان؛ نجاحالجولاتالحاليةلايثبتسببهما أوإصلاحهما. لا T4-B دونحسمومراجعةالمالك.
+- [x] الفحص النهائي Gitleaks8.30.1: وثيقتان،0 Findings و0 historical literal matches؛ integrity وsynthetic redaction/template ناجحة. diff check وUTF-8/Markdown tables ناجحة؛ جذور الجولات السبع المملوكة منظفة. Manifest وثيقتان فقط وStaging فارغة.
+
+### 10.15 T4-A Conditional Gate & Browser Diagnostics — 2026-11-02
+
+- [x] Architecture approval مبدئية فقط؛13 ملفًا (7 Modified+6 New) تشملالوثيقتينالمحفوظتين وTest Infrastructure/schema/tests؛0 application source changes.
+- [x] RED→GREEN لميزةالرصد:7 Node tests و8 Python tests؛sensitive-field/identifier rejection،mutated errors،legacy summary،Windows actual exit،missing summary،timeout/cleanup وتصنيفfirst-failed motion predicate. ليستإصلاحًا للحادثةالتاريخية.
+- [x] Frontend53 Passed/0 Failed/0 Skipped وTypecheck app/test/node وBuild/Lint0 warnings0 errors. Backend189 Passed/0 Failed/1 Skipped/0 Deselected،288.41s:105 PostgreSQL و84 Unit/Memory؛skip نسخةSQLite منcollation فقط،PG counterpart ناجحة.
+- [ ] Browser Gate **Blocked**: InitialAuth Startup0 Passed/1 Failed،31.70s،Runner Failure وBrowser Cleanup Timeout؛Auth retry1 Passed/13 scenarios،48.34s؛InitialPresentation0 Passed/1 Failed عندP02،29.56s،Test Assertion؛Presentation predicate retry1 Passed/62 scenarios،79.77s. Combined النهائية1 Passed/1 Failed،103.12s: AuthA05 نجحتثمA06/role-change/wait فشلتبـevaluation_error (Nodeexit1)،Presentation62/62 (Nodeexit0). جميعteardowns فيCombined ناجحة. لاRCA تخمينية ولاAssertion/Sleep changes؛لاتغلقretry النتائجالفاشلة.
+- [x] Metadata فقطبـfinite allowlists؛actualNode exit منPython وFastAPI/fixture cleanup records. 5 مجلداتArtifacts خارجGit،6 JSON metadata files و834 canonical records،0 account images/DOM/network traces؛لاraw values.
+- [x] Gitleaks8.30.1:13 files،0 Findings و0 historical literal matches؛integrity وsynthetic redaction/template ناجحة. Final diff/cleanup/manifest verification ناجحة؛13 file manifest مطابقة وowned run roots منظفة. Staging فارغة؛لاCommit/Push/PR/Deployment/master change.
+- [ ] HIST-AUTH-01 Open/Unresolved؛DIAG-START-01 وDIAG-PRES-02 وDIAG-AUTH-06 Open. يلزم مراجعتها وتحديد سببA06 قبلقرارRead-only T4-B؛لاجاهزيةحالـيةللانتقال،واعتمادCheckpoint وبدءT4-B قرارانمنفصلانللمالك.
+
+### 10.16 T4-A Targeted Browser Failure Investigation — 2026-11-02
+
+- [x] Baseline48c1 و7 Modified+6 New محفوظة،ومراجعةالتقاريروالاختباروالسياسات؛لاReset/Clean/Checkout/Stash.
+- [x] Safe diagnostics موسعةبـexception names وdocument/default-context/target/browser state وbrowser child exit،وA06 operation IDs. bounded failure-only DOM sampler بعدإشارةجديدة؛لاraw JS/stack/DOM/URLs/headers/tokens/bodies محفوظة. Backward-compatible defaults لا تخترعبياناتتاريخية.
+- [x] TDD للـdiagnostic extension:10 Node instrumentation tests و9 Python tests. Frontend56 Passed/0 Failed/0 Skipped وTypecheck/Build/Lint0 warnings0 errors؛Backend190 Passed/0 Failed/1 Skipped/0 Deselected،292.95s،105 PostgreSQL و85 Unit/Memory. Skip نسخةSQLite منcollation فقط،PG counterpart ناجحة.
+- [x] Auth كاملة1 Passed/45.45s؛Presentation كاملة1 Passed/61.11s؛Auth→Presentation1 Passed/1 Failed/111.47s عندA06/verify-dialog-ready/condition timeout؛Presentation→Auth2 Passed/103.68s؛إعادةموجهةAuth→Presentation2 Passed/71.16s. جميعالجولات0 Skipped/0 Deselected؛لاتجمعالأعدادالمتداخلة.
+- [ ] A06 **Unresolved**: المحاولةالحاليةانتظرتحوارالتأكيدولمتجدهضمنالحد؛document/context/target متاحةقبلأولfailure. لمتعدevaluation_error السابقة،ولايمكنتعيينعبارتهاالقديمةبأثررجعي. P02 وStartup لم تعاد إنتاجهما؛لاRoot Cause مؤكدةولاProduction/Test-flow Fix تخمينية.
+- [ ] **Decision C — Unresolved / Blocked**. نجاحالإعادةليسClosure؛لاReady أوCheckpoint أوT4-B تلقائيًا. HIST-AUTH-01 وDIAG-AUTH-06/PRES-02/START-01 Open.
+- [x] Gitleaks8.30.1:13 files،0 Findings و0 historical literal matches؛integrity وsynthetic redaction/template ناجحة. diff/UTF-8/AST/JSON/Node syntax/tables وmetadata audit ناجحة؛5 artifact directories و8 metadata files و2290 canonical rows،0 صور/Traces خام؛0 owned test-run roots متبقية. Staging فارغة،والفرع/HEAD/master محفوظة؛لاGit writes أوDeployment.
+
+### 10.17 A06 State Transition &403 Recovery — أحدث نتيجة
+
+- [x] Baseline7M+6N وHEAD/branch/origin محفوظة؛لا Application/Auth/JWT/Permission Matrix/Models/Migrations changes. ثلاثة ملفات اختبار جديدة تفسر Manifest16: a06Probe.mjs وa06Recovery.mjs وtest_a5_a06_recovery.py.
+- [x] رصد opt-in داخل test build فقط: fixed handler/state/dialog/403/recovery/permission-change event IDs؛لا raw session/DOM/JS/stack/URL/token/permission values. MutationObserver يميز unmount/remount؛Normal production build دون plugin.
+- [x] Control/Exposure مع FastAPI/PostgreSQL/Edge حقيقية اصطناعية: old helper نجحت Control وفشلت Exposure في verify-dialog-ready بعد403→Recovery→Unmount→current grants→Forbidden. العقد القائم يخفي Shell عندchecking ويعيدها عندbinding جديدة؛لا Contract Gap أوسياسة جديدة لهذا dialog.
+- [x] Test Harness فقط: terminal secure state أوmodal control،فحص ذري قبلclick،تأكيد يدوي واحد عند الحاجة،ثمassertion strict؛غياب control وحده يفشل. Unit RED12/2 ثمGREEN14/0؛final focused2/2 وAuth13/13 وCombined13/13+62/62،exit0 وcleanup passed؛لا جمع للنتائج المتداخلة.
+- [x] Frontend60/0 وTypecheck/Build/Lint0 warnings0 errors. Relevant Backend190 Passed/1 Skipped/0 Failed/0 Deselected،314.99s؛105 PostgreSQL و85 Unit/Memory. Skip SQLite collation فقط ونسخةPG ناجحة؛Gitleaks8.30.1:16 files،0 Findings و0 historical literal matches؛integrity وsynthetic redaction/template ناجحة. diff check ناجحة؛صفر owned processes/run roots متبقية؛metadata-only artifacts خارجGit؛تفاصيل تقريرT4 §14.
+- [ ] **A06 B محليًا؛Overall C — Unresolved/Blocked.** أول GREEN خارجSandbox واجه browser cleanup timeout مستقلة رغم اكتمالControl؛لم تُخف أوتعتبر retry اللاحقة إصلاحًا لها. P02/Startup/evaluation_error التاريخية غير المنسوبة تبقىOpen. لا Production claim أوReady شامل.
+- [ ] لا Checkpoint أوT4-B الآن. إصلاحA06 جاهز للمراجعة؛يلزم disposition لمخاطر Browser lifecycle وقرار المالك المنفصل. تفاصيلExpected/Actual وstate diagram وArtifacts وManifest في [تقريرT4 §14](phase2_a5_t4.md).
+
+### 10.18 Browser Cleanup Finalization — أحدث بوابة
+
+- [x] Baseline48c1 و7 Modified+9 New وStaging فارغة؛ كل العمل السابق محفوظ. لا Application/JWT/Matrix/Models/Migrations/Dependencies changes.
+- [x] رصد resource lifecycle بأربع حقول ثابتة وNode/Python allowlists. Instrumentation RED14/1→GREEN15/0، ثم cleanup RED15/2→GREEN17/0 بعمليتي Node child حقيقيتين مملوكتين؛ لاSecrets أوraw artifacts.
+- [x] L1 Auth فشلت في A05/replacement-empty/dom_target_missing؛ L2 Presentation62/62 نجحت؛ L3 Auth13/13 نجحت ثم Startup read-debug-port فشلت بلاCDP وتبعتهاcleanup timeout؛ L4 P02 entry-no-progress فشلت ثمAuth13/13 نجحت. L5 الوحيدة بعد الإصلاح نجحت13/13 ثم62/62،exit0 وcleanup completed. لا جمع للجولات ولا closure عبرretry.
+- [x] cleanup بدونCDP كانت تنتظر خروجًا لم تطلبه؛ أصلحت لإنهاء child المملوكة أولًا ضمن نفس الميزانية، مع signal-aware exit ورفض nonzero غير متوقع. فشل Startup الأصلي محفوظ؛ لا تغيير Policy أوAssertions.
+- [x] Frontend63 Passed/0 Failed/0 Skipped وTypecheck/Build/Lint0 warnings/errors؛ Backend190 Passed/1 Skipped/0 Failed/0 Deselected،238.11s،منها105PG و85Unit/Memory. Skip نسخةSQLite collation فقط ونسخةPG ناجحة. لا عمليات أوrun roots مرصودة تطابق مسارات المهمة؛ حدود جرد descendants/handles معلنة في التقرير.
+- [x] Gitleaks8.30.1:16 files،0 Findings و0 historical literal matches؛ integrity وsynthetic redaction/template ناجحة. diff/syntax ناجحة؛5 artifact directories و8 metadata files و1773 canonical rows،0 raw artifacts خارجGit. هذا لا يغلق مخاطر Credentials التاريخية.
+- [ ] **C — Unresolved شاملًا.** Startup read error وP02 وA05 ومهلة post-functional السابقة غير مغلقة. A06 المثبتة وstartup-cleanup fix محفوظتان؛ Browser Quality Gate ما زالتOpen ولاProduction claim.
+- [ ] **Investigation Development Checkpoint موصى بها للمراجعة فقط** لحفظ التوثيق والاختبارات والإصلاحات بعد موافقة Git صريحة. حفظها لا يعني Browser Gate passed ولا يؤهلT4-B تلقائيًا. لم تبدأT4-B ولم يُنفذGit write. الأدلة والقرارات الثلاثة وManifest في [تقريرT4 §15](phase2_a5_t4.md).
+
 ## 11. عوائق وحدود المعرفة وخطة إغلاقها
 
 - **عائق استخدام قاعدة قديمة/Production:** نُفذ مسار A5-T1 الاصطناعي المعتمد مع إثبات العزل؛ لا إعادة تصنيف 21 موضعًا أوPRE-04 بلا دليل جديد. تقاعد Demo Unresolved ولا يجوز استخدام قاعدة قديمة قبل إثبات تقاعد أوDEMO-R1..R6 مصرح بها. Exposure للأسرار المحلية وتوزيع الأرشيفات غير محسومين؛ لا Rotation تلقائية أوإغلاق Risk/CAB/F2 بواسطة نجاح T1.
@@ -752,7 +815,7 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 |---|---|---|
 | A1–A4 | Checkpoints موجودة؛ قبول Development فقط ضمن حدود التقارير | High B/C وF2 وبقية سجل المخاطر |
 | Stage 0 | Audit/Plan مكتملتان؛ اتجاه الخطة والقرارات المحددة معتمدة | لا اعتماد Production أوباقي المراحل |
-| Stage 1 A5 | T1 وT2 محفوظتان؛ T3 مكتملة ومختبرة محليًا | اعتماد نتائج T3 ثم Git Checkpoint منفصل؛ لا A5-T4 أوقاعدة قديمة أوProduction claim |
+| Stage 1 A5 | T1/T2/T3 محفوظة؛T4-A Architecture معتمدة مبدئيًا؛A06 وstartup-cleanup fixes مثبتة محليًا | Overall C؛Startup/P02/A05 وpost-functional cleanup disposition؛يمكن اعتماد Investigation Checkpoint منفصلة دون فتحT4-B |
 | Stage 2 B | Not started | اعتماد A5، وRisk/Migration design |
 | Stage 3 C | Not started | B وCAB policy/Legacy treatment |
 | Stage 4 D | Not started | C وSession/Email/F2 decisions |
@@ -761,10 +824,17 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 
 بعد كل مرحلة يسجل التقرير: ما نُفذ، قرارات المعمارية، Files Changed، API/DB Changes، Security Findings، Commands/Passed/Failed/Skipped، المخاطر، Git status، والمرحلة التالية. إذا فشل Gate، تُصلح المرحلة نفسها دون بدء التالية.
 
-**Git Checkpoint الحالي:** HEAD `a89468f82c3edbb0d252dd2788e243e162358524`، والفرع المعتمد وmaster محفوظان. تعديلات T3 محلية وغير staged: 19 Modified +39 New =58؛ القائمة الدقيقة في Manifest تقرير T3. لا .env/Backup/Build/Scanner/Temp ضمن القائمة. لا Reset/Clean/Stash/Checkout/Stage/Commit/Push/PR/Merge أوHistory Rewrite.
+**Git Checkpoint الحالي:** HEAD `48c1e8ef46d60c1ed85ebc7c59ed3dfbcde8fded` والفرع المعتمد وmaster دون تغيير؛Manifest الحالية16 ملفًا:7 Modified+9 New،والقائمة في القسم14.8 منphase2_a5_t4.md. Staging فارغة؛لا.env/Backup/Build/Dependency/Scanner/Temp artifacts ضمنManifest،ولاGit writes.
 
-**خطوة الاستئناف الدقيقة:** اقرأ هذه الخطة وتقرير phase2_a5_t3.md وآخر نتائج الاختبارات، وتحقق من Git واحفظ العمل الحالي. استكمل T3 فقط من حالتها المحلية؛ لا تعِد T1/T2 أوتثبيت الاعتماديات دون حاجة مثبتة. بعد نجاح جميع Gates يُنتظر اعتماد المالك على Development Checkpoint، ثم اعتماد Git الصريح. لا A5-T4 أو.env/DB قديمة.
+**خطوة الاستئناف الدقيقة:** اقرأالقسم15 من تقريرT4. انتهت خمسجولات؛لا تكرار دونفرضيةجديدة. A06 ثابتة؛startup-cleanupfix مثبتة باختبارينRED→GREEN وCombined ناجحةبعدها،لكنStartup وP02 وA05 وpost-functional cleanup باقيةUnresolved. أوصي بمراجعةحفظ Investigation Development Checkpoint بتفويضGit منفصل،معBrowser Gate مفتوحة ودونT4-B. أي عمللاحقيحددفرضيةواحدةوحدودًا جديدة؛لا.env/DB قديمة أوLegacy/Bootstrap.
 
-**التحقق التاريخي في Stage 0:** حفظت جميع المراحل والمخاطر العشرة والقرارات الستة عشر. نتائج Stage 0 وPreflight وعزل Setup وScanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 وتقريرها، وT2 في 10.9–10.10 وتقريرها، وT3 في 10.11 وتقريرها. لا تجمع الأعداد المتداخلة أوتعد الاختبارات المتخطاة نجاحًا.
+**التحقق التاريخي:** المراحل والمخاطر العشرة والقرارات الستة عشر محفوظة. Stage0/Preflight/Setup/Scanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 ، T2 في 10.9–10.10 ، T3 في 10.11–10.12 ، T4-A في 10.13 وتقاريرها. لا جمع لأعداد الجولات المتداخلة، و Skipped ليست نجاحًا.
 
-**التوقف المطلوب بعد T3:** تقرير عربي بنتائج فعلية وManifest دقيقة، ثم انتظار اعتماد المالك قبل Git Checkpoint أوA5-T4. لا Production claim أوإغلاق Demo retirement/F2/B/C أوSEC-01..10، ولا Deployment/Rotation.
+**التوقف المطلوب بعد T4-A:** تقرير عربي و Manifest ونتائج صادقة، ثم انتظار اعتماد المالك؛ لا T4-B/C/D/E أو Git Checkpoint تلقائيًا. لا إغلاق Demo retirement/F2/B/C/D أو SEC-01..10 ، ولا Production claim أو Deployment/Rotation.
+
+
+## 13. Investigation Checkpoint authorization — 2026-11-03
+
+موافقة حفظ التحقيق في Git منفصلة عن Browser Gate وعن بدء T4-B. النطاق هو Manifest16 في تقريرT4 §14.8/15.6؛ Index صريحة وكامل staged blobs تخضع لـGitleaks دون قيم سرية قبل Commit. تحفظ findings المفتوحة ومخاطرDemo/B/C/D/F2/Session Revocation كما هي. رسالةCommit: `test(a5): document t4 architecture and harden browser diagnostics`. لاCommit SHA متوقعة قبل التنفيذ؛ النتيجة الفعلية في التقرير النهائي وسجل Git.
+
+بعد حفظ Checkpoint: التوقف للمراجعة. الخطوة الهندسية الموصى بها عند تفويض لاحق هي تحقيق واحد في Startup DevTools port read بأكوادOS وحالات قراءة ثابتة منقحة، دون زيادةTimeout أوRetry أوفتحT4-B تلقائيًا.

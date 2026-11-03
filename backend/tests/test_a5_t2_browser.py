@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 import secrets
 import socket
-import subprocess
 import threading
 import time
 from datetime import datetime, timezone
@@ -25,10 +24,11 @@ from app.main import app
 from app.models.foundation import User
 from app.services.auth_service import hash_password
 from app.settings import settings
+from a5_browser_diagnostics import collect_process, initial_record, canonical, PREFIX
 
 
-def run_browser_flow(workspace, mailbox, tmp_path, script="auth.mjs"):
-    assert script in {"auth.mjs", "presentation.mjs"}
+def run_browser_flow(workspace, mailbox, tmp_path, script="auth.mjs", a06_mode=None):
+    assert script in {"auth.mjs", "presentation.mjs", "a06Recovery.mjs"}
     browser = os.environ.get("CHANGEFLOW_TEST_BROWSER_BIN")
     node = os.environ.get("CHANGEFLOW_TEST_NODE_BIN")
     if not browser or not node:
@@ -77,6 +77,7 @@ def run_browser_flow(workspace, mailbox, tmp_path, script="auth.mjs"):
     server = uvicorn.Server(uvicorn.Config(isolated_app, lifespan="off", log_level="critical", access_log=False))
     thread = threading.Thread(target=lambda: server.run(sockets=[listener]), daemon=True)
     thread.start()
+    diagnostic = initial_record(script.removesuffix(".mjs"))
     try:
         deadline = time.monotonic() + 10
         while not server.started and thread.is_alive() and time.monotonic() < deadline:
@@ -87,23 +88,47 @@ def run_browser_flow(workspace, mailbox, tmp_path, script="auth.mjs"):
         arguments = [node, str(frontend/"e2e"/script), "--api", api_origin,
             "--frontend-port", str(frontend_port), "--browser-bin", browser,
             "--temporary-root", str(tmp_path)]
+        if script == "auth.mjs":
+            arguments += ["--trace-a06"]
+        if a06_mode is not None:
+            assert a06_mode in {"control", "race"}
+            arguments += ["--a06-mode", a06_mode]
         artifact_root = os.environ.get("CHANGEFLOW_TEST_ARTIFACTS_ROOT")
         if artifact_root:
-            artifact_directory = Path(artifact_root) / script.removesuffix(".mjs")
+            artifact_directory = Path(artifact_root) / (script.removesuffix(".mjs") + ("-" + a06_mode if a06_mode else ""))
             artifact_directory.mkdir()
             arguments += ["--artifacts-root", str(artifact_directory)]
-        completed = subprocess.run(arguments, cwd=frontend, env=env, capture_output=True, text=True, timeout=240)
+        completed = collect_process(arguments, cwd=frontend, env=env, timeout=240, suite=script.removesuffix(".mjs"))
+        diagnostic = completed.rows[-1]
+        for row in completed.rows:
+            if row["event"] in {"failure", "cdp_error", "cleanup", "process_exit", "transition", "resource"} or row["scenario_id"] == "A05":
+                print(PREFIX + json.dumps(row))
+        if artifact_root:
+            # Only canonical finite metadata, never screenshots, bodies or traces.
+            (artifact_directory / "diagnostics.json").write_text(json.dumps(completed.rows), encoding="utf-8")
         # The driver emits only three allowlisted metadata fields, never locals.
-        lines = [line for line in completed.stdout.splitlines() if line.startswith("A5_BROWSER_METADATA=")]
+        lines = [] if completed.metadata is None else ["A5_BROWSER_METADATA=" + json.dumps(completed.metadata)]
         assert lines, "Browser driver produced no safe result"
         report = json.loads(lines[-1].split("=", 1)[1])
         assert set(report) == {"passed", "failed", "phase"}
         print("A5_BROWSER_METADATA=" + json.dumps(report))
         assert completed.returncode == 0, "Browser integration failed; raw output withheld"
     finally:
-        server.should_exit = True
-        thread.join(timeout=10)
-        listener.close()
+        try:
+            server.should_exit = True
+            thread.join(timeout=10)
+        finally:
+            listener.close()
+            resource = canonical({**diagnostic, "event": "resource", "phase": "cleanup",
+                "lifecycle_phase": "fastapi-stop", "resource_type": "fastapi", "ownership_status": "owned",
+                "completion_state": "timed-out" if thread.is_alive() else "completed"})
+            print(PREFIX + json.dumps(resource))
+            row = canonical({**diagnostic, "event": "cleanup", "phase": "cleanup", "cleanup_kind": "fastapi",
+                             "cleanup_status": "timeout" if thread.is_alive() else "passed"})
+            if thread.is_alive():
+                row["failure_kind"] = "runner_failure"
+                row["timeout_kind"] = "cleanup"
+            print(PREFIX + json.dumps(row))
         assert not thread.is_alive(), "Owned HTTP fixture did not stop"
 
 

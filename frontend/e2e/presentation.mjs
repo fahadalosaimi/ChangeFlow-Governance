@@ -1,6 +1,7 @@
 import { runBrowser } from './browser.mjs'
+import { entryMotionStep } from './diagnostics.mjs'
 
-await runBrowser(async ({ protocol, fixture, check, navigate, until, fill, login, capture, axe, measurements, legacyAsset, entryAsset }) => {
+await runBrowser(async ({ protocol, fixture, check, navigate, until, fill, login, capture, axe, measurements, legacyAsset, entryAsset, step }) => {
   await protocol.send('Network.enable')
   let meCalls = 0
   let businessCalls = 0
@@ -85,6 +86,7 @@ await runBrowser(async ({ protocol, fixture, check, navigate, until, fill, login
         keys:Object.keys(animation.effect.getKeyframes()[0]),opacity:Number(getComputedStyle(surface).opacity),form:!!surface.querySelector('form')};
     })()`)
     measurements.push({entryMotion:result})
+    step(entryMotionStep(result))
     if(!result.present||!result.animated||!result.advanced||result.duration<150||result.duration>250||result.opacity<.9||!result.form) throw new Error('Entry motion missing or delaying content')
   })
   await check('keyboard-skip-link-retains-visible-main-focus',async()=>{
@@ -330,4 +332,4 @@ await runBrowser(async ({ protocol, fixture, check, navigate, until, fill, login
   })
 
   measurements.push({authStatuses})
-})
+}, 'presentation')
