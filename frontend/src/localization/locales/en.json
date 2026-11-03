@@ -102,7 +102,8 @@
       "label": "Workspace navigation",
       "mobile": "Mobile navigation",
       "breadcrumb": "Breadcrumb",
-      "systems": "Systems"
+      "systems": "Systems",
+      "dashboard": "Dashboard"
     },
     "context": {
       "workspace": "Current workspace",
@@ -128,7 +129,8 @@
       "limits": "Development limits",
       "limitsBody": "Tenant risk-rule isolation and CAB enforcement are planned work. AI integration is not active.",
       "access": "Available to your membership",
-      "systems": "Browse systems and their direct relationships."
+      "systems": "Browse systems and their direct relationships.",
+      "dashboard": "Review authorized changes and operational queues."
     },
     "verify": {
       "title": "Verify your membership again?",
@@ -163,6 +165,58 @@
       "title": "The page couldn't be opened",
       "body": "Try reloading the page. Your account details and request information have not been displayed."
     }
+  },
+  "dashboard": {
+    "title": "Operational overview",
+    "intro": "A clear view of your change records, review queues and delivery status.",
+    "refresh": "Refresh overview",
+    "retry": "Try again",
+    "scopeOwn": "Your change requests only. All counts and queues follow your current access.",
+    "scopeTenant": "Change requests you can read in this workspace. Counts follow your current access.",
+    "overview": "Change overview",
+    "total": "Accessible change requests",
+    "totalHint": "All readable records, across every status",
+    "pending": "Pending review",
+    "pendingHint": "Records in Pending Approval status",
+    "awaiting": "Awaiting requester",
+    "awaitingHint": "Records needing more information",
+    "distribution": "Recorded statuses",
+    "distributionHint": "Four tracked statuses. Other lifecycle statuses are not included in this comparison. Bars compare counts; they are not percentages of the total.",
+    "work": "Review and follow-up",
+    "workHint": "Review first, then follow up on missing information.",
+    "reviewHint": "Waiting for a recorded review decision",
+    "requesterHint": "Returned for additional information",
+    "delivery": "Delivery overview",
+    "deliveryHint": "Recorded implementation stages, for reference only.",
+    "approvedHint": "Recorded approval status; does not verify CAB enforcement",
+    "progressHint": "Records marked as implementation in progress",
+    "implementedHint": "Records marked implemented; post-implementation review queue",
+    "failedHint": "Records marked as failed",
+    "recent": "Latest change requests",
+    "queueRecords": "Queue records",
+    "recentHint": "Up to five newest readable records, ordered by creation time and ID.",
+    "allChanges": "All change requests",
+    "filter": "Selected status",
+    "clear": "Clear selection",
+    "showing": "Showing {{visible}} of {{total}} readable records in this list",
+    "request": "Change request",
+    "recordStatus": "Recorded status",
+    "priority": "Priority",
+    "created": "Created",
+    "recentTable": "Newest readable change requests",
+    "unknownStatus": "Unrecognized status",
+    "unknownPriority": "Unrecognized priority",
+    "empty": "No readable change requests yet. New records will appear when they are available to your membership.",
+    "noRecords": "No readable records match this selection.",
+    "boundary": "Read-only operational counts. A recorded Approved status does not establish completed CAB governance. Risk scores and risk-rule counts are not presented as workspace indicators. Sections refresh independently.",
+    "loading": { "title": "Loading this section", "body": "Retrieving current records within your access. Previous data is not shown." },
+    "error": { "title": "This section is unavailable", "body": "No previous values are shown. Try again to retrieve current data." },
+    "timeout": { "title": "This section took too long", "body": "The request timed out. Try again to retrieve current data." },
+    "status": {
+      "Pending Approval": "Pending review", "Needs More Information": "Awaiting requester", "Approved": "Approved (recorded)",
+      "Rejected": "Rejected", "In Progress": "In progress", "Implemented": "Implemented", "Failed": "Failed", "Rolled Back": "Rolled back", "Closed": "Closed"
+    },
+    "priorities": { "Low": "Low", "Medium": "Medium", "High": "High", "Critical": "Critical" }
   },
   "systems": {
     "catalog": "Systems catalog",

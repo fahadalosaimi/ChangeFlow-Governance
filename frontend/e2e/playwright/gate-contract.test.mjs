@@ -19,3 +19,15 @@ test('security gate cannot pass on filtered, skipped, failed or unclean results,
   assert.deepEqual(expectedCases('reverse'), ['P02-frozen', 'P02-disabled', 'P02-ltr', 'P02-rtl',
     'session-boundaries', 'routes', 'isolation', 'A06-race', 'A06-control', 'A05', 'login'])
 })
+
+test('B2 combined gate retains security, presentation and systems cases and rejects a missing Dashboard case', () => {
+  const dashboard = ['dashboard-data','dashboard-faults','dashboard-races','dashboard-boundaries','dashboard-roles','dashboard-layout']
+  const combined = [...names,'P02-rtl','P02-ltr','P02-disabled','P02-frozen',
+    'systems-catalog','systems-details','systems-races','systems-boundaries','systems-layout',...dashboard]
+  assert.deepEqual(expectedCases('dashboard'),dashboard)
+  assert.deepEqual(expectedCases('dashboard-forward'),combined)
+  assert.deepEqual(expectedCases('dashboard-reverse'),[...combined].reverse())
+  const rows = [...combined.map(name=>({case:name,status:'passed',duration_ms:1})),{contexts:0,browser_exit:0}]
+  assert.equal(validateGateResults(rows,'dashboard-forward',0),true)
+  assert.equal(validateGateResults(rows.filter(r=>r.case!=='dashboard-roles'),'dashboard-forward',0),false)
+})

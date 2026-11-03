@@ -125,6 +125,7 @@ export const systemsCases = [
         await preferences(page, language, theme)
         for (const width of [360,390,768,1366,1440]) {
           await page.setViewportSize({ width, height: 960 })
+          await expect.poll(()=>page.locator('[data-route-surface]').evaluate(el=>el.getAnimations({subtree:true}).filter(a=>a.playState==='running').length)).toBe(0)
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
           const small = await page.locator('main a,main button,main input,main select').evaluateAll(elements => elements.filter(el => {
             const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && (r.width < 43.9 || r.height < 43.9)
@@ -133,7 +134,17 @@ export const systemsCases = [
           for (const target of small) process.stdout.write(`PILOT=${JSON.stringify(target)}\n`)
           expect(small.length).toBe(0)
           expect(await page.locator('.systems-feature').evaluate(el => getComputedStyle(el).fontFamily.includes('Readex'))).toBe(true)
-          expect(await page.evaluate(async () => (await window.axe.run(document.querySelector('main'), { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21aa','wcag22aa'] } })).violations.map(v => v.id))).toEqual([])
+          const audit = await page.evaluate(async () => {
+            const result = await window.axe.run(document.querySelector('main'), { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21aa','wcag22aa'] } })
+            return { rules: result.violations.map(v=>v.id), contrast: result.violations.filter(v=>v.id==='color-contrast').flatMap(v=>v.nodes.map(n=> {
+              const el=document.querySelector(n.target[0]), data=n.any.find(c=>c.id==='color-contrast')?.data
+              const rgb=v=>/^#[a-f0-9]{6}$/i.test(v??'')?parseInt(v.slice(1),16):0
+              return {contrast_target:el?.closest('.breadcrumbs')?1:el?.closest('.systems-toolbar')?2:el?.closest('.systems-table')?3:el?.closest('.system-narrative')?4:5,
+                contrast_ratio:Math.round((Number(data?.contrastRatio)||0)*100),foreground_rgb:rgb(data?.fgColor),background_rgb:rgb(data?.bgColor)}
+            })) }
+          })
+          for (const row of audit.contrast) process.stdout.write(`PILOT=${JSON.stringify(row)}\n`)
+          expect(audit.rules).toEqual([])
           if (path === '/systems' && process.env.PILOT_VISUAL_ROOT && ((width === 1440 && language === 'en' && theme === 'dark') || (width === 360 && language === 'ar-SA' && theme === 'light')))
             await page.locator('.systems-feature').screenshot({ path: join(process.env.PILOT_VISUAL_ROOT, `synthetic-catalog-${width}-${language}-${theme}.png`) })
         }

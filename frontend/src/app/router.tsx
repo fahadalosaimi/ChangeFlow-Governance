@@ -21,6 +21,7 @@ export function createApplicationRouter(runtime: AuthRuntime) {
         children: [
           { path: '/', element: <Navigate replace to="/workspace" /> },
           { path: '/workspace', lazy: async () => ({ Component: (await import('../pages/WorkspaceHomePage.tsx')).WorkspaceHomePage }) },
+          { path: '/dashboard', lazy: async () => ({ Component: (await import('../features/dashboard/DashboardPage.tsx')).DashboardPage }) },
           { path: '/forbidden', element: <StatePage kind="forbidden" /> },
           { path: '/systems', lazy: async () => ({ Component: (await import('../features/systems/SystemsPages.tsx')).SystemsCatalogPage }) },
           { path: '/systems/:systemId', lazy: async () => ({ Component: (await import('../features/systems/SystemsPages.tsx')).SystemDetailsPage }) },

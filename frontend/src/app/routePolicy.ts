@@ -13,6 +13,7 @@ export interface WorkspaceRoute {
 
 export const destinations: readonly WorkspaceRoute[] = [
   { path: '/workspace', title: 'shell:nav.workspace', permission: 'identity.read', icon: 'workspace' },
+  { path: '/dashboard', title: 'shell:nav.dashboard', permission: 'changes.read', icon: 'changes' },
   { path: '/systems', title: 'shell:nav.systems', permission: 'foundation.read', icon: 'catalog' },
   { path: '/changes', title: 'shell:nav.changes', permission: 'changes.read', icon: 'changes', view: 'dashboard' },
   { path: '/changes/new', title: 'shell:nav.newChange', permission: 'changes.create', icon: 'plus', view: 'new' },

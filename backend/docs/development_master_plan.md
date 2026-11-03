@@ -824,9 +824,9 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 
 بعد كل مرحلة يسجل التقرير: ما نُفذ، قرارات المعمارية، Files Changed، API/DB Changes، Security Findings، Commands/Passed/Failed/Skipped، المخاطر، Git status، والمرحلة التالية. إذا فشل Gate، تُصلح المرحلة نفسها دون بدء التالية.
 
-**Checkpoint المرجعية:** `3207ded1f95b2ff040f54b823f6d7c86a153a0ce` هي نقطة بداية T4-B1 المعتمدة. فوّض المالك صراحة Commit واحدة وPush لحفظ Manifest26 في تقريرT4 §21.7؛مرجع الحفظ الجديد هو Commit التي تحتوي §19 أدناه،وتُثبت SHA ومطابقة origin ونظافة الشجرة في تقرير الحفظ النهائي. لا Production Approval أوتغييرmaster.
+**Checkpoint المرجعية:** `6dc069dc739c8822fcceeaeee207d9c459d605a1` تحفظT4-B1 وهي نقطة بداية حفظT4-B2. فوّض المالك صراحة Commit واحدة وPush لحفظ Manifest28 في تقريرT4 §23.6. مرجع الحفظ الجديد هو Commit التي تحتوي القسم21 أدناه؛تُثبت SHA ومطابقةorigin ونظافةالشجرة في تقريرالحفظ النهائي. لا Production Approval أوتغييرmaster.
 
-**خطوة الاستئناف الدقيقة:** اقرأ تقريرT4 §§21–22 والقسم19 أدناه. **T4-B1 Systems Catalog/Details مقبولة كـDevelopment Checkpoint بتفويض الحفظ الصريح**؛Security7/7+Presentation4/4+B1خمسة=16/16 فيالترتيبينعلىproduction artifact،Backend69 وFrontend77. التوقف بعد Commit وPush والتحقق؛ **T4-B2 Dashboard READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED**. CDP findings مفتوحة تاريخيًا،ولا Production Readiness أو Full Browser Suite Parity.
+**خطوة الاستئناف الدقيقة:** اقرأ تقريرT4 §§23–24 والقسم21 أدناه. T4-B2 Enterprise Dashboard مقبولة كـDevelopment Checkpoint بتفويض الحفظ الصريح؛التوقف بعد Commit وPush والتحقق والتقرير. **T4-C READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED**؛يلزم إذن جديد قبل أي تطوير. بوابةPlaywright الأمنية معتمدة لنطاقRead-Only،وحدودRisk/CAB والدفعاتالأمنية محفوظة؛لا حذفLegacy أوإغلاقCDP أوProduction readiness.
 
 **التحقق التاريخي:** المراحل والمخاطر العشرة والقرارات الستة عشر محفوظة. Stage0/Preflight/Setup/Scanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 ، T2 في 10.9–10.10 ، T3 في 10.11–10.12 ، T4-A في 10.13 وتقاريرها. لا جمع لأعداد الجولات المتداخلة، و Skipped ليست نجاحًا.
 
@@ -924,3 +924,32 @@ Historical CDP Findings **Open/Unresolved**،والـCDP Harness واختبار�
 **Playwright Security Gate = APPROVED for T4-B Read-Only Development.** متطلباتكلصفحةفي§17 وT4 §22.3 ملزمة،معPresentation scoped وCombined عندالتكاملوالقبول. Historical CDP Findings **Open**،FastAPI Cleanup Timeout **Unresolved**،Legacy Demo Credentials **Unresolved**؛Risk Rules Isolation إلىBatch B،CAB Enforcement إلىBatch C،Session Revocation/F2/Hardening إلىBatch D. لاFull Browser Suite Parity أوProduction Readiness؛لا إغلاقبأثررجعي.
 
 **T4-B1 ACCEPTED FOR DEVELOPMENT CHECKPOINT؛T4-B2 Dashboard READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED.** لا تطويرجديدأوBatch B/C/D أوGemini أوMigrations أوDeployment أوPR/Merge أوتغييرmaster. التوقفبعدCommit وPush والتقرير،وانتظارتفويضتنفيذمنفصل.
+
+## 20. A5-T4-B2 — Enterprise Dashboard — 2026-11-03
+
+- [x] تفويضالمالكT4-B2 فقط؛Local/Remote HEAD6dc069dc739c8822fcceeaeee207d9c459d605a1 وmaster10faab20b1c61b5476165bbc1f5d28a2a85e2652 مطابقتان،الشجرةوStaging نظيفتانعندالبداية. لاGit writes.
+- [x] `/dashboard` مستقلة بصلاحيةchanges.read،معNavigation/Breadcrumb/Home/title وتعريبار/إنجليزي. `/workspace` وSystems و`/foundation` وLegacy Dashboard/Adapter/Forms/Details وLogin/Invitations محفوظة؛لاApp.tsx rewrite أوحذفوظائفغيرمنقولة.
+- [x] 3KPIs منOverview الحقيقية،مقارنة4حالاتمحددةبأعدادمباشرة،Work/Delivery queues للقراءةوحتى5Recent منBackend. Queue drill-down يرسلstatus server-side،والروابطلتفاصيلLegacy وقائمتهاالحقيقية؛لاتجميعمنصفحةجزئيةكإجمالي.
+- [x] لاRisk averages/counts أوcritical/high pending أوGlobal Risk Rules Count أومؤشرAI أوCAB مكتمل. Approved حالةمسجلةفقط. اختبارPG أثبتتعددassessments تاريخيةللطلبالواحد؛Batch B/C خارجالنطاق.
+- [x] API/Decoders/ViewModels/Resource/Hook/Page/CSS مستقلةفوقGateway. Safe counts/IDs/calendar/page/duplicate/status/own-only validation؛Binding قبلوبعدresponse وepoch/abort/render masking وrefresh/unmount/StrictMode replay. 403 تستخدمrecover القائمة؛أخطاءالأقساممستقلةلاتصبح0،لاcache أوDependencies جديدة.
+- [x] Queue filtering فيmemory-only محليداخلالـFeature معserver status request،للحفاظعلىسياسةAuthRoot `?memory=1` القائمة؛REDثبتضياعquery ثمGREEN،دونتعديلAuthRoot. Created timestamps تستخدمعقدUTC-naive المثبت،لاWall-Time conversion عام.
+- [x] Frontend RED6 ثمGREEN؛strictB2contract وmeasured contrast REDثمGREEN. Backend82 passed/0failed/skipped،62PG+20Unit/Memory،تشملB1/B2/regressions. Frontend85/85 وTypecheck app/test/config وProductionBuild113modules وLint0/0 ناجحة.
+- [x] Combined النهائيproduction:forward22/22 وreverse22/22؛2pytest passed/123.04s. Security7+Presentation4+B1خمسة+B2ستةفيكلترتيب؛20B2 و40B1 layout/Axe لكلترتيب،RTL/LTR وDark/Light وKeyboard/ReducedMotion وmeasured contrast/negative fault ناجحة. Contexts0 وbrowser/runner exits0 وHTTP/PG cleanup Passed. لا تُحسبالجولاتالمتداخلةكتغطيةإضافية.
+- [x] Gitleaks8.30.1:28files/0Findings معintegrity وsynthetic detection/redaction؛diff/syntax/UTF-8/whitespace Passed. CIM/temp audit:0matching test processes و0run/frontend roots؛Local/Remote HEAD6dc069d وmaster10faab2 دونتغيير،Staging فارغة.
+- [ ] Historical CDP Findings Open،FastAPI Cleanup Timeout وLegacy Demo Credentials Unresolved؛Risk Rules Isolation Batch B،CAB Batch C،Session Revocation/F2/Hardening Batch D. لاFull Browser Suite Parity أوProduction Readiness،ولاادعاءانعدامFlakiness.
+
+Manifest **16Modified+12New=28** فيT4 §23.6،Staging فارغة. لاProductionBackend/JWT/PermissionMatrix/AuthProvider/Models/Migrations/package-lock changes،ولا.env أوبياناتفعليةأوDatabase Migrations/Legacy Setup/Bootstrap. النتائجالفاشلةوالتصحيحاتالمحددةوحدودالـAxe فيتقريرT4 §23.5 محفوظةدونإغلاقFinding تاريخيةبأثررجعي.
+
+**T4-B2: READY FOR DEVELOPMENT CHECKPOINT REVIEW AND EXPLICIT SAVE APPROVAL؛لاCommit/Push مصرحبها.** Manifest28،Gitleaks علىWorking Copy الفعلية وdiff/syntax وCIM/temp audit كمافيتقريرT4 §23.7 وتقريرالتسليمالنهائي؛ليسفحصStaged Blobs أوProduction Approval. حساسيةAxe للـfault السلبيةوتباينعارضموثقتان،معالإبقاءعلىكلAxe rules وإضافةقياسWCAG فعلينجحبالترتيبين. التوقفبعدالتقريرلإذنحفظمنفصل؛T4-C/D/E وBatch B/C/D وGemini وPR/Merge وDeployment غيرمصرحبهالمتبدأ.
+
+## 21. T4-B2 Approved Development Checkpoint — 2026-11-03
+
+وافق المالك صراحة على Commit واحدة `feat(a5): add tenant-safe operational dashboard` ودفع عادي إلى `origin/feature/phase2-batch-a-tenant-security` لحفظ **T4-B2 فقط**. تطابقت Local/Remote HEAD6dc069dc739c8822fcceeaeee207d9c459d605a1 وmaster10faab20b1c61b5476165bbc1f5d28a2a85e2652 قبلأي تعديل؛Manifest **16Modified+12New=28** فيT4§23.6 وStaging فارغة. هذاالقسم وT4§24 يحلان محل انتظار إذنالحفظ في§20،معحفظسجل التنفيذ وإخفاقاته.
+
+تطابقت SHA256 للملفات الـ28 معManifest فحصB2 الأخير؛التغيير فيمهمةالحفظ توثيق الموافقة فقط. الأدلة المعتمدة:Frontend85 وBackend82 منها62PG،Security7/7 وPresentation4/4 وB1خمسة/خمسة وB2ستة/ستة،Combined22/22 أمامي وعكسي علىProduction artifact،Typecheck/Build/Lint وcleanup وWorking Copy Gitleaks0 وdiff check ناجحة. StrictMode وNODE_ENV=production محفوظتان؛لا إعادةجولات طويلة دون تغيير مؤثر،ولا نجاح بأثررجعي للإخفاقات السابقة.
+
+بوابةالحفظ تتطلب مطابقةIndex بالأسماء والبصمات،وcached diff check وGitleaks علىStaged Blobs الفعلية،لاWorking Copy فقط. لاArtifacts أوSecrets أوProduction Backend/JWT/Permission Matrix/Models/Migrations changes؛Systems وLegacy وAuthProvider وWorkspace Gateway محفوظة. SHA الجديدة ومطابقةRemote HEAD ونظافةالشجرة وفراغStaging وثباتmaster يثبتهاGit وتقريرالحفظ النهائي. لا PR/Merge أوForce/Amend/Rebase.
+
+Historical CDP Findings **Open**،FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**؛Risk Rules Isolation إلىBatch B،CAB Enforcement إلىBatch C،Session Revocation/F2/Hardening إلىBatch D. حساسيةAxe وحدودAggregate DTO والقراءاتغيرالذرية وChromium/ORM-only محفوظة؛لاFull Browser Suite Parity أوProduction Readiness أوRisk/CAB Governance معتمدة.
+
+**T4-B2 ACCEPTED FOR DEVELOPMENT CHECKPOINT؛T4-C READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED.** Systems Catalog/Details وDashboard منجزة؛لا استخراججديدلـChanges/Assessments أوT4-D/E أوBatch B/C/D أوGemini أوMigrations/Deployment/Credential changes. التوقفبعدCommit وPush والتحقق والتقرير،وانتظار تفويض جديد قبلأي تطوير.

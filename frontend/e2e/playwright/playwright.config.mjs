@@ -2,7 +2,8 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: '.', testMatch: 'pilot.spec.mjs', workers: 1, fullyParallel: false,
-  retries: 0, repeatEach: 1, timeout: 25000, globalTimeout: process.env.PILOT_SELECTION?.startsWith('systems') ? 240000 : 120000,
+  retries: 0, repeatEach: 1, timeout: 25000,
+  globalTimeout: process.env.PILOT_SELECTION?.startsWith('dashboard') ? 300000 : process.env.PILOT_SELECTION?.startsWith('systems') ? 240000 : 120000,
   expect: { timeout: 7000 },
   outputDir: `${process.env.PILOT_ROOT}/results`, preserveOutput: 'never',
   reporter: [['./reporter.mjs']],

@@ -1548,3 +1548,174 @@ Frontend:`node scripts/verify.mjs all`؛لاModule browser كاملة أوCDP re
 تبقى حدود القراءةone-hop وDTO القائمة ومرجعالإدارة/المالك فيCatalog وEnglish narrative وORM-vs-migrations وChromium-only وصغرعينةالموثوقية كمافي§21؛نجاحالاختبارات لا يثبت انعدامFlakiness.
 
 **T4-B1: ACCEPTED FOR DEVELOPMENT CHECKPOINT. T4-B2 Dashboard: READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED.** التوقف بعد Commit وPush والتحقق والتقرير؛لاT4-B2 أوT4-C/D/E أوBatch B/C/D أوGemini أوDatabase Migrations أوDeployment أوPR/Merge أوتغييرmaster فيمهمةالحفظ،ولا استئناف لتحقيقCDP قديم دون دليلأمني جديدمؤثر.
+
+## 23. A5-T4-B2 — Enterprise Dashboard — 2026-11-03
+
+### Dashboard Implementation Plan
+
+> **For Codex:** Implement this authorized plan task-by-task in the current session. No delegation or Git writes are authorized.
+
+**Goal:** `/dashboard` مستقلة للقراءة بصلاحيةchanges.read،بمؤشرات تشغيلية صادقة منBackend القائمة.
+
+**Architecture:** Feature-owned API/Decoders/View Models/Resource/Hook/Page،فوقWorkspace Gateway وAuthRoot/Shell. أربع موارد مستقلة بمفاتيحbinding/filter وAbort/Epoch وrender-time masking؛لاGlobal cache. Queues تفتحDashboard بتصفيةstatus منBackend،والصفوف تفتحLegacy details الحقيقية.
+
+**Tech Stack:** React/TypeScript/Vite القائمة،CSS Tokens/Readex Pro/i18next،Node tests وPlaywright-managed Chromium وFastAPI/PostgreSQL اصطناعيتان.
+
+**Spec:** تفويضالمالكT4-B2 فيالمحادثة؛العقودفي§§3–4 أعلاه وBackend routes/schema الفعلية؛B1 في§21 وSecurity policy في§22.
+
+**Global Constraints:** لاT4-C/D/E أوBatch B/C/D أوJWT/Permission Matrix/Models/Migrations/Production Backend changes أوDependencies جديدة أوGemini/Actions/Deployment/Commit/Push؛Legacy محفوظة،لا.env تشغيلية أوبياناتفعلية.
+
+**Review Focus:** صفرلاتحل محلفشلالتحميل؛paginated items ليستإجماليًا؛Overview أربعحالاتفقط وليستتوزيعًاكاملًا؛Approved حالةمسجلةوليستCAB؛طلباتقديمةبعدtenant/filter/revocation لا تنشرDOM. تُختبرهذهالحدودبعقودliteral وBrowser assertions.
+
+- [x] Task1 RED: `frontend/tests/dashboard.test.ts` لعقود `decodeOverview/decodeWork/decodeDelivery/decodeRecent` و`createDashboardApi` و`DashboardResource` و`statusDistribution` وroute changes.read. Backend tests `backend/tests/test_a5_t4_b2.py` تثبتDTO/tenant/requester/roles/status semantics/404 علىORM-owned PG،لاAlembic.
+- [x] Task2 GREEN: إنشاء `frontend/src/features/dashboard/{decoders.ts,api.ts,viewModels.ts,resource.ts,useDashboardResource.ts}`؛allowlist بياناتقراءةفقط،لاRisk fields،count safe integers وصفحةrecent ثابتة1/5 وصلاحيةIDs/dates/requester own-only. اختبارtransport تجاهلabort وStrictMode replay وerror/timeout.
+- [x] Task3 UI: `DashboardPage.tsx` و`dashboard.css`؛header و3KPIs و4status bars وعمل/تسليم وrecent table/cards،states مستقلة،refresh وfiltered server queue،روابطحقيقية. تعديلroutePolicy/router/locales/localization/Home/verify فقط،بلاApp.tsx rewrite.
+- [x] Task4 Browser: `frontend/e2e/playwright/dashboard.mjs` معregistration/reporter/fixture controls؛بياناتBackend اصطناعية،faults وstale filter وsession/role boundaries و20layout/Axe (صفحة×5widths×لغتين×ثيمين) وkeyboard/reduced motion. الاحتفاظبـSecurity7/Presentation4/B1خمسة؛combined forward/reverse22 cases ناجحة،retries0،ميزانيةصريحةمحدودة.
+- [x] Task5 Verification: Frontend all،Backend relevant+B1+B2،combined forward/reverse علىproduction artifact،Gitleaks للـManifest وdiff check وcleanup audit؛توثيقالنتائجوالحدودوالـManifest،التوقفلإذنحفظمنفصل.
+
+**Design:** Obsidian#151a18/Forest#28352f/Sage#b8f28b/Sand#d9c8a9/Ivory#f4f1e8 عبرTokens القائمة فقط؛Readex Pro للعناوينوالنصوtabular figures للأعداد. تخطيطheader ثمشريطKPIs،مقارنةحالاتأفقيةذاتlabels وأعدادمباشرة،ثمطوابيرأعمالوتسليمذاتترتيبتشغيليمفهوم،ثمجدولrecent. يتكدسعلى360/390 دونقصنصوص. لاcharts زخرفية أوpie يوحيباكتمالالتوزيع؛اقتراحالمهارةالأولRadar غيرمناسب،والبحثالمحددCompare Categories دعمbars البسيطة. حركةRouteSurface القائمةفقط،لاstagger يؤخرتنقلًا،والـReducedMotion القائمةمحفوظة.
+
+### 23.1 Baseline والتفويض وLegacy inventory
+
+المحلية وorigin على `6dc069dc739c8822fcceeaeee207d9c459d605a1` في `feature/phase2-batch-a-tenant-security`،وmaster المحليةوالبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`؛الشجرةوالـIndex نظيفتان عندالبداية. تفويضهذهالمهمة **تنفيذT4-B2 فقط**،دونCommit/Push أوأي دفعةلاحقة. راجعتAuthProvider/AuthRoot وApiClient وWorkspace Gateway وRouter وسياسةالبوابةوقرارB1؛لاReset/Clean/Stash/Checkout.
+
+راجعت `App.tsx::renderDashboard` وloadData/loadChangeRecordsPage/openChangeQueue. نقلتالعرضالتشغيلي:total،pending،awaiting،الحالاتالأربع،قراءةطوابيرالعملوالتسليم،recent والروابط. Legacy تبقىفي`/changes` بكاملقوائمهاوتصفيةالـBackend وPagination وcreate/revise/details/actions القائمةالمقيدةبصلاحياتها،واللوحةالإداريةوالمؤشراتالقديمةغيرالمنقولة. لاادعاءتكافؤكاملأوحذفأيLegacy function؛لميتغيرApp.tsx أوLegacy Adapter أو`/foundation` أوSystems/Login/Invitations. أضيفتNavigation/Breadcrumb/title/Home عبرroutePolicy وlocalization الحالية،دونتعديلالمكوناتالمشتركةأوالـAuthProvider.
+
+### 23.2 KPI provenance وAPI/Permission Matrix
+
+| المصدر | العرض ودلالته الدقيقة | الصلاحية والعزل |
+|---|---|---|
+| GET `/change-management/dashboard/overview` | `total_changes` جميعالسجلاتالمقروءة،`pending_approval` حالةPending Approval،`needs_more_information` حالةNeeds More Information؛وعرض`approved/rejected` معهاتوزيعًا**لأربعحالاتفقط** |changes.read؛scope_changes/restrict_change_query تطبقالـtenant وRequester own-only وعزلالعلاقاتقبلالعد |
+| GET `/change-management/dashboard/work-queues` |`pending_review`=Pending Approval،`awaiting_requester`=Needs More Information؛ترتيبعملمفهومدونحسابأولويةRisk |نفسchanges.read والعزل؛لاFrontend tenant filtering |
+| GET `/change-management/dashboard/delivery-queues` |`approved_ready`=Approved المسجلةفقط،`in_progress`=In Progress،`pending_pir`=Implemented،`failed`=Failed؛لااستنتاجنتيجةPIR أواكتمالCAB |نفسchanges.read والعزل؛لاimplementation mutations |
+| GET `/change-management/requests/paged?page=1&page_size=5[&status=...]` |حتى5أحدثسجلات،created_at DESC ثمid DESC؛الـtotal الخاصبالقائمةمنBackend،ولا يُستخدمطولitems كإجماليالمؤسسة |نفسchanges.read؛Requester own-only backend معفحصrequester_id دفاعيوقتdecode؛foreign/missing details404متكافئة |
+
+لايُعرضaverage_impact_score أوrisk counts أوcritical/high pending أوglobal Risk Rules Count أوAI/Gemini أومؤشرCAB مكتمل. اختبارPG أثبتأنطلبًاواحدًاقديملكassessmentLow10 وHigh90 فتُرجعOverview average50 وrisk counts2؛هذا **عددassessments تاريخية،لا أحدثتقييمواحدلكلChange**. لاإعادةحسابRisk أوإصلاحBatch B فيالواجهة. `Approved` تُترجم«موافقعليه(مسجل)»ووصفالطابوريوضحأنهلايثبتتطبيقلجنةالاعتماد؛لاعبارةAuthorized to Proceed.
+
+توزيعالحالاتأشرطةمقارنةبأعدادمباشرة،تُقاسبأكبرقيمةمنالأربعوليسكنسبمئويةمنالإجمالي؛لاResidual count مخترعةأوتركيبdistribution كاملةمنDTOs غيرذرية. كلقسممستقلوقديُقرأعندلحظةمختلفة؛لاas-of وهمية. System Administrator وAdmin/System Owner/Approver/Viewer/Unknown Legacy Role لمتُمنحchanges.read؛تُمنعDashboard وHTTP403،بينماهوية`/workspace` تبقىوفقgrants الحالية. CMDB Manager/Change Manager وRequester يستخدمونgrants القائمةفقط.
+
+### 23.3 Runtime validation وTenant/Session safety
+
+Decoders تبنيallowlist لحقولالعرضفقط،وتتجاهلEmail/assessments/Risk والسردغيرالمستخدم. Counts safe nonnegative integers،ومجموعالحالاتالأربعلايتجاوزtotal،وIDs موجبةآمنة،والعناوينوالقيمstrings غيرفارغة،وCalendar timestamps صحيحة،والصفحة1/size5/total_pages مطابقةوالـitems بلاduplicates ولايتجاوزعددهاsize/total. عندفلترstatus يجبأنتطابقالسجلاتالحالةالمطلوبة؛Requester يجبأنيطابقrequester_id الموثق. Unknown read status/priority لايمنحActions ويُعرضبوصفمحايدمترجم. payload/JSON غيرصالحتنتجApiError ثابتةدونrawbody؛لاDOM منDTO غيرمتحقق.
+
+Aggregate وRecent DTO لا تحتويorganization_id؛لااختراعفحصtenant عبرحقلغيرموجود. الإثباتيعتمدعلىHTTP/PG scope وcurrentDB role،وGateway binding قبلوبعدresponse وApiSession generation،ومفاتيحFeature. لكلOverview/Work/Delivery/Recent موردDashboardResource مستقل،epoch وAbortController وcancel عندUnmount،ومسحdata عندrefresh وrender-time key masking. رفضsuccess/error المتأخرتينحتىإذاtransport تجاهلabort؛cancel→load replay مجربيمثلStrictMode effect lifecycle،وStrictMode بالتطبيقباقية. 401 عبرboundary القائمة؛403 تستدعيrecover الحاليةعندماbinding ماأزالتنشطةفتُحجبDOM قبلالتحققمنgrants،دونAuth/JWT changes.
+
+الفشلجزئي: لاOverview⇒لاKPIs مضللة،بينماتبقىDelivery/Recent الناجحتان؛network/invalidpayload/timeout لا تصبح0. Reload/refresh تلغيsnapshot القديمة،وصفحةفارغةحقيقيةتعرض0 وempty state. أحدثrequests ليستpagination بديلة؛للمزيدرابطقائمةLegacy الحقيقية. اختيارQueue يستخدمquery`status` منallowlist ويرسلهاBackend؛لاRequester/Tenant selector. فيالوضعالذاكرييحجزAuthRoot كاملquery لـ`?memory=1`؛اختبارRED أثبتضياعتصفيةLink،فأصبحتQueue buttons واختيارهاFeature-local فيذلكالوضعفقط،معنفسstatus server request وclear ودونتعديلAuthRoot أوسياسةالجلسة. لاcache أوState Library أواعتماداتجديدة.
+
+### 23.4 UI/UX والتعريب والتواريخ
+
+headerثم3KPIs ثمStatus comparison ثمReview/Delivery queues ثمRecent table/cards؛Obsidian&Sage وReadex Pro وTokens القائمة،Dark/Light وnamespace dashboard كاملar-SA/en وroute title/nav/ARIA/header/status/priority/states. Arrays/Enums الأصليةتُرسلBackend دونترجمة. الأرقامIntl؛`created_at` بالتحديد يكتبهManagedChangeRequest.utc_now كـUTC-naive،فتضيفcreationInstant علامةZ عندغيابoffset بناءًعلىهذاالعقدالمثبت،وتعرضهformatter الحاليةبتوقيتAsia/Riyadh. لاplanned_start/end أوWall-Time fields تُحوّل؛ليستهذهقاعدةلجميعnaive dates.
+
+Semantic headings وdt/dd صالحان،عداداتtabular،أهداف44px وKeyboard focus،CSS logical properties وwrapping،والجدوليصبحبطاقاتعلىالجوال. لاnew stagger أوanimation framework؛RouteSurface القائمةوReducedMotion محفوظتان،ولاتبقىبياناتالمؤسسةالسابقةخلالtransition. صورمعاينةCatalog/Dashboard اصطناعيةومقصوصةخارجالمستودع،دونTopbar/حساب/Tokens؛لاTrace/HAR/Video أوMedia حساسة.
+
+### 23.5 Verification ledger — نتائج محددة دون تجميع مضلل
+
+| المرحلة | النتيجة والتصنيف |
+|---|---|
+| Frontend RED→GREEN |6/6 فشلتقبلAPI/Decoders/Resource/route،ثم6/6 ناجحة؛Backend contracts اختباراتcharacterization للـAPIs القائمةوليستادعاءRED للـBackend |
+| Strict combined contract RED→GREEN |اختبارB2 registration/missing-case فشلثمPassed؛لاexit0 معmissing/skipped/failed/unclean |
+| Backend B2 موجه |13 passed،17.88s علىPG؛DTO/status semantics/own-only/roles/404/empty/revocation/historical Risk proof |
+| Relevant Backend نهائي |82 passed/0 failed/skipped،72.50s؛62 PostgreSQL+20 Unit/Memory،تشملB1 الستةوB2 الثلاثةعشروregression القائمة69 دونإعادةجمع |
+| Frontend all قبلإضافةقياسالتباين |84 passed/0 failed/skipped؛Typecheck app/test/config وProduction Build113modules وLint0 warnings/errors ناجحة؛أضيفلاحقًااختبارقياسWCAG مستقل |
+| Sandbox attempts |Environment: PostgreSQL setup/temporary-directory permission failure،لمتكتملfunctional assertions؛والـFrontend exclusive Windows lock fixture لمتصلready. نجحتالمجموعتانخارجSandbox بتفويضمحركالأوامر؛لاإصلاحApplication/Security تخميني |
+| B2 browser أولى |5/6 passed،23.47s؛فشلتLayout بقاعدةAxe definition-list. Probe14.09s أثبتنفسالقاعدة؛صُححتعناصرp/span غيرالمسموحةبينdt/dd،دونإضعافAxe |
+| Layout بعدإصلاحHTML |20layout/Axe اكتملتوالصورتانالصناعيتانتولدتا؛فشلتassertion النهائيةلتوقعالعدد1 بعدالتحويلإلىالعربية؛صُححالتوقعإلى«١»،لا تغييرIntl أوتعريبالتطبيق |
+| Memory Queue RED |probe أولى21.36s فشلتfixture لأنهاعملتfull navigation وفقدتجلسةmemory بطبيعتها؛بعدتعديلهاSPA،probe21.45s فشلتفيQueue records فعلًا،ثمFeature-local filtering نجحتفيB2smoke التالية |
+| B2smoke بعدالتصحيحات |5/6،28.99s؛البياناتوالأعطالوالسباقاتوالجلسةالذاكريةوالأدوارناجحة؛Axe color-contrast فشلت مرة؛probe موجه14.83s نجح20layouts دونCSS fix. لاإثباتRCA لهذاالتباينالعابر |
+| Combined الأولى |forward19/22 وreverse20/22؛2 pytest failed،109.14s. Security7 وP024 وكلB1functional الأربعةنجحتفيكليهما؛B1layout color-contrast،وB2negative contrast لمتكشفهاAxe،وforwardrole انتظرتOverview403 بعينها. لاGreen claim |
+| 403 fixture correction |أول403 حقيقيةقدتصدرمنWork/Delivery فتبدأrecover وتلغيOverview قبلردها. الاشتراكيسبقrefresh وينتظر403 منchange-management requests المتوازية،ثمmegrants بلاchanges.read وOverview/Work403 مباشرتان؛لمتُضعفعزلBackend أوتُغيّرApplication |
+| صلابةاختبارالعرض |B1/B2 تنتظران اكتمالanimations المرصودة دونsleep،معكلAxe violations،لااستثناءrule. ProbeB1layout نجحت40layout،وفيB2 اكتملت20layout لكنAxe لمتكشفfault علىرقمثمlabel مرئية؛قياسآخرأثبتCSS fg#aaaaaa/bg#ffffff الفعلية. لاRCA داخليةمؤكدةلهذهالحساسيةولااعتمادعلىAxe وحدها |
+| بديلnegative contrast المكافئ |`contrast.mjs` Test-only يحسبWCAG sRGB منcomputed colors لعناوينKPIs الطبيعية،ويرفضsamples غيرمدعومة/شفافةجزئيًا؛REDثمGREEN باختبار21:1/1:1 وlow-contrast والـTokens. نفسcriterion>=4.5 تفحصكل20layout،ويجبأنترفضfault المرئيةثمتقبلrestore. Axe كاملةمازالتتعمل،ولا يُقبلفشلهاباستثناءrule |
+| Combined النهائيproduction |**forward22/22 وreverse22/22؛2 pytest passed/0 failed/skipped،123.04s**. فيكلترتيبSecurity7/7 وPresentation4/4 وB1خمسة/خمسة وB2ستة/ستة؛contexts0 وbrowser/runner exit0 وHTTP/PG cleanup ناجحة. B1 identity GET0 وcatalog GET1 فيكليهما |
+| Responsive/Localization النهائي |B2 **20layout/Axe لكلترتيب** عبر360/390/768/1366/1440 ×en/ar-SA ×dark/light؛no overflow و44px targets وReadex وlocalized h1 وkeyboard/focus وReducedMotion وmeasured contrast/negative fault ناجحة. B1 **40layout/Axe لكلترتيب**؛نفس60تركيبةعبرالترتيبينولا تُجمعإلى120حالةمختلفة |
+| Frontend الختامية |**85 passed/0 failed/skipped**،Typecheck app/test/config وProduction Build113modules وLint0 warnings/errors ناجحة؛يشملhelper التباينالجديد |
+| Gitleaks الختامية |**28 files،0 Findings**؛8.30.1 وintegrity وsynthetic detection/redaction ناجحة؛Working Copy لاhistory/staged scan. Syntax/UTF-8/whitespace و`git diff --check` ناجحة |
+| Cleanup/Git audit |CIM/temp: **0 matching test processes،0 run roots،0 frontend roots** بعدانتهاءالتشغيل؛HTTP/PG cleanup ناجحة. Local/Remote HEAD6dc069d وmaster10faab2 محفوظتان؛Index فارغة،16Modified+12New،لاGit writes |
+
+الجولةالمشتركةالأولىالفاشلةوالنهائيةالناجحةهماجولتاintegration محددتان،لا تكرارإحصائيأوBlind retries. probes الموجهةكانتلتحديدHTML/locale/memory/contrast fixture،وليستتغطيةإضافيةمستقلة. تأكدProduction NODE_ENV المحفوظفيrun.mjs وenvDir:false؛StrictMode بالتطبيقلمتُعطّل،ولمتُقرأ.env التشغيلية. Backend اختبارات82 تعتمدنفسسلوكfixture/Backend؛التغييراتالتاليةلهافيselection/count/metadata والـBrowser audit أثبتهاالتشغيلالمشتركالنهائي،لاProduction logic changes.
+
+### 23.6 Changed files / Checkpoint Manifest
+
+**16 Modified +12 New =28 files** بعدالتوثيق،Staging فارغة،لاDeleted:
+
+- Docs(2M): `backend/docs/phase2_a5_t4.md`؛`backend/docs/development_master_plan.md`.
+- Browser infra(7M): `backend/tests/test_a5_playwright_pilot.py`؛`frontend/e2e/playwright/gate-contract.mjs`؛`frontend/e2e/playwright/gate-contract.test.mjs`؛`frontend/e2e/playwright/pilot.spec.mjs`؛`frontend/e2e/playwright/playwright.config.mjs`؛`frontend/e2e/playwright/reporter.mjs`؛`frontend/e2e/playwright/systems.mjs` (انتظارanimations المرصودة وcontrast metadata رقمية فقط،معإبقاءكلB1assertions).
+- Integration(7M): `frontend/scripts/verify.mjs`؛`frontend/src/app/routePolicy.ts`؛`frontend/src/app/router.tsx`؛`frontend/src/localization/index.ts`؛`frontend/src/localization/locales/ar-SA.json`؛`frontend/src/localization/locales/en.json`؛`frontend/src/pages/WorkspaceHomePage.tsx`.
+- Dashboard feature(7N): `frontend/src/features/dashboard/DashboardPage.tsx`؛`api.ts`؛`decoders.ts`؛`resource.ts`؛`useDashboardResource.ts`؛`viewModels.ts`؛`dashboard.css` فينفسالمجلد.
+- Tests(3N): `backend/tests/test_a5_t4_b2.py`؛`frontend/tests/dashboard.test.ts`؛`frontend/e2e/playwright/dashboard.mjs`.
+- Contrast test utilities(2N): `frontend/e2e/playwright/contrast.mjs`؛`frontend/e2e/playwright/contrast.test.mjs`؛لاProduction modules أومكتبةإضافية.
+
+لاProductionBackend أوAuthProvider/AuthRoot/App.tsx/PermissionMatrix/JWT/Models/Migrations أوpackage/lock changes. Existing readex OFL وLegacy/CDP محفوظة؛لاArtifacts/BuildOutputs/Binaries/Logs/node_modules ضمنManifest. ميزانيةdashboard-selection300s global و360s Python child،وlayout90s مثلB1،قبلالتشغيللتوسعة22case المعلنة؛retries0 ولمتُرفعtimeouts لمعالجةفشل.
+
+### 23.7 الأمن والمخاطر والجاهزية
+
+Gitleaks8.30.1 تفحص **28ملفًا منWorking Copy الفعلية**،بـdefault rules وignore فارغة وignore-gitleaks-allow،بعدarchive/checksum/binary integrity وsynthetic detection/redaction؛**0 Findings**. الملخصالمنقحمعSHA256 وManifest الدقيقةخارجالمستودع: `C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\t4-b2-checkpoint-scan\gitleaks-t4-b2-summary.json`. ليستhistory/staged scan،وليسإذنGit؛يلزمفحصStaged Blobs عندتفويضالحفظلاحقًا. لاSecrets أوCredentials فعلية أوRaw Diagnostic Logs أوDB files أوMedia حساسةضمنManifest؛Syntax/UTF-8/whitespace و`git diff --check` ناجحة. تدقيقCIM/temp النهائي:0عملياتاختبارمطابقةو0مجلداتrun/frontend مؤقتة؛لاادعاءجردكلWindows handles. تُعادفحوصالوثائقالمتأثرةبإضافةنتيجةالحفظالمحليةفقط،دونإعادةالجولاتالطويلة.
+
+المخاطرالمحفوظة:
+
+- **Historical CDP Findings: Open**؛لمتُشغلCDP كبوابةللدفعةولمتُغلقبأثررجعي.
+- **FastAPI Cleanup Timeout: Unresolved** تاريخيًا؛نجاحتنظيفهذهالدفعةلايثبتRCA للمهلةالقديمة.
+- **Legacy Demo Credentials: Unresolved**؛لاقراءةقيمأوتغييرCredentials فيهذهالمهمة.
+- **Risk Rules Isolation: Batch B**؛**CAB Enforcement: Batch C**؛**Session Revocation/F2/Hardening: Batch D**؛لاتنفيذلهذهالأعمال.
+- حساسيةAxe السلبيةوالتباينالعابرالمرصودمصنفتانPresentation/Test Infrastructure،دونRCA داخليةمؤكدة؛حُفظتكلAxe rules،وأضيفقياسWCAG فعليواختبارfault مكافئ،ونجحB1/B2 بالترتيبين. لاتعميمبأنAxe وحدهاaudit كاملأوبانعدامFlakiness.
+- Aggregate DTO بلاtenant marker وقراءاتالأقسامغيرذرية؛الإثباتBackend scope+binding،لاSnapshot مؤسسيةمتزامنةأوتوزيعكاملللحالات. Recent5 فقطوالتفاصيلوالقائمةLegacy؛لاادعاءFull feature parity.
+- Chromium-only وORM-owned schemas لايثبتانMigration parity أوCross-browser support؛**No Full Browser Suite Parity / No Production Readiness**.
+
+**T4-B2: READY FOR DEVELOPMENT CHECKPOINT REVIEW AND EXPLICIT SAVE APPROVAL** بعدنجاحالفحوصالختاميةالمسجلة،دونمانعأمنيجديدمثبتفيالنطاقالمختبر. `/dashboard` منجزةللـchanges.read معTenant/Requester safety،ولاRisk/CAB/AI claims غيرمؤكدة. **لاCommit/Push أوStaging فيمهمةالتنفيذ. T4-C/D/E وBatch B/C/D وGemini وMigrations وDeployment لمتبدأ.** التوقفبعدالتقرير؛الحفظوالانتقالإلىT4-C يتطلبانموافقةصريحةجديدة.
+
+أوامرالتحققالنهائيةالمحددة(بدون.env أوmigrations):
+
+```powershell
+# frontend
+node scripts/verify.mjs all
+# backend
+.\venv\Scripts\python.exe -B tests/a5_isolated_runner.py --postgres-bin '<PG_BIN>' `
+  tests/test_a5_t4_b2.py tests/test_a5_t4_b1.py tests/test_a5_security_gate_backend.py `
+  tests/test_a5_runner_configuration.py tests/test_a5_isolation_gate.py tests/test_a5_browser_diagnostics.py
+.\venv\Scripts\python.exe -B tests/a5_isolated_runner.py --postgres-bin '<PG_BIN>' --node-bin '<NODE_BIN>' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[dashboard-forward]' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[dashboard-reverse]' -s
+```
+
+## 24. T4-B2 Development Checkpoint Approval — 2026-11-03
+
+### 24.1 التفويض وخط الأساس
+
+وافق المالك صراحة على حفظ **T4-B2 — Enterprise Dashboard** بـCommit واحدة بعنوان `feat(a5): add tenant-safe operational dashboard` ودفع عادي فقط إلى `origin/feature/phase2-batch-a-tenant-security`. لا يسمح التفويض ببدءT4-C/D/E أوBatch B/C/D أوGemini أوMigration أوDeployment أوتغييرCredentials أوPR/Merge أوتغييرmaster. يحل هذا القسم محل انتظار إذن الحفظ في§23.7؛تبقى نتائج التنفيذ السابقة وإخفاقاته سجلًا تاريخيًا كما هي.
+
+قبل أي تعديل في مهمة الحفظ تطابقت Local/Remote HEAD مع `6dc069dc739c8822fcceeaeee207d9c459d605a1`،وmaster المحلية والبعيدة مع `10faab20b1c61b5476165bbc1f5d28a2a85e2652`،وorigin معالمستودع الرسمي. الحالة **16 Modified +12 New =28 files**،Staging فارغة،دون ملفات إضافية أوحذف. قورنت SHA256 لكل ملف معManifest فحصWorking Copy النهائي من تنفيذB2،وتطابقت الملفات الـ28 بالكامل. أي اختلاف غير متوقع يوقف الحفظ دون Reset/Clean/Stash/Checkout.
+
+### 24.2 المراجعة وأدلة القبول
+
+راجعت مهمة الحفظ Manifest§23.6: وحداتDashboard وAPI/Decoders وBinding/Abort/Epoch،المسار والتنقل والتعريب والتنسيق والاختبارات وتحسيناتBrowser Infrastructure المثبتة وContrast Utilities والتوثيق. Systems وLegacy وAuthProvider/AuthRoot وWorkspace Gateway وApiClient وPermission Matrix محفوظة؛لا Production Backend أوJWT أوModels/Migrations أوpackage/lock changes. StrictMode مازالت فيmain.tsx،و`NODE_ENV=production` و`envDir:false` محفوظتان فيمسارPlaywright build/preview. لا يعرضDashboard Risk Average أوGlobal Risk Rules Count أوحوكمةCAB مكتملة؛Approved حالة مسجلة فقط.
+
+| دليل القبول المعتمد من §23.5 | النتيجة |
+|---|---|
+| Frontend |85 Passed،0 failed/skipped |
+| Relevant Backend |82 Passed،62 PostgreSQL+20 Unit/Memory |
+| Playwright Security / Presentation / B1 / B2 |7/7 و4/4 و5/5 و6/6 فيكلترتيب نهائي |
+| Combined Forward / Reverse |22/22 لكلترتيب؛2 pytest Passed،123.04s |
+| Responsive/Localization |20B2 و40B1 layout/Axe لكلترتيب،باللغتين والثيمين والمقاسات الخمسة؛لا جمع للتكرارات كتغطية إضافية |
+| Typecheck / Production Build / Lint |Passed؛113 modules و0 warnings/errors |
+| Working Copy Gitleaks / Cleanup / diff check |28 files،0 Findings؛Passed |
+
+لم تغيّر مراجعة الحفظ كود التطبيق أوالاختبارات؛أضافت توثيق الموافقة في هاتين الوثيقتين فقط،مع تسجيل البصمات المراجعة خارجالمستودع. لذلك تُعتمد الأدلة الحالية دون إعادة جولات طويلة. لا تتحول إخفاقاتHTML/locale/memory/contrast/403 fixture السابقة إلىنجاح بأثررجعي. حساسيةAxe السلبية والتباين العابر بلاRCA داخلية مؤكدة موثقان؛كل قواعدAxe محفوظة،وقياسWCAG المباشر واختباره السلبي المكافئ نجحا فيالترتيبين.
+
+### 24.3 بوابةالحفظ والمخاطر وحالةالاستئناف
+
+الحفظ مشروط بـ`git add --` لأسماءManifest الـ28 فقط،ومطابقةIndex معالأسماء وبصماتGit blobs المراجعة،وفراغأي تغييرات خارجالنطاق،ونجاح`git diff --cached --check`. يلزم Gitleaks8.30.1 على **Staged Blobs الفعلية** عبر`git show :path`،بـdefault rules وignore فارغة وredaction،بعدفحصintegrity وsynthetic detection/redaction control؛أيةFinding أوخطأScanner يوقفCommit. ملخصالفحص المنقح يُحفظ خارجالمستودع في `C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\b2-checkpoint-staged-scan\gitleaks-staged-summary.json`. ليست نتيجةWorking Copy بديلًا عنفحصIndex.
+
+لا.env أوSecrets/Credentials فعلية أوBrowser Binaries أوnode_modules أوBuild Outputs أوDatabase Dumps أوScreenshots/Traces/HAR/Videos أوRaw Logs أوTemporary Test Artifacts ضمنManifest. SHA الجديدة وRemote HEAD وclean Working Tree وفراغStaging وثباتmaster تُثبت بعدCommit وPush فيتقريرالحفظ النهائي؛لا ادعاء مسبق بنجاحالدفع ولاForce/Amend/Rebase/Merge.
+
+| الملاحظة المفتوحة | الحالة المحفوظة |
+|---|---|
+| Historical CDP Findings |Open؛لا إغلاق بأثررجعي |
+| FastAPI Cleanup Timeout |Unresolved |
+| Legacy Demo Credentials |Unresolved؛لا تغييرCredentials |
+| Risk Rules Isolation |Batch B |
+| CAB Enforcement |Batch C |
+| Session Revocation/F2/Hardening |Batch D |
+| Full Browser Suite Parity |غير مكتملة |
+| Production Readiness |غير متحققة |
+
+**T4-B2: ACCEPTED FOR DEVELOPMENT CHECKPOINT. T4-C: READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED.** صفحاتالأعمال المنجزة حتىهذاالحفظ هيSystems Catalog وSystem Details وEnterprise Dashboard؛تفاصيلالتغييرات وقائمتها تبقيانLegacy دونادعاءاستخراجT4-C. بوابةPlaywright الأمنية معتمدة لنطاقالتطويرRead-Only؛لا توسعة تلقائية إلىصلاحيات أوعملياتكتابة أواعتمادRisk/CAB. التوقف بعدCommit وPush والتحقق والتقرير،وانتظار موافقة صريحة جديدة قبل أي تطوير.
