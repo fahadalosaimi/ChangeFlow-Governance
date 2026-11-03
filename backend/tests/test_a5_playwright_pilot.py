@@ -95,12 +95,12 @@ def pilot_http(workspace):
 
     async def control(request):
         action = (await request.json()).get("action")
-        if action not in {"limit", "restore", "disable", "enable"}:
+        if action not in {"limit", "restore", "disable", "enable", "revoke-foundation"}:
             return JSONResponse({"status": "invalid"}, status_code=400)
         with Session(workspace.engine) as db:
             assert_owned_test_connection(db.connection())
-            if action in {"limit", "restore"}:
-                db.get(User, 2).role_id = 14 if action == "limit" else 3
+            if action in {"limit", "restore", "revoke-foundation"}:
+                db.get(User, 2).role_id = {"limit":14,"restore":3,"revoke-foundation":10}[action]
             else:
                 db.get(User, 2).is_active = "inactive" if action == "disable" else "active"
             db.commit()
@@ -136,7 +136,7 @@ def pilot_http(workspace):
         assert not thread.is_alive(), "Owned HTTP cleanup failed"
 
 
-@pytest.mark.parametrize("selection", ["security", "presentation", "forward", "reverse", "session-boundaries"])
+@pytest.mark.parametrize("selection", ["security", "presentation", "forward", "reverse", "session-boundaries", "systems", "systems-forward", "systems-reverse", "systems-probe"])
 def test_playwright_pilot(pilot_http, tmp_path, selection):
     run_playwright_gate(pilot_http, tmp_path, selection)
 
@@ -149,14 +149,16 @@ def run_playwright_gate(pilot_http, tmp_path, selection, *, expect_success=True)
     env.update(TEMP=str(tmp_path), TMP=str(tmp_path), PILOT_API=pilot_http,
         PILOT_ROOT=str(tmp_path), PILOT_SELECTION=selection,
         PLAYWRIGHT_BROWSERS_PATH=str(pilot / ".browsers"), NODE_ENV="test")
+    if os.environ.get("CHANGEFLOW_TEST_ARTIFACTS_ROOT"):
+        env["PILOT_VISUAL_ROOT"] = os.environ["CHANGEFLOW_TEST_ARTIFACTS_ROOT"]
     result = subprocess.run([node, str(pilot / "run.mjs")], cwd=pilot, env=env,
-        capture_output=True, text=True, timeout=150)
+        capture_output=True, text=True, timeout=300 if selection.startswith('systems') else 150)
     # Never forward assertion errors, response bodies, call logs or credentials.
     rows = []
     for line in result.stdout.splitlines():
         if line.startswith("PILOT="):
             row = json.loads(line[6:])
-            assert set(row) <= {"case", "status", "duration_ms", "failure_line", "passed", "failed", "exit", "contexts", "browser_exit", "cleanup"}
+            assert set(row) <= {"case", "status", "duration_ms", "failure_line", "failure_rule", "passed", "failed", "exit", "contexts", "browser_exit", "cleanup", "identity_calls", "systems_calls", "small_target", "width", "height"}
             rows.append(row)
     for row in rows:
         print("A5_FAILURE_METADATA=" + json.dumps({"pilot": selection, **row}))
@@ -168,7 +170,8 @@ def run_playwright_gate(pilot_http, tmp_path, selection, *, expect_success=True)
     if expect_success:
         assert any(r.get("browser_exit") == 0 for r in rows), "Unconfirmed Chromium exit"
         assert all(r.get("status") == "passed" for r in rows if "case" in r), "Gate cannot exclude a failed/skipped case"
-        assert len([r for r in rows if r.get("status") == "passed"]) == {"security": 7, "presentation": 4, "forward": 11, "reverse": 11, "session-boundaries": 1}[selection]
+        assert len([r for r in rows if r.get("status") == "passed"]) == {"security": 7, "presentation": 4, "forward": 11, "reverse": 11, "session-boundaries": 1,
+            "systems":5,"systems-forward":16,"systems-reverse":16,"systems-probe":2}[selection]
     assert not any(p.suffix in {".zip", ".png", ".webm", ".har"} for p in tmp_path.rglob("*")), "Sensitive artifact capture forbidden"
 
 

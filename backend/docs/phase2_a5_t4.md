@@ -1408,3 +1408,143 @@ HEAD وmaster محفوظتان،وStaging فارغة. **التوقف بعد هذ
 Historical CDP Findings تبقى **Open/Unresolved**؛لمتنجحالبوابةالقديمةبأثررجعي،ولميتحقق **Full Browser Suite Parity** أو **Production Readiness**. تبقىCDP Harness واختباراتها محفوظة كتغطيةLegacy غيرمعتمدةللإصدار. مخاطرRisk/CAB/SessionRevocation/Demo/F2 وحدودChromium-only وORM-vs-migrations وصغرعينةالموثوقية محفوظة.
 
 **T4-B: READY FOR SEPARATE EXECUTION APPROVAL — NOT STARTED.** لاT4-B/C/D/E أوBatch B/C/D الأمنية،ولاDatabase Migrations أوDeployment أوCredential changes فيمهمةالحفظ. التوقفبعدCommit وPush والتحققوالتقرير؛الهدفالتاليبتفويضمنفصل هوتطويرصفحاتChangeFlow وفقهذهالبوابة،دونتحقيقCDP مفتوحالنطاق.
+
+## 21. A5-T4-B1 — Enterprise Systems Catalog & Details — 2026-11-03
+
+### 21.1 التفويض والخطة والنطاق
+
+اعتماد المالك صريح لدفعة **T4-B1 فقط**: Systems Catalog وSystem Details للقراءة. البداية المحلية والبعيدة مطابقة: `3207ded1f95b2ff040f54b823f6d7c86a153a0ce` على `feature/phase2-batch-a-tenant-security`،origin الرسمي،Working Tree وStaging نظيفتان؛master المحلية والبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`. قُرئت Inventory/Contracts وخطة §5–7 وسياسة §20 قبل التنفيذ. تفويض الحفظ السابق انتهى؛ **لا Commit/Push أوT4-B2** في هذه المهمة.
+
+الخطة نُفذت ضمنFeature واحدة: RED لقراءة DTO/IDs/binding/races،ثمAPI وDecoders وResource مستهلكة فعليًا،ثمRouting وصفحتي العرض والتعريب،ثمHTTP/PostgreSQL وPlaywright/Presentation وFrontend checks،وأخيرًاالتوثيق والتوقف. لا Dashboard migration أوDependencies جديدة أوGlobal Cache/State Framework. لا تعديل`App.tsx` أوLegacy Adapter أوAuth/JWT/Permission Matrix أوModels/Migrations،ولا Mutations أوUpdate/Delete أوRisk/CAB/Gemini/Bootstrap/Deployment.
+
+### 21.2 المعمارية والصفحات المنجزة
+
+- `/systems`: قائمة Backend المصرح بها،اسم ومعرف ونوع وبيئة وحالة وأهمية،ومراجعالإدارةوالمالك عندما تتوفر؛بحث وتصفية محلية على القائمة المحملة فقط. Query فيURL تحفظ حالة البحث عند Back/Forward. لاServer search/pagination أوtotals مخترعة. عرضجدوليعلىالشاشاتالواسعةوبطاقاتمشتقةمننفسالجدولعلىالجوال؛روابطحقيقيةلتفاصيلالأنظمة.
+- `/systems/:id`: بياناتالنظام،اعتمادياتصادرةمباشرةبروابطID آمنة،الحوادثالمرتبطة،وملفالتأثيربملخصاتالعلاقاتالواردةوالصادرةوالحوادث. One-hop فقط؛لاgraph traversal أوcontrols كتابة. توجدloading/empty/error/forbidden وmissing404 عامة،وفشلجزئيمنفصللـDependencies/Incidents/Profile.
+- Feature modules: `decoders.ts` لعقدRuntime،`api.ts` للـGET الخمس،`resource.ts`/`useSystemsResource.ts` لدورةالمورد،`SystemsState.tsx` للحالاتوالـbadges،و`SystemsPages.tsx` للصفحتين،و`systems.css` باستخدامTokens القائمة.
+- نفسApiClient وApiSession وWorkspace Gateway وAuthRoot وShell. كلroute تعتمد **foundation.read**؛`foundation.write` ليست شرطًا. أضيفSidebar/Home/Breadcrumb حقيقي لمساراتمنفذةفقط. `/foundation` والنماذجالقديمةوالدعواتوالدخولكلها محفوظة.
+
+### 21.3 API/DTO contracts الفعلية
+
+| Endpoint | العقد المستخدم |
+|---|---|
+| GET `/foundation/systems` | Array كاملة،مرتبةBackend بالاسم؛id/organization_id وnullable department_id/service_id/owner_id،name/description/system_type/environment/criticality/status |
+| GET `/foundation/systems/{id}` | نفسSystem DTO؛يتطابقid معالمطلوب،وorganization_id معهويةme الموثقة |
+| GET `/foundation/systems/{id}/dependencies` | Array id/source_system_id/target_system_id/dependency_type/impact_level/nullable description؛العقد يعيد **الصادرة فقط**؛source يجبأنيطابقالنظامالأب |
+| GET `/foundation/systems/{id}/incidents` | Array id/system_id/title/nullable description/severity/status/occurred_at/nullable resolved_at؛system_id يطابقالأب |
+| GET `/foundation/systems/{id}/impact-profile` | system_id/system_name/criticality؛nullable department_name/service_name/owner_name؛outgoing_dependencies/incoming_dependencies/previous_incidents هي **string arrays**؛impact_summary نص |
+
+لا توجدأسماءإدارة/مالكفيList DTO؛لذلكالكتالوجيعرضالمراجع#id الصادقةوالتفاصيلتعرضالأسماءالمتاحةمنProfile،بلاN+1 enrichment أواستنتاجحقولغيرمسجلة. Department/Owner null تبقىغيرمسندة،ولا تتحولإلى0. Dependencies endpoint ليستعلاقاتواردة؛الواردةتُعرضكمايوفرهاProfile،دونParsing للسردلاختراعIDs أوURLs. لاRisk Rules عالميةضمنهذاالعرض.
+
+### 21.4 Runtime validation وRace/Binding protection
+
+كلID موجب وsafe integer؛Route IDs أرقامعشريةموجبةدونleading-zero أوscientific/encoded slash. تحققnullable IDs/strings وArrays وduplicate IDs وparent IDs وISO calendar dates؛Unknown read enums تُحفظكقيمقراءةوتُعرضمحايدةمععلامةغيرمعروفة،ولا تمنحActions. Extra fields تُهملببناءDTO allowlist. Invalid JSON يرفضهApiClient،وinvalid/foreign DTO تعطيApiError آمنةدونbody أوserver detail. Base URL منإعدادApiClient الموثوق،وروابطالمواردمنIDs المثبتةفقط.
+
+Resource key تشملbinding+catalog أوbinding+systemId. عندload جديدةيزدادepoch وتُلغىالسابقةوتُزالdata؛النجاحأوالفشلالمتأخرلاينشرإلاإذاطابقepoch ولميُلغ. Hook تعملrender-time masking عنداختلافkey،قبلeffect cleanup،فلايرسمSystem A فيB. Unmount يلغيالموردويمسحبياناته. لاGlobal cache. البحثوالتصفيةمحليانومتزامنان؛لاتوجدquery HTTP قديمةتعيدنتيجةfilter سابقة.
+
+Gateway تتحققمنbinding قبلوبعدكلResponse،وApiClient تحفظgeneration/abort؛اختبارموجهثبتالرفضبعدتغيرUser/Tenant حتىمعtransport تتجاهلالإلغاء. 401 عبرAuth boundary القائمة؛عند403 حقيقيةفيFeature تُستدعىstore.recover الحاليةمرةللبinding الحالية،فتزالDOM قبلتحديثالهوية؛لاAuth fetch إضافيةفيالتنقلالعاديأوالتصفية. أيفشلفيsubsection مننوع401/403/session_changed يمنعنشرprimarydata؛أخطاءnetwork/invalid data الأخرىتسمحبفشلجزئيآمنبعداكتمالالأقسام.
+
+### 21.5 UI/UX والتعريب
+
+Obsidian & Sage وReadex Pro وDark/Light وMotion Tokens القائمةدونألوانموازيةأومكتباتجديدة. كتالوجذوكثافةمقروءة،Search/Filters labeled،badges نصيةودلالية،وأبعادloading محجوزةوaria-busy دونبياناتقديمة. Metadata overview وdirect relationship rows وترتيبIncidents وNarrative واضحة. CSS logical properties،وأهدافلمس44px علىالأقلوKeyboard focus مرئية. أُصلحعرضBreadcrumb العربيةمن38 إلى44px بعداختبارRED فعلي؛لمتُضعفعتبةالاختبار.
+
+أضيفnamespace`systems` بالعربيةوالإنجليزيةكاملًا،وعناوينSidebar/Home/Breadcrumb/Document title. System IDs وأسماءالمستخدمتبقىدونترجمةداخلbdi؛الأعدادبـIntl. التواريخذاتoffset تُعرضكـUTC instants وفقformatter القائم؛naive incident timestamps تُعرضكوقتالحقلالمسجلدونإضافةZ أوافتراضUTC لمدخلاتلميثبتzone لها. Narrative وملخصاتProfile أصلهاEnglish،معتنبيهصريحو`lang=en/dir=ltr`؛لاادعاءترجمتها.
+
+المصفوفةالمستهدفة:Catalog/Details ×360/390/768/1366/1440 ×ar-SA/en ×Dark/Light = **40 layouts**،معAxe علىmain وno horizontal overflow وReadex وtouch44 وReducedMotion وkeyboardTab/ShiftTab. قُصّتلقطاتكتالوجصناعيفقطدونTopbar/حساب/Tokens،خارجالمستودع؛لاScreenshots حساسةأوTraces/HAR/Videos.
+
+### 21.6 نتائج التنفيذ والاختبارات والحدود
+
+| التحقق | الدليل الحالي |
+|---|---|
+| RED→GREEN |3 اختباراتSystems الأساسيةفشلتقبلالتنفيذ؛أضيفاختبارroute foundation.read وفشلثمGREEN؛المجموعةالنهائية5/5 تشملpost-response binding switch |
+| Frontend نهائية |**77 passed/0 failed/0 skipped**؛Typecheck app/test/config وBuild106modules ناجحة،Lint0 warnings/0 errors |
+| Backend/PG |**69 passed/0 failed/0 skipped،90.63s**؛49 PostgreSQL+20 Unit/Memory.6 B1 جديدة:DTO contracts وfoundation.read بلاwrite،4 foreign-vs-missing404،وunknown-role403 بنفسJWT؛63 regression القائمةضمنها،لا تُضاف مرةأخرى |
+| B1 smoke أولى |2/5 passed،85.41s؛Details/Races نجحت،والبقيةفشلت؛لاGreen claim. جميعBrowser/Runner cleanup انتهت |
+| B1 smoke بعدscoped locators |3/5 passed،62.22s؛Boundaries نجحت؛بقيGET count وfocus probe. Locators كانتتشملحوارAccount المخفيفصُححتإلىجدولFeature؛عدOPTIONS صُححإلىGET فقط |
+| Combined قبلتصحيحproduction mode وtouch |كلSecurity7 وP024 نجحتفيالترتيبين؛B1 Details/Races/Boundaries نجحت؛Catalog وLayout فشلتا،14/16 لكلترتيب. إجمالي235.58s،معFastAPI teardown timeout واحدة10s فيforward؛لمتُخفولمتُرفعمُهلتها. لاRCA أعمقمثبتةلهذهالمهلة |
+| Probe موجهRED |49.76s:identity_calls0 وsystems_calls2،وBreadcrumb لمس38×44. لاPII/DOM أوraw errors؛scalar allowlist فقط |
+| السبب والتصحيح |Vite source وresolveConfig أثبتاNODE_ENV=test ⇒isProduction=false؛ورثتHarness قيمةtest،فأعادتStrictMode development الـeffects. ضُبطتعمليةbuild/preview الاختباريةإلىproduction،معإبقاءStrictMode بالتطبيق؛لمتُقبلطلبات2 كنجاح. فحصfocus أصبحkeyboard فعليًا،وBreadcrumb صارتmin-width44 |
+| Probe GREEN بعدالتصحيح |**2/2 passed،41.68s**؛identity_calls0 وsystems_calls1؛كل40 layout/Axe/targets/focus/reduced-motion نجحت،contexts0 وbrowser/runner exit0 وcleanup passed |
+| Combined النهائيproduction |**2 pytest passed/0 failed/0 skipped،192.58s**؛forward16/16 وreverse16/16. Security7/7+P024/4+B1خمسةفيكلترتيب؛contexts0 وbrowser/runner exits0 وFastAPI/PG cleanup passed؛identity GET0 وcatalog GET1 فيكليهما. لاCDP suite نُفذت |
+| Gitleaks8.30.1 |**26 files،0 Findings**؛binary/archive/checksum integrity وsynthetic detection/redaction ناجحة،defaults وignore فارغة وstdin محلي،metadata-only reports؛ليستGit history scan ولافحصبياناتفعلية |
+| diff/syntax/cleanup/Git |`git diff --check` وUTF-8/whitespace/Node/Python syntax ناجحة؛**0 matching test processes و0 run roots** فيCIM/temp audit؛HEAD3207ded وmaster10faab2 محفوظتان،Staging فارغة؛لاGit writes |
+
+تصحيحNODE_ENV يخصTest Infrastructure،ويعنيأننتائجPlaywright السابقةبهذاالمسارتخصcompiled preview معReact development mode رغمVite build؛لايُعادوصفهاكـproduction proof. الختاميعيدSecurity/Presentation/B1 بالترتيبينعلىproduction artifact الصحيحة. لاProduction Security Logic changes،ولاادعاءFlakiness immunity أوجردكلWindows handles.
+
+### 21.7 Changed files / Checkpoint Manifest
+
+**16 Modified +10 New =26 files** بعدالتوثيق،بلاDeleted أوStaged:
+
+- Docs(2M): `backend/docs/phase2_a5_t4.md` و`backend/docs/development_master_plan.md`.
+- Browser infra(6M): `backend/tests/test_a5_playwright_pilot.py`؛`frontend/e2e/playwright/{gate-contract.mjs,pilot.spec.mjs,playwright.config.mjs,reporter.mjs,run.mjs}` — B1 groups/budgets/fixture controls وsafe diagnostics وproduction build correction؛Security/P02 القديمةمحفوظة.
+- Frontend integration(8M): `frontend/scripts/verify.mjs`؛`frontend/src/app/{routePolicy.ts,router.tsx}`؛`frontend/src/components/navigation/Breadcrumbs.tsx`؛`frontend/src/localization/index.ts`؛`frontend/src/localization/locales/{ar-SA.json,en.json}`؛`frontend/src/pages/WorkspaceHomePage.tsx`.
+- Systems feature(7N): `frontend/src/features/systems/{api.ts,decoders.ts,resource.ts,useSystemsResource.ts,SystemsState.tsx,SystemsPages.tsx,systems.css}`.
+- Tests(3N): `frontend/tests/systems.test.ts`،`frontend/e2e/playwright/systems.mjs`،`backend/tests/test_a5_t4_b1.py`.
+
+لاpackage/lock أوProduction Backend/Models/Migrations/Auth/JWT/Permission Matrix/App.tsx changes؛لاتثبيتDependencies أوEdge،ولاLegacy deletion. الملفاتالمؤقتةوقواعدالبياناتواللقطاتالصناعيةخارجManifest. ميزانيةاختباراتSystems240s global و90s للـ40-layout case و300s للـPython child تخصالعملالأوسعالمحدد؛لازيادةبعدفشللإخفائه،وretries0.
+
+### 21.8 الجاهزية وRemaining findings
+
+**T4-B1 جاهزة للمراجعة والحفظ كـDevelopment Checkpoint بعد إذن صريح منفصل.** الصفحتان فعليتان،والبيانات منالعقودالقائمة،وSecurity Gate المعتمدة معB1 وPresentation نجحتفيالترتيبينعلىproduction artifact. لاCommit أوPush أوStaging فيهذاالتنفيذ. لمتُضَعفAssertions أويُضَفRetry لإخفاءفشل؛نتائجالتطويرالفاشلةوتصحيحاتLocators/keyboard/touch/production environment موثقةأعلاه.
+
+Historical CDP Findings باقيةكمافي§20 ولا تُستخدمحاجزًالقبولB1 دونإشارةأمنيةجديدة. لاFull Browser Suite Parity أوProduction readiness. تتبقىحدودBackend five DTOs وone-hop وowner/department IDs بالقائمةوNarrative English وORM schema parity؛لامحاولةلإصلاحهابتوسعةBackend. مهلةFastAPI10s فيالجولةالفاشلةالسابقةمسجلةكـTest Infrastructure finding لمتُثبتRCA لها؛لمتتكررفيالفحصالموجهالنهائيأوالترتيبينالأخيرين،ولمتمددنافذةالتنظيف. لاادعاءاختفاءFlakiness أوإغلاقfinding تاريخيةبنجاحلاحق.
+
+أوامرإعادةالتحققالمحددةمنbackend:
+
+```powershell
+.\venv\Scripts\python.exe -B tests/a5_isolated_runner.py --postgres-bin '<PG_BIN>' `
+  tests/test_a5_t4_b1.py tests/test_a5_security_gate_backend.py `
+  tests/test_a5_runner_configuration.py tests/test_a5_isolation_gate.py tests/test_a5_browser_diagnostics.py
+.\venv\Scripts\python.exe -B tests/a5_isolated_runner.py --postgres-bin '<PG_BIN>' --node-bin '<NODE_BIN>' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[systems-forward]' `
+  'tests/test_a5_playwright_pilot.py::test_playwright_pilot[systems-reverse]' -s
+```
+
+Frontend:`node scripts/verify.mjs all`؛لاModule browser كاملة أوCDP replay. 40 layout/Axe checks فيكلترتيب،والأرقامالنهائيةلاتُجمعكتغطية80 مختلفة. معاينتاالكتالوجالصناعيتانخارجالمستودعفي`C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\changeflow-a5-t3-visual-zgx0e3eu`؛لاTopbar/حسابأوTokens ضمناللقطة،ولاMedia حساسةفيManifest.
+
+ملخصGitleaks المنقحذوManifest الكاملة:`C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\t4-b1-scan\gitleaks-t4-b1-summary.json`. لاSources/Secrets أوraw matches فيالمخرجات،ولاArtifacts ضمنالـ26ملفًا. النتيجةتخصهذهالتعديلات،ولا تُغلقمخاطرDemo/Exposure التاريخية.
+
+**T4-B2 Dashboard: NOT AUTHORIZED / NOT STARTED.** حتىعندجاهزيةB1 للحفظ،يلزمإذنCommit/Push مستقل ثمإذنT4-B2 مستقل؛التوقفبعدتقريرB1 فقط. لاT4-C/D/E أوBatch B/C/D أوDeployment.
+
+## 22. T4-B1 Development Checkpoint Approval — 2026-11-03
+
+### 22.1 التفويض والمراجعة النهائية
+
+وافق المالك صراحة على حفظ **T4-B1 — Systems Catalog & System Details** بعد المراجعة الأمنية والوظيفية،بـCommit واحدة عنوانها `feat(a5): add tenant-safe systems catalog and detail pages` ودفع عادي فقط إلى `origin/feature/phase2-batch-a-tenant-security`. البداية المحلية والبعيدة `3207ded1f95b2ff040f54b823f6d7c86a153a0ce`،وmaster المحلية والبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`؛ **16 Modified +10 New =26 files** وStaging فارغة قبل الحفظ. هذا التفويض يحل محل انتظار إذن الحفظ في §21.8؛لا يغيّر السجل السابق ولا يسمح بتطوير جديد أوProduction Approval.
+
+راجعت مهمة الحفظ الملفات الـ26 في Manifest §21.7: الصفحتان وAPI/Decoders ودورة المورد وBinding/Abort/Epoch،Routing/Breadcrumbs/Navigation والتعريب والتنسيق والاختبارات وتصحيح بيئةProduction build والتوثيق فقط. لم تتغير Production Backend أوAuth/JWT/Permission Matrix أوModels/Migrations أوpackage/lock. بقيت `/foundation` وLegacy Adapter/Create Forms وWorkspace Authentication وPlaywright Security Gate وCDP Harness واختباراتها. رخصةReadex Pro المحلية **SIL OFL1.1** موجودة ومتطابقة مع رخصة الحزمة المثبتة؛لا أصول أوتبعيات جديدة ضمن الحفظ.
+
+### 22.2 أدلة القبول ونطاق إعادة الفحص
+
+| التحقق النهائي المعتمد | النتيجة |
+|---|---|
+| Frontend |77 passed،0 failed/skipped |
+| Relevant Backend |69 passed،49 PostgreSQL+20 Unit/Memory؛تشمل63 regression ولا تُجمع معها |
+| Playwright production artifact |Security7/7،Presentation4/4،B1 خمسة/خمسة |
+| Combined Forward / Reverse |16/16 لكل ترتيب؛40 layout/Axe لكل ترتيب،وليست80 حالة مستقلة |
+| Typecheck / Build / Lint |Passed؛Build106 modules،Lint0 warnings/errors |
+| Browser/Context/HTTP/PostgreSQL cleanup |Passed في التحقق النهائي؛contexts0 وbrowser/runner exits0 |
+| فحص التعديلات السابق |Gitleaks8.30.1،26 files/0 Findings؛diff/syntax/UTF-8 Passed |
+
+الأدلة النهائية هي تشغيلProduction بعد ضبط `NODE_ENV=production` في `run.mjs` قبلVite build/preview،مع بقاءStrictMode. لا تُعتمد جولاتcompiled preview السابقة فيReact development mode كدليلProduction،ولا تُجمع الجولات المتداخلة كتغطية مستقلة. لم تغيّر مراجعة الحفظ أي كود تنفيذي أواختبار؛تقتصر إضافتها على وثيقتيCheckpoint،وتثبت بصمات الملفات خارج المستودع ذلك. لذلك لم تُكرر الاختبارات الطويلة دون سبب جديد.
+
+الحفظ مشروط بمطابقةIndex مع أسماءManifest الـ26 وبصماتGit blobs المراجعة،ونجاح `git diff --cached --check` وGitleaks على **Staged Blobs الفعلية** معdefaults وignore فارغة وsynthetic detection/redaction control وفحصintegrity. لا.env أوSecrets أوCredentials فعلية أوPostgreSQL files أوnode_modules أوBrowser Binaries أوBuild Outputs أوRaw Logs أوScreenshots/Traces/HAR/Videos ضمنManifest. نتيجةالفحصالمرحلي المنقحة تحفظ خارجالمستودع في `C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\b1-checkpoint-staged-scan\gitleaks-staged-summary.json`. أيةFinding أوManifest غيرمتوقعة توقفCommit/Push. SHA وRemote HEAD ونظافةWorking Tree وفراغStaging وثباتmaster يثبتهاGit وتقريرالحفظ النهائي بعدالدفع؛لا ادعاء مسبق بنجاحالدفع.
+
+### 22.3 السياسة والملاحظات المفتوحة
+
+**Playwright Security Gate = APPROVED for T4-B Read-Only Development.** كل صفحة جديدة تتطلب Real Backend Integration،Tenant Isolation،Permission Enforcement،Runtime DTO Validation،Stale Response Protection،Loading/Empty/Error States،RTL/LTR،Responsive UI،Accessibility،Relevant Playwright Regression،معPresentation علىالوظائفالمتأثرة وCombined عندنقاطالتكامل والقبول. لا يُقبل إسقاط اختبار فاشل دون بديل مكافئ.
+
+| الملاحظة | الحالة المحفوظة |
+|---|---|
+| Historical CDP Findings |Open؛لا إغلاق بأثررجعي،والتغطيةLegacy محفوظة |
+| FastAPI Cleanup Timeout |Unresolved؛مهلة10s السابقة لم تُثبتRCA لها،رغم نجاحcleanup النهائي |
+| Legacy Demo Credentials |Unresolved؛لا تغييرCredentials أوإعادةنشرقيمها |
+| Risk Rules Isolation |Batch B |
+| CAB Enforcement |Batch C |
+| Session Revocation/F2/Hardening |Batch D |
+| Full Browser Suite Parity |لم تتحقق |
+| Production Readiness |لم تتحقق |
+
+تبقى حدود القراءةone-hop وDTO القائمة ومرجعالإدارة/المالك فيCatalog وEnglish narrative وORM-vs-migrations وChromium-only وصغرعينةالموثوقية كمافي§21؛نجاحالاختبارات لا يثبت انعدامFlakiness.
+
+**T4-B1: ACCEPTED FOR DEVELOPMENT CHECKPOINT. T4-B2 Dashboard: READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED.** التوقف بعد Commit وPush والتحقق والتقرير؛لاT4-B2 أوT4-C/D/E أوBatch B/C/D أوGemini أوDatabase Migrations أوDeployment أوPR/Merge أوتغييرmaster فيمهمةالحفظ،ولا استئناف لتحقيقCDP قديم دون دليلأمني جديدمؤثر.

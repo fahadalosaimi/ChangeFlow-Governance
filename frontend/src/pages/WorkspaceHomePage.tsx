@@ -10,7 +10,7 @@ export function WorkspaceHomePage() {
   const { state } = useAuth()
   const user = state.user!
   const areas = navigationFor(user.permissions).filter(route => route.path !== '/workspace')
-  const description = { '/changes': 'home.changes', '/foundation': 'home.foundation', '/users': 'home.users', '/notifications': 'home.notifications' } as Record<string, string>
+  const description = { '/systems': 'home.systems', '/changes': 'home.changes', '/foundation': 'home.foundation', '/users': 'home.users', '/notifications': 'home.notifications' } as Record<string, string>
   return <div data-page="workspace-home">
     <div className="page-heading"><div><h1>{t('home.title')}</h1><p>{t('home.welcome', { name: user.full_name })} {t('home.body')}</p></div>
       {user.permissions.includes('changes.create') && <Link className="btn btn-primary" to={withRecoveryMarker('/changes/new', state.storageWarning)}><Icon name="plus" />{t('nav.newChange')}</Link>}

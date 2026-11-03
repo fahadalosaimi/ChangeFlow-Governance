@@ -17,7 +17,7 @@ if (mode === '--build-child') {
     ['SYSTEMROOT', 'WINDIR', 'PATH', 'PATHEXT', 'COMSPEC'].includes(key.toUpperCase())))
   Object.assign(env, { TEMP: temporary, TMP: temporary, NODE_ENV: 'test' })
   const commands = {
-    test: ['--test', 'tests/api.test.ts', 'tests/auth.test.ts', 'tests/invitation.test.ts', 'tests/presentation.test.ts', 'tests/browser-diagnostics.test.mjs',
+    test: ['--test', 'tests/api.test.ts', 'tests/auth.test.ts', 'tests/invitation.test.ts', 'tests/presentation.test.ts', 'tests/systems.test.ts', 'tests/browser-diagnostics.test.mjs',
       'e2e/playwright/reporter.test.mjs', 'e2e/playwright/motion.test.mjs', 'e2e/playwright/gate-contract.test.mjs'],
     typecheck: ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.test.json',
       '--incremental', '--tsBuildInfoFile', join(temporary, 'test.tsbuildinfo')],

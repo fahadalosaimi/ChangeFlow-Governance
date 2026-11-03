@@ -8,10 +8,12 @@ export interface WorkspaceRoute {
   icon: 'workspace' | 'changes' | 'catalog' | 'users' | 'bell' | 'plus'
   view?: WorkspaceView
   changeId?: number
+  systemId?: number
 }
 
 export const destinations: readonly WorkspaceRoute[] = [
   { path: '/workspace', title: 'shell:nav.workspace', permission: 'identity.read', icon: 'workspace' },
+  { path: '/systems', title: 'shell:nav.systems', permission: 'foundation.read', icon: 'catalog' },
   { path: '/changes', title: 'shell:nav.changes', permission: 'changes.read', icon: 'changes', view: 'dashboard' },
   { path: '/changes/new', title: 'shell:nav.newChange', permission: 'changes.create', icon: 'plus', view: 'new' },
   { path: '/foundation', title: 'shell:nav.foundation', permission: 'foundation.write', icon: 'catalog', view: 'foundation' },
@@ -22,6 +24,9 @@ export const destinations: readonly WorkspaceRoute[] = [
 export function resolveWorkspaceRoute(path: string): WorkspaceRoute | null {
   const known = destinations.find(route => route.path === path)
   if (known) return known
+  const system = /^\/systems\/([1-9]\d*)$/.exec(path)
+  if (system && Number.isSafeInteger(Number(system[1])))
+    return { path, title: 'systems:details', permission: 'foundation.read', icon: 'catalog', systemId: Number(system[1]) }
   const match = /^\/changes\/([1-9]\d*)(\/revise)?$/.exec(path)
   if (!match || !Number.isSafeInteger(Number(match[1]))) return null
   return { path, title: match[2] ? 'shell:nav.revise' : 'shell:nav.details',

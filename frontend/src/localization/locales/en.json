@@ -101,7 +101,8 @@
       "revise": "Revise change",
       "label": "Workspace navigation",
       "mobile": "Mobile navigation",
-      "breadcrumb": "Breadcrumb"
+      "breadcrumb": "Breadcrumb",
+      "systems": "Systems"
     },
     "context": {
       "workspace": "Current workspace",
@@ -126,7 +127,8 @@
       "open": "Open {{area}}",
       "limits": "Development limits",
       "limitsBody": "Tenant risk-rule isolation and CAB enforcement are planned work. AI integration is not active.",
-      "access": "Available to your membership"
+      "access": "Available to your membership",
+      "systems": "Browse systems and their direct relationships."
     },
     "verify": {
       "title": "Verify your membership again?",
@@ -160,6 +162,100 @@
     "unexpected": {
       "title": "The page couldn't be opened",
       "body": "Try reloading the page. Your account details and request information have not been displayed."
+    }
+  },
+  "systems": {
+    "catalog": "Systems catalog",
+    "details": "System details",
+    "intro": "Explore systems, their direct dependencies and recorded incidents.",
+    "readOnly": "Read-only catalog",
+    "filters": "Filter systems",
+    "search": "Search systems",
+    "searchHint": "System name, type or ID",
+    "all": "All",
+    "clear": "Clear filters",
+    "results": "{{visible}} of {{total}} systems",
+    "localFilters": "Filters apply to the loaded catalog only",
+    "name": "System",
+    "type": "Type",
+    "environmentLabel": "Environment",
+    "statusLabel": "Status",
+    "criticalityLabel": "Criticality",
+    "assignment": "Department / owner",
+    "department": "Department",
+    "owner": "Owner",
+    "service": "Service",
+    "open": "Open {{name}}",
+    "unavailable": "Not available",
+    "unassigned": "Not assigned",
+    "unknown": "Unrecognized value",
+    "assignmentHint": "Department and owner references are shown here. Available names appear in system details.",
+    "noMatches": "No matching systems",
+    "noMatchesBody": "Adjust your search or clear the filters to see the available systems.",
+    "empty": "No systems in this workspace",
+    "emptyBody": "Systems will appear here when they are recorded for your workspace.",
+    "back": "Back to systems",
+    "refresh": "Refresh details",
+    "retry": "Try again",
+    "overview": "System overview",
+    "noDescription": "No description recorded.",
+    "oneHop": "Direct relationships",
+    "oneHopBody": "This view shows immediate dependencies only. It does not traverse the wider network.",
+    "dependencies": "Outgoing dependencies",
+    "incidents": "Historical incidents",
+    "impact": "Impact profile",
+    "systemReference": "System",
+    "noDependencies": "No outgoing dependencies recorded.",
+    "noIncidents": "No incidents recorded for this system.",
+    "occurred": "Occurred",
+    "resolved": "Resolved",
+    "originalEnglish": "The following narrative and relationship summaries are supplied by the backend in their original English.",
+    "outgoing": "Outgoing relationships",
+    "incoming": "Incoming relationships",
+    "previous": "Incident summary",
+    "none": "None recorded",
+    "loading": {
+      "title": "Loading systems",
+      "body": "Retrieving the current workspace’s authorized data."
+    },
+    "missing": {
+      "title": "System not found",
+      "body": "This system is unavailable in the current workspace."
+    },
+    "forbidden": {
+      "title": "Access unavailable",
+      "body": "Your current permissions do not allow this view."
+    },
+    "error": {
+      "title": "Could not load this section",
+      "body": "No previous data is shown. Try again to retrieve the current information."
+    },
+    "environment": {
+      "Production": "Production",
+      "Development": "Development",
+      "Staging": "Staging",
+      "Test": "Test"
+    },
+    "status": {
+      "Active": "Active",
+      "Inactive": "Inactive",
+      "Maintenance": "Maintenance",
+      "Retired": "Retired",
+      "Resolved": "Resolved",
+      "Open": "Open",
+      "Closed": "Closed"
+    },
+    "criticality": {
+      "Critical": "Critical",
+      "High": "High",
+      "Medium": "Medium",
+      "Low": "Low"
+    },
+    "severity": {
+      "Critical": "Critical",
+      "High": "High",
+      "Medium": "Medium",
+      "Low": "Low"
     }
   }
 }

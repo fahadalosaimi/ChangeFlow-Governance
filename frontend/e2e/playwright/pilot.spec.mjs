@@ -2,6 +2,7 @@ import { expect } from '@playwright/test'
 import { test, api, deferred, login, authenticated, expectCleanTenant } from './fixtures.mjs'
 import { presentationCases } from './presentation.mjs'
 import { expectedCases } from './gate-contract.mjs'
+import { systemsCases } from './systems.mjs'
 
 const cases = [
   ['login', async ({ page, credentials }) => {
@@ -268,9 +269,12 @@ const cases = [
 ]
 
 const selection = process.env.PILOT_SELECTION
-const available = new Map([...cases, ...presentationCases])
+const available = new Map([...cases, ...presentationCases, ...systemsCases])
 for (const name of expectedCases(selection)) {
   const run = available.get(name)
   if (!run) throw new Error('Missing required gate case')
-  test.describe(name.startsWith('P02-') ? 'Presentation Gate' : 'Security Gate', () => test(name, run))
+  test.describe(name.startsWith('P02-') ? 'Presentation Gate' : name.startsWith('systems-') ? 'Systems B1' : 'Security Gate', () => {
+    if (name === 'systems-layout') test.setTimeout(90000)
+    test(name, run)
+  })
 }

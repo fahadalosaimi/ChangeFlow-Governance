@@ -12,6 +12,9 @@ const root = resolve(process.env.PILOT_ROOT)
 if (api.hostname !== '127.0.0.1' || api.protocol !== 'http:') throw new Error('Unowned origin')
 let server, exit = 1
 try {
+  // Python's test-process environment must not select React development mode
+  // for the production artifact. Keep StrictMode in the application itself.
+  process.env.NODE_ENV = 'production'
   const outDir = join(root, 'build')
   await mkdir(outDir)
   await build({ root: frontend, envDir: false, logLevel: 'silent',

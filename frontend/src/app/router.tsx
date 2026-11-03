@@ -22,6 +22,8 @@ export function createApplicationRouter(runtime: AuthRuntime) {
           { path: '/', element: <Navigate replace to="/workspace" /> },
           { path: '/workspace', lazy: async () => ({ Component: (await import('../pages/WorkspaceHomePage.tsx')).WorkspaceHomePage }) },
           { path: '/forbidden', element: <StatePage kind="forbidden" /> },
+          { path: '/systems', lazy: async () => ({ Component: (await import('../features/systems/SystemsPages.tsx')).SystemsCatalogPage }) },
+          { path: '/systems/:systemId', lazy: async () => ({ Component: (await import('../features/systems/SystemsPages.tsx')).SystemDetailsPage }) },
           { lazy: async () => ({ Component: (await import('../app/LegacyWorkspaceAdapter.tsx')).LegacyWorkspaceAdapter }), children: [
             ...['/changes', '/changes/new', '/changes/:changeId', '/changes/:changeId/revise', '/foundation', '/users', '/notifications']
               .map(path => ({ path, Component: EmptyRoute })),

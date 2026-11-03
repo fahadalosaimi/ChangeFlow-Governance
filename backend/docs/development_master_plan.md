@@ -824,9 +824,9 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 
 بعد كل مرحلة يسجل التقرير: ما نُفذ، قرارات المعمارية، Files Changed، API/DB Changes، Security Findings، Commands/Passed/Failed/Skipped، المخاطر، Git status، والمرحلة التالية. إذا فشل Gate، تُصلح المرحلة نفسها دون بدء التالية.
 
-**Development Checkpoint المعتمدة:** حفظManifest27 فيتقريرT4 §19.7 فوقمرجعالبداية`0ada30aba8d50b94180b305edcbc0c35fea4634e` بالرسالة`test(a5): establish playwright security gate for t4 development`،معPush للفرعالمعتمدفقط. SHA الفعليةفيGit وتقريرالتسليمبعدالتنفيذ؛السياسةالمعتمدةوحدودالحفظفيT4 §20. لاProduction Approval أوبدءT4-B ضمنالحفظ،ولا تغييرmaster.
+**Checkpoint المرجعية:** `3207ded1f95b2ff040f54b823f6d7c86a153a0ce` هي نقطة بداية T4-B1 المعتمدة. فوّض المالك صراحة Commit واحدة وPush لحفظ Manifest26 في تقريرT4 §21.7؛مرجع الحفظ الجديد هو Commit التي تحتوي §19 أدناه،وتُثبت SHA ومطابقة origin ونظافة الشجرة في تقرير الحفظ النهائي. لا Production Approval أوتغييرmaster.
 
-**خطوة الاستئناف الدقيقة:** اقرأ تقريرT4 §20 وسياسةالقسم17 أدناه. **Playwright Security Gate = APPROVED for T4-B Read-Only Development**؛Security7/7 وPresentation4/4 وCombined11/11 بالترتيبين وBackend63/63 معتمدة. **T4-B: READY FOR SEPARATE EXECUTION APPROVAL — NOT STARTED**. CDP القديمةLegacy غيرمعتمدةللإصداروالfindings تبقىOpen؛لاFull Browser Suite Parity أوProduction Readiness. لايلزمتحقيقCDP جديددوندليلأمنيمؤثر،ولايبدأتنفيذالصفحاتتلقائيًا.
+**خطوة الاستئناف الدقيقة:** اقرأ تقريرT4 §§21–22 والقسم19 أدناه. **T4-B1 Systems Catalog/Details مقبولة كـDevelopment Checkpoint بتفويض الحفظ الصريح**؛Security7/7+Presentation4/4+B1خمسة=16/16 فيالترتيبينعلىproduction artifact،Backend69 وFrontend77. التوقف بعد Commit وPush والتحقق؛ **T4-B2 Dashboard READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED**. CDP findings مفتوحة تاريخيًا،ولا Production Readiness أو Full Browser Suite Parity.
 
 **التحقق التاريخي:** المراحل والمخاطر العشرة والقرارات الستة عشر محفوظة. Stage0/Preflight/Setup/Scanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 ، T2 في 10.9–10.10 ، T3 في 10.11–10.12 ، T4-A في 10.13 وتقاريرها. لا جمع لأعداد الجولات المتداخلة، و Skipped ليست نجاحًا.
 
@@ -895,3 +895,32 @@ Commit المصرح بها:`test(a5): establish playwright security gate for t4 
 Historical CDP Findings **Open/Unresolved**،والـCDP Harness واختباراتها محفوظةLegacy غيرمعتمدةللإصدار. **Full Browser Suite Parity وProduction Readiness غيرمتحققتين**؛المخاطرRisk/CAB/SessionRevocation/Demo/F2 والحدودفيT4 §§19–20 محفوظة. لاتُفتحتحقيقاتCDP قديمةإلابدليلأمنيجديدمؤثر.
 
 **T4-B: READY FOR SEPARATE EXECUTION APPROVAL — NOT STARTED.** التوقفبعدالحفظوالدفعوالتقرير. لاT4-B/C/D/E أوBatch B/C/D الأمنيةأوMigration/Deployment/Credential changes ضمنهذهالمهمة.
+
+## 18. A5-T4-B1 — Systems Catalog & Details — 2026-11-03
+
+- [x] تفويضمنفصللـT4-B1 فقط؛Baseline المحليوالبعيد3207ded والفرعالمطلوبنظيفان،master10faab2 محفوظة. لاGit writes أوبدءT4-B2.
+- [x] `/systems` و`/systems/:id` حقيقيتانلـ**foundation.read**؛الـ5GET القائمة،بلاMutations أوServer Search/Pagination وهمية. `/foundation` وLegacy forms وAdapter وApp.tsx محفوظة.
+- [x] Feature-owned API/Decoders/Resource/Hook/States/Pages/CSS؛ApiClient/ApiSession/Workspace Gateway/AuthRoot/Shell القائمة،دونGlobal Cache/State أوDependencies. DTO id/tenant/nullability/arrays/parent/date والتحققمنunknown enums،بلاRaw errors أوAbsolute URLs منRecords.
+- [x] Binding قبلوبعدالاستجابة،وepoch+AbortController وrender-time key masking تمنعA→B وtenant/user stale data؛Unmount يلغيالمورد. Filters محليةومتزامنةعلىauthorized list فقط.403 تستخدمstore.recover الحالية؛لاSession fetch إضافيةعلىالتنقلالعادي.
+- [x] Catalog يعرضمراجعالإدارةوالمالكمنList DTO؛الأسماءالمتاحةفيDetails منImpactProfile. Outgoing dependencies endpoint ووارداتProfile النصية،Historical Incidents وEnglish narrative محددةاللغة،one-hop فقط. لاRisk/CAB/Approval controls.
+- [x] Obsidian & Sage وReadexPro وDark/Light وar-SA/en وRTL/LTR،badges محايدةللقيمغيرالمعروفة،Intl وتواريخnaive دونUTC مفترضة،loading/empty/error/partial/404 حقيقية،Keyboard/focus و44px targets.
+- [x] **Backend69/69،90.63s**؛49 PG+20 Unit/Memory،منها6B1 جديدةو63regression؛ORM schemas مملوكةوحظرmigrations،لا.env أوCredentials فعلية.
+- [x] **Frontend77/77**،Typecheck app/test/config وBuild106modules وLint0/0 ناجحة. Systems RED→GREEN وpost-response binding وquery/id/unmount/cancel tests ضمنها.
+- [x] التصحيحاتالمحددةأثناءالتنفيذ:scoped table Locators بعداحتسابAccount dialog المخفي؛GET بدلOPTIONS؛فحصFocus بلوحةمفاتيح؛Breadcrumb عربية38px→44px. Vite inheritedNODE_ENV=test أعطتisProduction=false؛ضُبطbuild/preview إلىproduction دونتعطيلStrictMode،فصارidentity GET0 وcatalog GET1. لاAssertions weakening أوBlind retries.
+- [x] **Combined النهائي:16/16 أمامي و16/16 عكسي؛2 pytestpassed/192.58s**. Security7+P024+B1خمسةفيكلترتيب،ومصفوفة40layout/Axe لكلترتيب عبر360/390/768/1366/1440 واللغتينوالثيمين؛ReducedMotion/Keyboard/touch/nooverflow ناجحة. contexts0 وbrowser/runner exits0 وHTTP/PG cleanup passed.
+- [ ] مهلةFastAPI cleanup واحدة10s فيتشغيلسابقفاشللمتُثبتRCA لها؛محفوظةبالتقرير،لمتتكرربالتحققالموجهالنهائيأوالترتيبينولمتُرفعالمهلة. Historical CDP Findings تبقىOpen،لاFull Browser Suite Parity أوProduction readiness.
+- [x] Gitleaks8.30.1 النهائية:26 files/0 Findings معintegrity وsynthetic detection/redaction؛diff/syntax/UTF-8/whitespace ناجحة،0 matching test processes و0 run roots. HEAD3207ded وmaster10faab2 محفوظتان؛لاAuth/JWT/PermissionMatrix/Models/Migrations/Dependencies/App.tsx changes.
+- [ ] **T4-B1 جاهزةلمراجعةوحفظDevelopment Checkpoint بتفويضGit مستقل**؛Manifest16Modified+10New فيتقريرT4 §21.7،Staging فارغة. لاCommit/Push/PR/Merge أوDeployment فيهذهالمهمة؛بياناتالعرضوالاختباراتصناعيةفقط،واللقطاتالمقصوصةخارجالمستودع.
+- [ ] **T4-B2 Dashboard NOT AUTHORIZED / NOT STARTED**. لاT4-C/D/E أوBatch B/C/D أوJWT/PermissionMatrix/Models/Migrations/Gemini/LegacySetup/Bootstrap changes. التوقفبعدتقريرB1؛لااستئنافتحقيقCDP قديمدوندليلأمنيجديدمؤثر.
+
+## 19. T4-B1 Approved Development Checkpoint — 2026-11-03
+
+المالك فوّض صراحة حفظT4-B1 بـCommit واحدة `feat(a5): add tenant-safe systems catalog and detail pages` ودفععاديإلى `origin/feature/phase2-batch-a-tenant-security`. Baseline المحليةوالبعيدة3207ded1f95b2ff040f54b823f6d7c86a153a0ce وmaster10faab20b1c61b5476165bbc1f5d28a2a85e2652 مطابقتان؛Manifest **16Modified+10New=26** فيT4 §21.7. هذاالقسم وT4 §22 يحلانمحلانتظارإذنالحفظفي§18،معحفظالتاريخ.
+
+المراجعة محصورة فيSystems Catalog `/systems` وDetails `/systems/:id` ووحداتهماواختباراتهماوالبنيةالمساندةوالتوثيق. لاProduction Backend/Auth/JWT/Permission Matrix/Models/Migrations أوDependencies changes؛Legacy و`/foundation` والبواباتالقائمةمحفوظة. رخصةReadex Pro المحليةOFL1.1 محفوظةومتطابقة؛لا إعادةإضافةأصول.
+
+أدلةالقبول:Frontend77؛Backend69 منها49 PostgreSQL؛Security7/7 وPresentation4/4 وB1خمسة/خمسة؛Combined Forward16/16 وReverse16/16 علىProduction artifact بعدتصحيحNODE_ENV،و40layout/Axe فيكلترتيب دونجمعهاكتغطيةمختلفة؛Typecheck/Build/Lint وcleanup ناجحة. أضافتمهمةالحفظتوثيقًا فقط؛لا إعادةتشغيلطويلةدونتغييركود. قبلCommit تلزممطابقةIndex/بصماتالملفاتالـ26 وcached diff check وGitleaks علىStaged Blobs الفعلية؛نتيجةالفحصالمنقحةخارجالمستودع،وSHA وRemote HEAD وclean tree وفراغStaging وثباتmaster فيتقريرالحفظالنهائي.
+
+**Playwright Security Gate = APPROVED for T4-B Read-Only Development.** متطلباتكلصفحةفي§17 وT4 §22.3 ملزمة،معPresentation scoped وCombined عندالتكاملوالقبول. Historical CDP Findings **Open**،FastAPI Cleanup Timeout **Unresolved**،Legacy Demo Credentials **Unresolved**؛Risk Rules Isolation إلىBatch B،CAB Enforcement إلىBatch C،Session Revocation/F2/Hardening إلىBatch D. لاFull Browser Suite Parity أوProduction Readiness؛لا إغلاقبأثررجعي.
+
+**T4-B1 ACCEPTED FOR DEVELOPMENT CHECKPOINT؛T4-B2 Dashboard READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED.** لا تطويرجديدأوBatch B/C/D أوGemini أوMigrations أوDeployment أوPR/Merge أوتغييرmaster. التوقفبعدCommit وPush والتقرير،وانتظارتفويضتنفيذمنفصل.
