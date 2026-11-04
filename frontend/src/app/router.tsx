@@ -25,8 +25,10 @@ export function createApplicationRouter(runtime: AuthRuntime) {
           { path: '/forbidden', element: <StatePage kind="forbidden" /> },
           { path: '/systems', lazy: async () => ({ Component: (await import('../features/systems/SystemsPages.tsx')).SystemsCatalogPage }) },
           { path: '/systems/:systemId', lazy: async () => ({ Component: (await import('../features/systems/SystemsPages.tsx')).SystemDetailsPage }) },
+          { path: '/changes', lazy: async () => ({ Component: (await import('../features/changes/ChangesPages.tsx')).ChangesListPage }) },
+          { path: '/changes/:changeId', lazy: async () => ({ Component: (await import('../features/changes/ChangesPages.tsx')).ChangeDetailsPage }) },
           { lazy: async () => ({ Component: (await import('../app/LegacyWorkspaceAdapter.tsx')).LegacyWorkspaceAdapter }), children: [
-            ...['/changes', '/changes/new', '/changes/:changeId', '/changes/:changeId/revise', '/foundation', '/users', '/notifications']
+            ...['/legacy/changes', '/legacy/changes/:changeId', '/changes/new', '/changes/:changeId/revise', '/foundation', '/users', '/notifications']
               .map(path => ({ path, Component: EmptyRoute })),
           ] },
         ],

@@ -26,9 +26,10 @@ export function createApiClient(config: ClientOptions): ApiClient {
   const base = validateApiBase(config.baseUrl, config.trustedOrigins)
   const transport = config.fetcher ?? globalThis.fetch.bind(globalThis)
   return { async request<T>(path: string, options: RequestOptions<T>): Promise<T> {
+    const pathname = path.split('?', 1)[0]
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || path.includes('#')
       || Array.from(path).some((character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127)
-      || /%2f|%5c/i.test(path)) throw new ApiError('configuration')
+      || /%2f/i.test(pathname) || /%5c/i.test(path)) throw new ApiError('configuration')
     let url: URL
     let headers: Headers
     try {

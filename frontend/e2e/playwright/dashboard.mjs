@@ -35,8 +35,11 @@ export const dashboardCases = [
     await expect(page.locator('.dashboard-table tbody tr')).toHaveCount(1)
     await page.locator('.dashboard-table a').click()
     await expect(page).toHaveURL(/\/changes\/100$/)
+    await expect(page.locator('[data-change-id="100"]')).toBeVisible()
+    await page.locator('[data-action=legacy-change-details]').click()
     await expect(page.locator('[data-legacy-shell]')).toBeVisible()
     await expect(page.locator('[data-legacy-shell]')).toContainText('Local Change')
+    await page.goBack()
     await page.goBack()
     await ready(page)
   }],

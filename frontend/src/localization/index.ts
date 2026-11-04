@@ -9,7 +9,7 @@ export function createLocalization(language: Language = 'ar-SA') {
   const instance = createInstance()
   void instance.use(initReactI18next).init({
     resources, lng: language, supportedLngs: ['ar-SA', 'en'], fallbackLng: 'ar-SA',
-    ns: ['common', 'auth', 'shell', 'states', 'systems', 'dashboard'], defaultNS: 'common', initAsync: false,
+    ns: ['common', 'auth', 'shell', 'states', 'systems', 'dashboard', 'changes'], defaultNS: 'common', initAsync: false,
     debug: false, saveMissing: false, returnNull: false,
     interpolation: { escapeValue: false }, react: { useSuspense: false },
   })

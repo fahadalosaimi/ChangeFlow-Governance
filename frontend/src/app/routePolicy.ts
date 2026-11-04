@@ -25,6 +25,9 @@ export const destinations: readonly WorkspaceRoute[] = [
 export function resolveWorkspaceRoute(path: string): WorkspaceRoute | null {
   const known = destinations.find(route => route.path === path)
   if (known) return known
+  if (path === '/legacy/changes') return {path,title:'changes:legacyList',permission:'changes.read',icon:'changes',view:'dashboard'}
+  const legacy = /^\/legacy\/changes\/([1-9]\d*)$/.exec(path)
+  if (legacy && Number.isSafeInteger(Number(legacy[1]))) return {path,title:'changes:legacyDetails',permission:'changes.read',icon:'changes',view:'details',changeId:Number(legacy[1])}
   const system = /^\/systems\/([1-9]\d*)$/.exec(path)
   if (system && Number.isSafeInteger(Number(system[1])))
     return { path, title: 'systems:details', permission: 'foundation.read', icon: 'catalog', systemId: Number(system[1]) }

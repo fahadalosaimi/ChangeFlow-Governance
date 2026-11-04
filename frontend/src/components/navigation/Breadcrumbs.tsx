@@ -11,6 +11,7 @@ export function Breadcrumbs() {
     <li>{pathname === '/workspace' ? <span aria-current="page">{t('nav.workspace')}</span> : <Link to="/workspace">{t('nav.workspace')}</Link>}</li>
     {route && pathname !== '/workspace' && <li><Icon name="chevron" className="icon-directional" />
       {route.systemId && <><Link className="systems-breadcrumb" to="/systems">{t('nav.systems')}</Link><Icon name="chevron" className="icon-directional" /></>}
+      {route.changeId && pathname === `/changes/${route.changeId}` && <><Link className="changes-breadcrumb" to="/changes">{t('nav.changes')}</Link><Icon name="chevron" className="icon-directional" /></>}
       <span aria-current="page">{t(route.title)}{(route.changeId || route.systemId) && <> <bdi dir="ltr">#{route.changeId ?? route.systemId}</bdi></>}</span>
     </li>}
   </ol></nav>

@@ -1,5 +1,7 @@
 # ChangeFlow Governance — A5-T4 / T4-A
 
+> أحدث حالة: **T4-C1 ACCEPTED FOR DEVELOPMENT CHECKPOINT — SAVE AUTHORIZED** في §27. اعتمد المالك حفظ العمل بـCommit واحدة وPush للفرع المحدد بعد بوابة الحفظ. §26 أدلة التنفيذ و§25 سجل التوقف التاريخي؛لاC2 أوProduction Approval.
+
 **Goal:** جرد الوظائف القائمة وعقودها، وتحديد نقل تدريجي قابل للمراجعة دون فقد سلوك أوتوسيع صلاحيات.
 
 **Architecture:** React Router Data Mode و AuthRoot و Application Shell المعتمدة؛ Feature-owned APIs/Decoders/Hooks/View Models فوق ApiClient و Workspace Gateway الحاليين. فصل النقل والتحقق والعرض، دون Cache عامة أو State framework جديدة.
@@ -1719,3 +1721,278 @@ node scripts/verify.mjs all
 | Production Readiness |غير متحققة |
 
 **T4-B2: ACCEPTED FOR DEVELOPMENT CHECKPOINT. T4-C: READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED.** صفحاتالأعمال المنجزة حتىهذاالحفظ هيSystems Catalog وSystem Details وEnterprise Dashboard؛تفاصيلالتغييرات وقائمتها تبقيانLegacy دونادعاءاستخراجT4-C. بوابةPlaywright الأمنية معتمدة لنطاقالتطويرRead-Only؛لا توسعة تلقائية إلىصلاحيات أوعملياتكتابة أواعتمادRisk/CAB. التوقف بعدCommit وPush والتحقق والتقرير،وانتظار موافقة صريحة جديدة قبل أي تطوير.
+
+## 25. A5-T4-C1 — Changes & Assessment Read-Only Integration — 2026-11-03
+
+### Change Requests Implementation Plan
+
+> **For Codex:** Implement the authorized read-only scope in this session, subject to the owner's explicit Query/ApiClient security-policy stop condition. No delegation, Git writes, or later batches.
+
+**Goal:** استخراج `/changes` و`/changes/:id` وعرض أحدثAssessment محفوظة بحدود موثوقيتها،مع حفظ وظائفLegacy غير المنقولة.
+
+**Architecture:** Changes Feature مستقلة تضمTyped Models وAPI فوقWorkspace Gateway وRuntime Decoders وQuery Serialization وBinding/Abort/Epoch resources وList/Details/Assessment components،بنمطB1/B2. لاSession Owner أوGlobal Cache جديدة؛لاauth/me إضافية.
+
+**Tech Stack:** React/TypeScript/Vite وObsidian&Sage/Readex/i18next القائمة؛Node contracts وPlaywright-managed Chromium وFastAPI/PostgreSQL اصطناعيتان عند اجتياز بوابةالعقد.
+
+**Spec:** طلبالمالكT4-C1 المرفق بالمحادثة،خاصة§2: «إذا كشف الاختبار تعارضًا حقيقيًا يحتاج تغيير سياسة أمنية، توقف وقدم تصميمًا ضيقًا للمراجعة بدل إضعاف Client»؛Legacy وBackend routes/schema وT4 §§19–24.
+
+**Global Constraints:** T4-C1 Read-Only فقط؛لاC2/D/E أوBatch B/C/D أوProduction Backend/JWT v2/Permission Matrix/Models/Migrations changes أوApproval/Implementation writes أوGemini أوDependencies جديدة أوLegacy deletion أوCommit/Push/PR/Merge/Deployment؛لا.env أوبياناتحقيقية.
+
+**Review Focus:** encoded separators داخلQuery مقابلpathname؛Requester own-only وforeign404؛صفحةجزئيةلاتصبحإجماليًا؛Assessment null/unknown لا تصبحLow/Zero ولاCAB approval؛لاstale DOM بعدfilter/page/session/role changes. بوابةQuery تسبق أي نقلRoutes أوUI.
+
+- [x] Task0 — Query compatibility RED: إنشاء `frontend/tests/change-query-policy.test.ts` وتسجيلهافي `frontend/scripts/verify.mjs`. فحصround-trip للرموزالعربية و`& + # ? = %` وliteral `%2F`،والشرطةالمائلةالمشفرةفيsearch،معثباتpathname وTrusted Origin ورفضencoded path separators/traversal. ثبتالتعارض:88Passed/1Failed،فتوقفاستخراجFeature قبلنقلRoutes أوUI؛لم يُعدّلClient أوتُستثنَالـRED.
+- [ ] Task1 — بعداجتيازTask0 فقط: literal contracts وnegative DTO/query/page/race tests ثمAPI/Decoders/Resources. عقودGET القائمة/paged/details وchanges.read الحالية؛لاfetch لكلالمؤسسةلصنعcounts.
+- [ ] Task2 — بعدTask1: List/Details/Assessment باللغتينوالثيمين،server filters/pagination وURL/Back/Forward وlatest stored assessment provenance وunknown/null states. إثباتParity للقائمة،وLegacy handoff واضح للـCreate/Revise/Approval/Implementation/History غيرالمنقولة قبلتغييرالـroutes؛لا حذفApp.tsx.
+- [ ] Task3 — بعدالتنفيذ: Backend/PostgreSQL isolation وRequester/roles و404،Security/P02/B1/B2/C1 وcombined forward/reverse،Responsive/Axe/keyboard/reduced-motion،Typecheck/Build/Lint/Gitleaks/diff/cleanup،ثمManifest والتوقفلإذنحفظمنفصل. لاتُطلبهذهالجولاتكإثباتلواجهةلمتُنفذبسبببوابةTask0.
+
+### 25.1 Baseline ومراجعةالعقود الأولية
+
+قبلأي تعديل:Local/Remote HEAD `a9483fe5f1527c10ed64891928f6def96d14f6b8`،الفرع `feature/phase2-batch-a-tenant-security`،origin الرسمي،Working Tree وStaging نظيفتان؛master المحليةوالبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`. لاتغييراتغيرمتوقعةولاإجراءاتتنظيفGit.
+
+Legacy `loadChangeRecordsPage` تستخدمURLSearchParams وBackend search/status/risk_level/change_type/requester_id/created_from/created_to معpage/page_size،وتعرضserver total/total_pages. Backend paged تنفذscope_changes قبلfilter/count/pagination،وRequester own-only،وcreated_at DESC ثمid DESC،وpage>=1 وpage_size1..100. `/requests` و`/requests/{id}` محميتانبـchanges.read. لاPriority filter مسجلة؛Priority حقلعرض،ولااختراعفلترBackend لها.
+
+Legacy Details تعرضlatest_assessment ومايتصلبها،ومساراتHistory/Approvals/Implementation/Revision قائمة. `build_change_response` يختارأكبرassessment.id؛DTO تتضمنrisk_level وimpact_score وdecision_recommendation وarrays للعلاقات/الإدارات/المالكين/الحوادث/العوامل/التوصيات/rollback/testing وai_explanation. عندالاستخراجتُعرضكبياناتتاريخية/أولية؛Risk Rules GLOBAL وBatch B/C غيرمنفذتين،ولاGemini provenance مثبتة. لايوجدAssessment history/recompute GET معتمدلهذاالنطاق. إلىاجتيازبوابةQuery تبقىكلالصفحاتوالـLegacy routes كماهي،دونادعاءParity أوتنفيذC1.
+
+### 25.2 بوابة التوقف — السبب المثبت والتصنيف
+
+الاختبار الفاشل كاملًا: `frontend/tests/change-query-policy.test.ts :: C1 slash in form-encoded search must round-trip without changing the request pathname`.
+
+| الخاصية | الدليل الاصطناعي |
+|---|---|
+| قيمة البحث المقصودة |`billing/payments` |
+| الناتج القياسي منURLSearchParams |`/change-management/requests/paged?page=1&page_size=5&search=billing%2Fpayments` |
+| المتوقع من عقدC1 |pathname ثابتة داخلTrusted Origin؛search بعدفكترميزواحد تساويالقيمةالأصلية،transportCalls1 |
+| الفعلي |`failureCode: configuration` و`transportCalls: 0` |
+| موضع الرفض |`frontend/src/services/api/client.ts`،حارس`/%2f|%5c/i.test(path)` قبلإنشاءURL واستدعاءtransport |
+| التصنيف |**Existing Client URL Security Policy / Query Integration Contract Conflict**؛ليسفشلBackend أوTenant Isolation مثبتًا،ولاادعاءثغرةAuth |
+
+اسم`path` هنا يشملQuery كاملة،فيُعامل`%2F` داخلقيمةبحث كفاصلpathname محظور. فشلassertion حرفية`{failureCode:null,transportCalls:1}` بالفعلي`{failureCode:'configuration',transportCalls:0}`. Client وGateway لم تتغيرا عنHEAD؛الفشل قائم فيBaseline ولم ينشأ عنChanges Feature غيرالمنفذة. اختباراتالرموزالأخرىوliteral`%2F` ورفضالمساراتالخطرة نجحت.
+
+الـliteral string `billing%2Fpayments` تُرمَّز`billing%252Fpayments` وتُفك مرةواحدة إلىنصمختلفعن`billing/payments`؛لذلكdouble encoding ليسإصلاحًا يحافظعلىمعنىالبحث. تمرير`/` خامًا بدلترميزهاالقياسي قدتقبلهالطبقةالحالية،لكنهلاتُعتمد كحيلةلتجاوزحارسencoded separators أوكدليلصحةسياسةURI؛المقترحأدناهيحتاجاعتمادحدودpathname/query بوضوح. لاإزالةللحارسولاfallback fetch أوتوسعةTrusted Origins فيهذاالتنفيذ.
+
+مصدرالتوقف هوشرطالمالكالصريح في§2 منطلبC1،لاAGENTS أوطلبموافقةمستنتجمنمهارة. لايمكنإعلانتكافؤقائمةتدعمدخلاتالبحثالمطلوبةبالترميزالقياسيقبلحسمهذاالحد. بقيتالـRED مضافةإلى `verify.mjs test`؛لمتتحولإلىSkipped ولمتُحذفأوتُستثنَلإنتاجبوابةخضراء.
+
+### 25.3 تصميم ضيق للمراجعة — غير منفذ
+
+**اقتراح الاعتماد:** فصل معنىpathname عنQuery لأجل`%2F` فيقيمالاستعلام فقط،دونتغييرAuth/JWT أوBackend أوالـOrigin أوسياساتالتحويل.
+
+1. تقسيمالمرجعالنسبيعندأول`?` قبلحارسencoded slash. إبقاءرفض`%2F` بحالتيالأحرففيpathname؛السماحبهفيQuery بوصفهبياناتمشفرةتُفك مرةواحدة. لاURI decoding أوnormalization يدوي لمحتوياتالبحث.
+2. الإبقاءعلىالقيودالحالية:scheme-relative/absolute destinations وraw backslash وraw fragment وcontrol/whitespace،وحظرAuthorization headers،وTrusted Origin وbase-path confinement بعد`new URL`،وredirect:error وcredentials:omit وgeneration/abort/timeout. **حظر`%5C` يبقىفيالمرجعكاملًا فيهذاالتغييرالضيق**؛توسيعتوافقbackslash ليستجزءًامنالمقترح.
+3. بعدموافقةصريحة،يُسمحبتعديلClient وحيدالنطاقمعاختباراتالمسار/Query؛لاallowlist تخمينيةبـendpoint أوتعطيلحارسالمساربأكمله. قيمةمثل`https://evil.example/` داخلsearch تبقىبيانات ولايمكنأنتغيّرorigin/pathname.
+4. قبولالتصحيحيتطلبتحولRED الحاليةإلىGREEN وإضافةmixed-case/query-injection/double-encoding/traversal controls وحدودbase-path،وفحصHTTP round-trip اصطناعي لاحقًا،وكلFrontend/Security regression المناسبةقبلقبولC1. لايكفيتغييررسالةالخطأأومنعيكتبالمستخدم`/` لتحقيقالمطلب.
+
+نطاقموافقةالإصلاحالمقترحة: `frontend/src/services/api/client.ts` واختباراتURI ذاتالصلةوالتوثيق فقط؛لاProduction Backend أوPermission Matrix أوJWT v2 أوModels/Migrations. هذا **تصميم للمراجعة لاpatch مطبقة**. بعداعتمادالتصحيحواجتيازبوابته يمكنمتابعةتفويضC1 الأصلي،دونإذنC2 أوموافقات/تنفيذكتابية.
+
+### 25.4 الأعمال المؤجلة وحفظLegacy
+
+| الجزء | الحالة الحالية |
+|---|---|
+| Changes Architecture/API/Decoders/Query/Resource modules |خطة فقط؛لم تُنشأFeature modules |
+| `/changes` — GETpaged/list،changes.read |Legacy محفوظة؛Search/status/risk_level/change_type/requester/date وPagination server-side موجودة،لاParity جديدةمثبتة |
+| `/changes/:id` — GETdetails،changes.read |Legacy محفوظة؛لاصفحةمستقلةجديدة |
+| Latest saved Assessment |تظهرLegacy كماهي؛الاستخراجمعhistorical/provisional warning وunknown/null handling لمينفذ |
+| Approval/Implementation/History/Create/Revise Access |كلالوظائفوالمساراتالقائمةمحفوظة؛لاAliases أوHandoff أوWrites جديدة |
+| Tenant/Session/Filter/Page races |لم تُنشأResources جديدة؛حمايةApiClient/Gateway القائمةلمتتغير،ولاادعاءاختباراتC1 browser/PG مكتملة |
+| Obsidian&Sage/RTL/LTR/Responsive/Axe |لمتنفذواجهةC1؛Systems وDashboard وAuthProvider وغيرها دونتغيير |
+| C1 Development Checkpoint |**NOT READY — Query Security Policy Decision Required** |
+| تبعياتC2 |اجتيازبوابةQuery ثمإكمالC1 وLegacy parity وDTO/Assessment truthfulness وBackend/Browser/UI gates،ثمموافقةمستقلة؛C2 لمتبدأ |
+
+### 25.5 نتائج التحقق والـManifest والمخاطر
+
+`node scripts/verify.mjs test` شغلت **89 tests:88Passed/1Failed/0Skipped**؛85القائمةنجحت،ومن4اختباراتC1 الجديدةنجحت3 وفشلتslash-query المطلوبة. Exit1 حقيقية؛**Frontend Gate RED** ولاClaim بأنC1 نجحت. التنفيذمحليوعزلالـverification script قائم؛الـtransport double عندحدHTTP فقطمعApiClient/Gateway/Session الفعلية،وبياناتواستضافة`.example.test` صناعية؛لا.env أوCredentials فعلية. لمتُشغلFastAPI/PostgreSQL أوBackend/Browser combined أوBuild جديد بعدبوابةالتوقف،لعدموجودFeature مكتملةولأنشرطالمالكيتطلبالمراجعةقبلتغييرالسياسة. نتائجB1/B2 المعتمدةفي§§21–24 تاريخية،وليستنتائجC1 جديدة.
+
+**Changed-File Manifest:3 Modified+1 New=4 files؛Staging فارغة:**
+
+- M `backend/docs/phase2_a5_t4.md` — الخطة وRCA والدليل والتصميمالضيقوحالةالتوقف.
+- M `backend/docs/development_master_plan.md` — أحدثحالةاستئنافC1 والبوابةالمتبقية.
+- M `frontend/scripts/verify.mjs` — تسجيلالـRED فيمجموعةFrontend الفعلية.
+- N `frontend/tests/change-query-policy.test.ts` — أربعةعقودلهذهالبوابة.
+
+لاClient/Gateway/AuthProvider/Router/Legacy/App.tsx أوSystems/Dashboard أوProduction Backend/JWT/PermissionMatrix/Models/Migrations/package-lock changes. لاCommit/Push/PR/Merge أوDeployment،ولاT4-C2/D/E أوBatch B/C/D أوGemini أوLegacy Setup/Bootstrap.
+
+تضافملاحظةQuery أعلاهإلىالمخاطرالمفتوحة،ولا تُغلقHistorical CDP Findings أوFastAPI Cleanup Timeout أوLegacy Demo Credentials. Risk Rules Isolation مازالتBatch B،وCAB Batch C،وSession Revocation/F2/Hardening Batch D. لاFull Browser Suite Parity أوProduction Readiness. **التوقفللمراجعة؛لاT4-C1 Checkpoint جاهزةللحفظ فيهذهالحالة.** Typecheck للـtest project ناجحة،وLint0 warnings/errors؛هذهلاتحوّلFrontend89 إلىPASS. Gitleaks8.30.1: **4files/0Findings** بعدintegrity وsynthetic detection/redaction؛diff/UTF-8/whitespace ناجحة. ملخصالمسحالنهائيالمنقحخارجالمستودع `C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\t4-c1-query-final-scan\gitleaks-summary.json`،معإعادةفحصالوثائقالنهائيةدونإخفاءالفشلالوظيفي؛ليستStaged/history scan.
+
+## 26. T4-C1 — Approved Query Policy & Read-Only Resume — 2026-11-04
+
+المالك اعتمد صراحة فصلencoded slash فيQuery عنpathname ثم استكمالC1 بعدنجاحsecurity tests. البداية مطابقةa9483fe محليًاوعلىorigin،master10faab2،3Modified+1New محفوظةوStaging فارغة. §25 سجل تاريخي للتوقف؛هذاالقسم هوالتفويض والحالة الأحدث. لاGit writes أوC2/D/E أوBatch B/C/D أوBackend/JWT/PermissionMatrix/Models/Migrations changes.
+
+### 26.1 خطة الاستكمال المعتمدة
+
+- [x] Query RED:7tests منها2failed قبلالإصلاح؛حارسClient أصبح يفحص`%2F` في`path.split('?',1)[0]` فقط،ويفحص`%5C` فيالمرجعكاملًا. لاتغييرCanonicalization أوBase Path Prefix Policy. **ApiClient13+Query7=20/20** بعدالتصحيح،بمافيهاUnsafe Headers وcontrol characters وmixed-case وURL-like query values؛كلallowed request تصللـTrusted Origin/pathname المتوقعتينمرةواحدة،والمرفوضة0transport.
+- [x] RED→GREEN contracts: `frontend/tests/changes.test.ts`؛`frontend/src/features/changes/{query.ts,decoders.ts,api.ts,resource.ts,useChangesResource.ts}`. Query allowlist للـBackend filters وpage/page_size وdates؛Runtime validation وassessment partial states وepoch/abort،لاGlobal cache أوAuth Owner جديدة. الستة فشلت قبل إنشاء الوحدات،ثم نجحت جميعها.
+- [x] UI/Routes: `ChangesPages.tsx` و`AssessmentPanel.tsx` و`changes.css`؛`/changes` و`/changes/:id`،Aliases `/legacy/changes` و`/legacy/changes/:id` تحفظHistory/Approvals/Implementation وغيرها؛`/changes/new` و`/changes/:id/revise` تبقيانLegacy. لاApp.tsx rewrite. إثباتParity وتعديلBrowser locators فقطعندتغيرالوجهةالفعلية،معإبقاءAssertions الأصلية.
+- [x] Backend tests: `backend/tests/test_a5_t4_c1.py` علىowned ORM PG،سلوكpaged/unpaged/details وsearch-slash/date/filters/roles/own-only/foreign404 وlatest saved assessment. Browser: `frontend/e2e/playwright/changes.mjs` معSecurity/P02/B1/B2/C1 وcombined forward/reverse،40layout/Axe وkeyboard/reduced-motion؛نتائج البوابات والتدقيق النهائي في §§26.6–26.8.
+
+**Design:** نفسObsidian#151a18/Forest#28352f/Sage#b8f28b/Sand#d9c8a9/Ivory#f4f1e8 عبرTokens وReadex Pro؛header ثمtoolbar بمرشحاتمجموعةومساحةنتائجواضحةوجدوليتحولبطاقات،وتفاصيلبمعلوماتالطلبثمSystem links ثمAssessment بوصفhistorical/provisional. لاCharts زخرفية أوألوانمخاطرمعتمدة. لاصفحاتكتابةجديدة؛الـLegacy handoff واضح.
+
+### 26.2 Query Policy — Root Cause وحدود التصحيح
+
+السبب في §25 مثبت: `path` اسم لمرجع طلب يشمل Query؛الحارس القديم يفحص `%2F` على المرجع كله. لذلك `URLSearchParams({search:'billing/payments'})` ينتج `search=billing%2Fpayments` ويُرفض قبل HTTP رغم ثبات المسار. ليس عيب Backend أوAuth مثبتًا.
+
+التعديل الإنتاجي الأمني الوحيد في هذه الدفعة: استخراج الجزء السابق لأول `?` بـ`path.split('?',1)[0]`،وفحص `%2F` عليه،مع إبقاء `%5C` في المرجع كاملًا. يحتفظ `new URL` بالتفسير الفعلي للمرجع،ولم يُضف decoding أوnormalization يدوي. لا تغيير لسياسة Base Path Prefix أوCanonicalization،ولا Bypass/endpoint fallback/Origin جديدة.
+
+| الضابط | الاختبار والنتيجة |
+|---|---|
+| search عادية،و`billing/payments` بـURLSearchParams أو`%2f` مباشرة | HTTP واحدة؛origin `https://api.example.test` وpathname `/api/change-management/requests/paged` ثابتتان،وقيمة search مطابقة بعد فك ترميز واحد |
+| Query عربية و`& + # ? = %` وURL كاملة كقيمة | تبقى بيانات؛لا تغيير في origin/pathname ولا حقن parameter إضافية |
+| literal `billing%2Fpayments` | `%252F` تحافظ على النص الأصلي المختلف؛ليست حيلة بديلة عن إصلاح slash |
+| `%2F` داخل pathname،و`%5C` بأي حالة أحرف داخل المسار أوQuery | configuration قبل transport،0 HTTP |
+| raw backslash،fragments،C0 وDEL،protocol-relative/absolute/untrusted destinations وtraversal المرفوضة حاليًا | configuration،0 HTTP؛لم تُعدل النتائج المتوقعة القديمة |
+| Authorization/Proxy-Authorization أوheader newline مع Query مسموحة | configuration،0 HTTP |
+| Trusted origin/base confinement،redirect rejection،generation،401،abort/timeout | اختبارات ApiClient الثلاثة عشر الأصلية بقيت ناجحة دون تعديلها |
+
+تسلسل RED→GREEN: البوابة الأصلية §25 كانت 88/89. بعد إضافة الضوابط الثلاثة أصبحت Query 5Passed/2Failed قبل patch. بعد patch نجحت Query7+ApiClient13=20/20؛لم تُحذف RED ولم تتحول إلىSkipped. تؤكد C1 Browser كذلك وصول search القياسية ذات slash ورموز مختلطة إلى FastAPI الاصطناعية مع HTTP200.
+
+### 26.3 Changes Architecture وRoute/API/Permission Matrix
+
+Feature مستقلة lazy-loaded،تعيد استخدام React/TypeScript وWorkspace Gateway وApiClient وApiSession القائمة. `query.ts` تملك serialization،و`decoders.ts` حدود DTO،و`api.ts` GET فقط،و`resource.ts/useChangesResource.ts` عمر الطلب،و`ChangesPages/ChangesFilters/AssessmentPanel/ChangesState` العرض. لاDependency جديدة أوGlobal Cache أوSession Owner،ولا تعديل AuthProvider أوGateway أوJWT/Permission Matrix أوProduction Backend/Models/Migrations.
+
+| المسار/البيانات | API الفعلية | Permission وحدود النطاق |
+|---|---|---|
+| `/changes` | `GET /change-management/requests/paged` | `changes.read`؛Backend تطبق tenant scope وRequester own-only قبل filter/count/paging |
+| `/changes/:id` | `GET /change-management/requests/{id}` | `changes.read`؛foreign/missing404 عامة ومتماثلة؛unsafe IDs تُرفض قبل الطلب |
+| قائمة requesters الاختيارية | `GET /foundation/users` | `foundation.read` القائمة؛لا تُطلب لRequester،وDecoder يتحقق من organization_id لكل option |
+| أسماء Systems الاختيارية | `GET /foundation/systems` | `foundation.read`؛Decoder B1 يتحقق من المؤسسة؛الفشل يبقي System#ID والروابط من DTO الطلب المصرح بها |
+| العقد غيرالمصفح | `GET /change-management/requests` | محفوظ ومختبر Backend؛لا يجلبه UI لصنع counts أوتجميع مؤسسة من items جزئية |
+| `/legacy/changes` و`/legacy/changes/:id` | Legacy API القائمة | `changes.read` نفسها؛handoff واضح لوظائف لم تُنقل |
+| `/changes/new` و`/changes/:id/revise` | النماذج القائمة دون تغيير | `changes.create` و`changes.revise` الأصليتان؛لاWrite UI جديدة |
+
+Requester وChange Manager وCMDB Manager يقرؤون وفق العقد الحالي. System Administrator وLegacy Admin وSystem Owner وApprover وViewer وUnknown لا يُمنحون `changes.read`. تسعة أدوار اختُبرت على unpaged/paged/detail؛منع الفرونت ليس بديلًا عن إنفاذ Backend. Identity Home وSystems/Dashboard/Foundation وUsers/Notifications/Invitations القائمة باقية.
+
+**Query/Pagination:** URLSearchParams القياسية لـsearch/status/risk_level/change_type/requester_id/created_from/created_to/page/page_size. page رقم عشري آمن موجب،page_size1..100؛dates صالحة تقويميًا وfrom<=to. الأنواع والحالات والفلاتر من العقد الموجود؛Priority عرض فقط،لاfilter وهمية. Backend search عبر الحقول المعرّفة فيها،ولا client filtering/aggregate. واجهة Requester لا تعرض requester filter،والـBackend لا تسمح بمعرّف غيره.
+
+العدد `total` و`total_pages` من الخادم،مع تحقق اتساقهما وحجم الصفحة وIDs الفريدة وquery page/size/status/type/requester. ترتيب Backend `created_at DESC,id DESC`. UI تعرض items الحالية من الإجمالي المصرح به،وأزرار pagination بحد أقصى خمسة. الصفحة الخارجة عن النطاق تُصحح مرة إلى total_pages التي أعادها الخادم،دون blind retries. Apply يعيد page1؛Clear يعيد الافتراضي. normal sessions تحفظ query في URL وتدعم Back/Forward وروابط التفاصيل والعودة للصفحة نفسها؛memory-only mode يحفظ المرشحات محليًا دون فقد الجلسة بسبب navigation كاملة.
+
+**Runtime:** root DTO غيرصالحة تعطي error آمنة دون عرض أجزاء غيرموثوقة. التحقق يشمل IDs وnullable fields والتواريخ والعلاقات وملكية Requester وmetadata. Assessment مفقودة/غيرصالحة حالة جزئية مستقلة؛لا يُسقط فشلها المعلومات الرئيسية الصحيحة. لا raw response أوserver error يُعرض للمستخدم.
+
+### 26.4 Assessment Provenance وLegacy Function Parity
+
+`latest_assessment` هي أحدث Assessment **محفوظة بأكبر id** كما تختار `build_change_response`،وليست حسابًا جديدًا أوhistory كاملة. PostgreSQL تؤكد اختيار assessment أحدث ومحتويات القوائم المخزنة. العرض يشمل stored risk/score/recommendation،والتفسير المحفوظ وتسع قوائم: الأنظمة المباشرة/غيرالمباشرة،الإدارات،المالكون،الحوادث،عوامل المخاطر،التوصيات،rollback،testing.
+
+Risk Rules مازالت GLOBAL،والقيمة تاريخية/أولية وغيرمعتمدة كحوكمة مؤسسية. لاScore افتراضية0 أوLow عند null/unknown/missing؛score خارج0..100 أوlist معطوبة تجعل Assessment invalid. التوصية المعروفة تُترجم كاقتراح محفوظ؛غيرالمعروفة لها وصف محايد ولا تتحول إلى تفويض. لاعبارة UI `Authorized to Proceed`،ولاApproved بمعنى CAB enforcement مكتملة. التفسير الأصلي يعرض بلغته دون ادعاء ترجمة أوGemini provenance. لاhistory/recompute API مخترعة أوRisk editor أوactions للموافقة/التنفيذ.
+
+| وظيفة Legacy | نتيجة C1 |
+|---|---|
+| List/search/status/risk/type/requester/date/server pagination | منقولة إلى `/changes` مع URL/history والعدد الخادمي؛العقد غيرالمصفح باقٍ |
+| Details وlatest stored assessment والحقول والعلاقات | منقولة للقراءة إلى `/changes/:id`،مع الحالات الجزئية وحدود المخاطر أعلاه |
+| Legacy Dashboard/List وDetails | باقية عبر `/legacy/changes` و`/legacy/changes/:id`؛لا حذف أوإعادة كتابة App.tsx |
+| Create/Revise | النماذج القديمة ومساراتها وصلاحياتها قائمة؛رابط للنموذج الحالي فقط،لا Create/Revise جديدة |
+| History/Approvals/Implementation access | handoff من التفاصيل إلىLegacy؛GETs الثلاثة200 في الاختبار المصرح به،ولاwrites جديدة |
+| Systems/Dashboard/Foundation/Auth/Users/Notifications/Invitations | محفوظة؛B1/B2 وSecurity regression ضمن الجولة المشتركة |
+
+تعديل login helper يزور `/changes` ثمhandoff القديم حتى تبقى Security assertions الأصلية الخاصة بـLegacy كما هي،بما فيهاmemory-only؛لا navigation كاملة تفقد الذاكرة. اختبار Dashboard يثبت الوصول إلى التفاصيل الحديثة ثمhandoff والتحقق القديم والعودة. هذا تحديث للوجهة الفعلية،وليس حذفًا لتغطية قديمة.
+
+### 26.5 Tenant/Session Safety وUI/Localization
+
+مفاتيح الموارد تضم binding وid أوquery canonical. Abort يلغي العمل السابق،وepoch يمنع late success/error حتى لو transport تجاهلت abort،وGateway يعيد التحقق من binding بعد الرد. كل load/cancel يزيل data السابقة،والـhook يحجب snapshot فور تغير key قبل effect؛لا بيانات Tenant سابقة أثناء transition. React StrictMode باقية،وcancel→replay مختبرة. الطلب الرئيسي وrequesters/systems الاختيارية لها حالات مستقلة؛لا fail-open عند403/404 أوDTO غيرصالحة.
+
+403 في C1 تبقى forbidden محلية وتزيل DTO،ولا تنشئ `/auth/me` تلقائية متكررة،خصوصًا عندما يُرفض requester filter مع بقاء changes.read. Auth/Shell القائمة تملك زر Verify الصريح: Browser تثبت HTTP403 و0 استدعاءme ضمنيًا،ثم1 فقط بعدVerify وتحديث navigation/grants. 401/generation/timeout تبقى مسؤولية العميل والجلسة المشتركة. الاختبارات تشمل تعليق رد200 فعلي ثمتغييرfilter/page،وتعليقه ثمlogout/login لمؤسسةأخرى،و403 بعد سحب الدور،وforeign404 مقابلmissing404،وعطلnetwork وroot DTO معطوبة وAssessment جزئية.
+
+الهوية Obsidian & Sage وReadex Pro وtokens القائمة؛لاassets/ألوان/مكتبات جديدة. الجدول يتحول إلىcards في الهاتف،والتفاصيل مقسمة إلى معلومات وعلاقات وتقييم؛loading skeletons وempty/error/missing/forbidden/timeout آمنة. جميع labels/status/type/priority/queue-free controls/ARIA والنصوص ضمنnamespace `changes` فيar-SA/en،وأكوادAPI دون تغيير. الأعداد والتواريخ عبرIntl. created/updated UTC-naive مثبتة بمصدر `utc_now` فتُعرض UTC؛planned wall-time غيرالمصحوبةoffset تُحفظ وتُعرض دون اختلاق تحويل.
+
+Responsive/Axe matrix لكل ترتيب: صفحتان ×5 widths(360/390/768/1366/1440) ×لغتين(RTL/LTR) ×ثيمين(Dark/Light)=**40 C1 layouts**. الاختبار يفحص overflow وأهداف لمس≥44 وAxe WCAG2A/AA/2.1AA/2.2AA وfocus-visible عبرTab/ShiftTab وreduced-motion،مع انتظار انتهاء animations الفعلية دونfixed sleeps. P02 الأصلية تختبر الحركة الفعلية والضوابط السلبية separately. لقطتا preview مصطنعتان للقائمة فقط خارجGit،دونShell identity أوtokens؛trace/video/HAR مغلقة. هذه Matrix للصفحتين المصطنعتين،لا Full Browser Suite Parity أواعتماد شامل لكلالتقنيات المساعدة.
+
+### 26.6 Verification Ledger — النتائج الفعلية
+
+بيئة معزولة بلا.env تشغيلية: Node24.17.0،Playwright/Chromium المدارتان بالإصدارات المثبتة القائمة،FastAPI الحالية علىloopback وPostgreSQL18 مؤقتة مملوكة. ORM create_all داخل الاختبار فقط،وautouse يمنع Alembic migrations. لاLegacy Setup/Bootstrap ولابيانات/credentials حقيقية. Build/Preview تضبط NODE_ENV=production وenvDir:false؛StrictMode محفوظة فيmain.tsx. لاtrace/video/HAR أوraw diagnostic logs محفوظة فيGit.
+
+| الفحص | النتيجة المعتمدة |
+|---|---|
+| ApiClient الأصلي +Query Security |20/20؛13 أصلية دون تعديل+7 Query،إيجابيات1HTTP وسلبيات0HTTP |
+| Changes contracts الجديدة |6/6 بعد RED6/6؛query/DTO/ownership/resource races/routes |
+| Frontend النهائية |**99Passed/0Failed/0Skipped**؛exit0،بما فيها strict gate C1 contract الجديدة |
+| C1 Backend منفردة أثناء التنفيذ |13/13 PostgreSQL؛42.92s؛تُحتسب ضمن95 التالية ولا تُضاف إليها |
+| Relevant Backend regression |**95Passed/0Failed/0Skipped**:75PostgreSQL+20unit/memory؛255.16s،exit0 |
+| Security Gate |7/7 داخلكلترتيب |
+| Presentation P02 |4/4 داخلكلترتيب؛RTL/LTR وdisabled/frozen controls |
+| Systems B1 |5/5 داخلكلترتيب |
+| Dashboard B2 |6/6 داخلكلترتيب |
+| Changes C1 |7/7 داخلكلترتيب |
+| Combined Forward |**29/29**،exit0،contexts0/browser_exit0/cleanup passed |
+| Combined Reverse |**29/29** بالترتيب المعكوس تمامًا،exit0،contexts0/browser_exit0/cleanup passed |
+| جولتا Browser معًا |2pytest wrappers Passed خلال355.23s؛ليستا اختباري Backend business إضافيين ولا58سيناريو مستقلًا |
+| C1 Responsive/Axe/Keyboard/Reduced Motion |40layouts فيForward و40فيReverse؛overflow0،أهداف≥44،مخالفاتAxe0؛Tab/ShiftTab focus-visible ناجحة |
+| Typecheck |test/app/config projects ناجحة |
+| Production Build |ناجحة،123modules؛Changes lazy chunk19.78kB و6.03kBgzip،لاDependency جديدة |
+| Lint |0warnings/0errors،103files |
+| Gitleaks Working Copy |8.30.1،33files،0Findings،معintegrity وsynthetic detection/redaction؛ليسstaged/history scan |
+| Diff/UTF-8/JSON/Python/JS syntax |`git diff --check` وفحوص الملفات الجديدة ناجحة |
+| Cleanup النهائي |0owned processes،0run roots،0frontend roots؛PG cleanup completed؛FastAPI/Node/Chromium exit assertions ناجحة |
+
+**أوامر قابلة لإعادة التشغيل عند الحاجة فقط:** منfrontend: `node scripts/verify.mjs all`. منbackend عبر `venv/Scripts/python.exe -B tests/a5_isolated_runner.py --postgres-bin "C:/Program Files/PostgreSQL/18/bin"`،Backend targets: `tests/test_a5_t4_c1.py tests/test_a5_t4_b2.py tests/test_a5_t4_b1.py tests/test_a5_security_gate_backend.py tests/test_a5_runner_configuration.py tests/test_a5_isolation_gate.py tests/test_a5_browser_diagnostics.py`. للـBrowser أضيفت `--node-bin "C:/Program Files/nodejs/node.exe"` واختيرت `tests/test_a5_playwright_pilot.py::test_playwright_pilot[changes-forward]` و`[changes-reverse]` فقط. لا حاجة لجولات واسعة أخرى بعد النجاح؛retries0/repeatEach1،والبوابة ترفضmissing/skipped/failed/interrupted أوexit غيرصفر حتى لو ادعت rows نجاحًا.
+
+**إخفاقات التطوير محفوظة:**
+
+1. Query RED التاريخية وRED الضوابط الجديدة مصنفتان Existing Client Policy/Integration Contract Conflict،وحُلّتا بالتفويض الضيق. لاsecurity regression فاشلة بعد التصحيح.
+2. Typecheck أولي كشف union object inference في مصفوفةunsafe headers باختبارQuery؛أُضيف نوع `Record<string,string>[]` فقط،دون تعديل المدخلات أوExpected Results. Lint أولي كشف3React dependency warnings؛ثُبت query canonical وcommit callback وتبعياتها،ثم0warnings نهائية.
+3. أول محاولة C1 Browser لم تحفظ الأداة نتيجتها؛لم تُستخدم كدليل نجاح،وفُحص انتهاء العمليات والتنظيف قبل تكرارها للحصول علىmetadata. التشغيل القابل للقراءة أعطى **6Passed/1Failed**؛الاسم `changes-details`،assertion `.legacy-workspace form` عندالسطر64 آنذاك. التصنيف **Test Locator/Existing Legacy Markup**: App.tsx تستخدم `section.form-panel` بلاعنصرform. صُححت assertion للتحقق منheading الفعلية وinput وزرRegister&Assess،مع بقاء فحوص المسار وLegacy Shell وGET access؛لاpatch للتطبيق القديم ولاclick ينفذwrite. أثبتت الجولتان النهائيتان نجاح الحالة وسائرالحالات. لم يُعدلExpected لتجاهل وظيفة مفقودة،ولم تُحذف أوتُتخطَّ حالة.
+
+الـ7Security والـ4Presentation والـ5B1 والـ6B2 والـ7C1 أعيدت ضمنكلترتيب؛لا نُجمع الجولات المتداخلة كتغطية مستقلة. النجاح المحدود لا يثبت استحالةflakiness. شُغلت PG regression بالتوازي معBrowser علىموردالجهاز نفسه؛المدتان المسجلتان ليستاbenchmark مقارنة أداء.
+
+### 26.7 Changed-File / Checkpoint Manifest
+
+**19Modified+14New=33files،Staging فارغة؛لاCommit/Push.** أول4ملفات المحلية منpreflight محفوظة. لاملفات إضافية متوقعة للحفظ خارج القائمة التالية:
+
+| الحالة | الملف | الغرض |
+|---|---|---|
+|M|`backend/docs/phase2_a5_t4.md`|سجلRCA والتفويض والتنفيذ والتحقق والـManifest |
+|M|`backend/docs/development_master_plan.md`|حالةC1 الحالية وحدودC2 |
+|M|`backend/tests/test_a5_playwright_pilot.py`|تسجيلC1 والبوابتين29 وحَد timeout المتناسب؛strict counts/exit/cleanup |
+|M|`frontend/e2e/playwright/dashboard.mjs`|حديثةDetails ثمhandoff معبقاءالتحقق القديم |
+|M|`frontend/e2e/playwright/fixtures.mjs`|الوصول إلىLegacy عبرالرابط الجديد،حتىmemory-only |
+|M|`frontend/e2e/playwright/gate-contract.mjs`|أسماءC1 والترتيبان29 |
+|M|`frontend/e2e/playwright/gate-contract.test.mjs`|رفضبوابةتُسقطحالةC1 |
+|M|`frontend/e2e/playwright/pilot.spec.mjs`|تسجيلC1 وlayout budget |
+|M|`frontend/e2e/playwright/playwright.config.mjs`|global budget محدود للجولة29،retries0 |
+|M|`frontend/e2e/playwright/reporter.mjs`|allowlist C1 وmetadata آمنة فقط |
+|M|`frontend/scripts/verify.mjs`|تسجيلQuery وChanges tests |
+|M|`frontend/src/app/LegacyWorkspaceAdapter.tsx`|حفظتنقلالـLegacy aliases |
+|M|`frontend/src/app/routePolicy.ts`|aliases محمية بنفسchanges.read |
+|M|`frontend/src/app/router.tsx`|C1 lazy routes وLegacy preservation |
+|M|`frontend/src/components/navigation/Breadcrumbs.tsx`|عودةلقائمةChanges الحديثة |
+|M|`frontend/src/localization/index.ts`|namespace changes |
+|M|`frontend/src/localization/locales/ar-SA.json`|النصوص العربية |
+|M|`frontend/src/localization/locales/en.json`|النصوص الإنجليزية |
+|M|`frontend/src/services/api/client.ts`|Query-only encoded-slash policy المعتمدة فقط |
+|N|`backend/tests/test_a5_t4_c1.py`|13عقدًا علىPostgreSQL معزولة |
+|N|`frontend/e2e/playwright/changes.mjs`|7حالاتC1 و40layouts |
+|N|`frontend/src/features/changes/AssessmentPanel.tsx`|التقييمالمحفوظ والحالاتالجزئية |
+|N|`frontend/src/features/changes/ChangesFilters.tsx`|server filters form |
+|N|`frontend/src/features/changes/ChangesPages.tsx`|List/Details والروابط والحالات |
+|N|`frontend/src/features/changes/ChangesState.tsx`|حالاتآمنة وenum/null presentation |
+|N|`frontend/src/features/changes/api.ts`|typed GET عبرGateway |
+|N|`frontend/src/features/changes/changes.css`|responsive tokens/layout |
+|N|`frontend/src/features/changes/decoders.ts`|runtime DTO وAssessment provenance |
+|N|`frontend/src/features/changes/query.ts`|query serialization وpagination |
+|N|`frontend/src/features/changes/resource.ts`|abort/epoch/clear |
+|N|`frontend/src/features/changes/useChangesResource.ts`|binding/hook/StrictMode cleanup |
+|N|`frontend/tests/change-query-policy.test.ts`|7positive/negative security contracts |
+|N|`frontend/tests/changes.test.ts`|6DTO/query/resource/route contracts |
+
+بصماتSHA256 لكلنسخةWorking Copy فعلية ونتيجةالفحصالمنقحة خارجالمستودع: `C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\t4-c1-resume-delivery-scan\gitleaks-summary.json`. تحققintegrity لأرشيفGitleaks8.30.1 وchecksum manifest ومساواةbinary بالأرشيف،وpositive control مصطنعة كشفهاscanner دونطباعةsecret. لا.env أوbinaries/node_modules/build/database dumps/raw logs/screenshots/traces/HAR/videos ضمنManifest. صورالواجهةالمصطنعة خارجGit فقط،ولاassets جديدة تتطلبترخيصًا.
+
+### 26.8 Decision / Remaining Risks / C2 Dependencies
+
+**T4-C1 READY FOR DEVELOPMENT CHECKPOINT REVIEW AND SEPARATE EXPLICIT SAVE APPROVAL.** Query gate اجتازت،وصفحاتList/Details/LatestStoredAssessment مكتملة للقراءة ضمنالعقودالحالية،ولاapplication/security failure جديدةمثبتة تمنعالمراجعة. HEAD المحليةوالبعيدة بقيت `a9483fe5f1527c10ed64891928f6def96d14f6b8`،master المحليةوالبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`،والفرعالمعتمدلميتغير. لاCommit/Push/PR/Merge أوDeployment.
+
+تبقى Historical CDP Findings **Open**؛FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved** رغم نجاحcleanup الحالي. Risk Rules Isolation إلىBatch B،CAB Enforcement إلىBatch C،Session Revocation/F2/Hardening إلىBatch D. لاFull Browser Suite Parity أوProduction Readiness. Browser أدلةChromium وowned ORM/PG،لاAlembic/multi-browser certification. DTO changes لا تحملorganization_id؛Backend isolation وbound Gateway وRequester ownership دفاعات مثبتة،وليستscope بديلة فيFrontend. القراءات المتعددة غيرذرية،والـLegacy workflows غيرمنقولة وذاتالقيودالأصلية،وتقييمRisk تاريخي/أولي وليساعتمادًا.
+
+لمتبدأ C2 Create/Revise أوT4-D/E أوBatch B/C/D أوGemini. تتطلبC2 تفويضًا مستقلًا بعدمراجعةCheckpoint C1؛وتصميمعقودwrite وconcurrency/conflict/validation وسلامةإعادةالتقييم ضمنالحدودالمعتمدة،دونتوسيعRisk/CAB policies تلقائيًا. لا تحقيقCDP مفتوحالنطاق أوجولاتتكرارإضافية مقترحة. **التوقفبعدالتقرير،وانتظارموافقةالمالكالصريحةقبلالحفظأوأيتطويرجديد.**
+
+## 27. T4-C1 — Approved Development Checkpoint — 2026-11-04
+
+وافق المالك صراحة على حفظ **Change Requests & Assessment Read-Only Integration** بإنشاء Commit واحدة بالرسالة `feat(a5): add tenant-safe change requests and assessment views`،ثم Push عادي إلى `origin/feature/phase2-batch-a-tenant-security` فقط. هذا القسم يحل محل انتظار موافقة الحفظ في §26.8،ويحفظ سجل التنفيذ والإخفاقات دون إعادة تصنيفها.
+
+قبل أي تعديل في مهمة الحفظ تطابقت Local/Remote HEAD `a9483fe5f1527c10ed64891928f6def96d14f6b8` وmaster المحلية والبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`،والفرع وorigin الرسميان. الحالة **19Modified+14New=33files،Staging فارغة** مطابقة Manifest §26.7. تطابقت SHA256 للملفات الـ33 جميعها مع دليل التسليم `t4-c1-resume-delivery-scan/gitleaks-summary.json`؛التغيير اللاحق في مهمة الحفظ يقتصر على تسجيل هذا التفويض في وثيقتي التقرير والخطة،ولا تعديل لأي ملف تنفيذ أو اختبار.
+
+الأدلة المعتمدة صالحة لنفس نسخة التنفيذ: Query Security20/20،Frontend99،Relevant Backend95 منها75PostgreSQL،Security7 وPresentation4 وB1خمسة وB2ستة وC1سبعة في كل ترتيب،وCombined29/29 أمامي وعكسي. Typecheck/Production Build/Lint وGitleaks Working Copy0 وdiff/cleanup ناجحة؛Production artifact وNODE_ENV=production وStrictMode محفوظة. لا إعادة اختبارات طويلة لتغيير توثيقي فقط،ولا جمع للجولات المتداخلة كتغطية إضافية مستقلة.
+
+المراجعة النهائية تؤكد أن فرق ApiClient محصور في فصل الجزء السابق لأول `?` لفحص `%2F` فيpathname،مع استمرار حظر`%5C` في المرجع كله. Trusted Origin وBase Path وHeaders وRedirects وSession Generation وAbort/Timeout باقية؛لا تغيير Canonicalization أوBase Path Prefix Policy،واختباراتClient الأصلية لم تتغير. Features الحالية GET للقراءة مع runtime validation وbinding/abort/epoch. Legacy Adapter وCreate/Revise وHistory/Approvals/Implementation وWorkspace Authentication وSystems/Dashboard/Foundation باقية. Assessment محفوظة/أولية دون ادعاءTenant-scoped Risk أوCAB Enforcement أوGemini provenance،ودونMissing→Low/Zero.
+
+بوابة الحفظ: استخدام `git add --` بأسماء Manifest الـ33 فقط،ومطابقة Git Index مع القائمة والمحتوى المراجع،و`git diff --cached --check`،وفحص **Staged Blobs الفعلية** بواسطة Gitleaks8.30.1 مع integrity وsynthetic detection/redaction،بلاallowlist استثنائية لإخفاءFinding. يجب التوقف قبلCommit عند أيFinding أوتغير غيرمتوقع. تُسجّل النتيجة المنقحة وبصمات Working Copy وIndex خارجGit في `t4-c1-checkpoint-staged-scan`؛ليس فحصWorking Copy بديلًا عنStaged Blobs.
+
+لاSecrets أو.env أوDatabase dumps أوbrowser binaries/node_modules/build outputs أوصور/traces/HAR/videos/raw logs/temporary artifacts ضمنManifest. لاProduction Backend/JWT v2/Permission Matrix/AuthProvider/Gateway/Models/Migrations/dependency changes؛المساسبـApiClient هوالتفويض الضيق أعلاه. التحقق بعدالدفع يثبتSHA الجديدة وparent واحدة ومطابقةRemote HEAD ونظافةWorking Tree وفراغStaging وثباتmaster؛Git والتقرير النهائي هما مرجع نتيجةالحفظ،ولاForce/Amend/Rebase/Merge أوPR.
+
+**المخاطر لم تتغير:** Historical CDP Findings **Open**؛FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**؛Risk Rules Isolation إلىBatch B،CAB Enforcement إلىBatch C،Session Revocation/F2/Hardening إلىBatch D. **Full Browser Suite Parity Not Established؛Production Readiness Not Approved.** نجاحDevelopment Tests والتنظيف الحالي لا يغلقانFindings التاريخية أويثبتان غيابflakiness.
+
+**T4-C1 ACCEPTED FOR DEVELOPMENT CHECKPOINT؛T4-C2 NOT STARTED / SEPARATE AUTHORIZATION REQUIRED.** تتطلبC2 تفويضًا جديدًا وخطةCreate/Revise وwrite DTO validation وconcurrency/conflict handling وtenant/requester/permission enforcement وسلامةالتقييم والتراجع عنالطلبات القديمة،مع إبقاءحدودRisk/CAB حتىدفعاتها المعتمدة. لاC2 أوT4-D/E أوBatch B/C/D أوGemini أوMigrations/Deployment/Credential changes فيمهمةالحفظ. التوقفبعدCommit وPush والتحقق والتقرير،وانتظارتفويض منفصل لأي تطوير.

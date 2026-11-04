@@ -1,5 +1,7 @@
 # ChangeFlow Governance — Master Development Implementation Plan
 
+> **الحالة الأحدث — 2026-11-04:** T4-C1 مقبولة كـDevelopment Checkpoint،والمالك فوّض Commit واحدة وPush للفرع المعتمد بعد بوابة الحفظ. راجع §24 وT4§27؛أدلة التنفيذ في §23 وT4§26. لاC2/D/E أوBatch B/C/D أوProduction Approval.
+
 > **For Codex:** After plan review and authorization, implement this plan task-by-task using the user-selected execution method and available native tools. Steps use checkbox (`- [ ]`) syntax for tracking. No external framework sub-skill is required.
 
 **Goal:** تحويل المشروع تدريجيًا إلى Enterprise Multi-Tenant SaaS لتحليل أثر التغيير وإدارة مخاطره وحوكمته، مع عزل المؤسسات وقرارات قابلة للتدقيق وتجربة عربية سعودية وإنجليزية كاملة.
@@ -824,9 +826,9 @@ $env:CHANGEFLOW_TEST_POSTGRES_BIN='C:\Program Files\PostgreSQL\18\bin'
 
 بعد كل مرحلة يسجل التقرير: ما نُفذ، قرارات المعمارية، Files Changed، API/DB Changes، Security Findings، Commands/Passed/Failed/Skipped، المخاطر، Git status، والمرحلة التالية. إذا فشل Gate، تُصلح المرحلة نفسها دون بدء التالية.
 
-**Checkpoint المرجعية:** `6dc069dc739c8822fcceeaeee207d9c459d605a1` تحفظT4-B1 وهي نقطة بداية حفظT4-B2. فوّض المالك صراحة Commit واحدة وPush لحفظ Manifest28 في تقريرT4 §23.6. مرجع الحفظ الجديد هو Commit التي تحتوي القسم21 أدناه؛تُثبت SHA ومطابقةorigin ونظافةالشجرة في تقريرالحفظ النهائي. لا Production Approval أوتغييرmaster.
+**Checkpoint المرجعية:** `a9483fe5f1527c10ed64891928f6def96d14f6b8` تحفظT4-B2 محليًاوعلىorigin فيالفرعالمعتمد. بدأتفويضT4-C1 منWorking Tree وIndex نظيفتين؛تعديلاتهالحالية3Modified+1New فيتقريرT4§25.5،دونGit writes أوتغييرmaster أوProduction Approval.
 
-**خطوة الاستئناف الدقيقة:** اقرأ تقريرT4 §§23–24 والقسم21 أدناه. T4-B2 Enterprise Dashboard مقبولة كـDevelopment Checkpoint بتفويض الحفظ الصريح؛التوقف بعد Commit وPush والتحقق والتقرير. **T4-C READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED**؛يلزم إذن جديد قبل أي تطوير. بوابةPlaywright الأمنية معتمدة لنطاقRead-Only،وحدودRisk/CAB والدفعاتالأمنية محفوظة؛لا حذفLegacy أوإغلاقCDP أوProduction readiness.
+**خطوة الاستئناف الدقيقة:** اقرأ تقريرT4§25 والقسم22 أدناه. **T4-C1 BLOCKED AT QUERY POLICY GATE / NOT READY FOR CHECKPOINT**؛شرطالمالكيتطلباعتمادتصحيحClient URI ضيققبلالاستمرار. لاFeature/Route extraction أواعتمادC1 جديد؛T4-C2/D/E والدفعاتالأمنيةلمتبدأ. بوابةPlaywright الأمنيةللنطاقالمعتمدوتاريخB1/B2 محفوظان،ولاFull Browser Suite Parity أوProduction readiness.
 
 **التحقق التاريخي:** المراحل والمخاطر العشرة والقرارات الستة عشر محفوظة. Stage0/Preflight/Setup/Scanner في 10.1–10.6 تاريخية؛ T1 في 10.7–10.8 ، T2 في 10.9–10.10 ، T3 في 10.11–10.12 ، T4-A في 10.13 وتقاريرها. لا جمع لأعداد الجولات المتداخلة، و Skipped ليست نجاحًا.
 
@@ -953,3 +955,55 @@ Manifest **16Modified+12New=28** فيT4 §23.6،Staging فارغة. لاProducti
 Historical CDP Findings **Open**،FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**؛Risk Rules Isolation إلىBatch B،CAB Enforcement إلىBatch C،Session Revocation/F2/Hardening إلىBatch D. حساسيةAxe وحدودAggregate DTO والقراءاتغيرالذرية وChromium/ORM-only محفوظة؛لاFull Browser Suite Parity أوProduction Readiness أوRisk/CAB Governance معتمدة.
 
 **T4-B2 ACCEPTED FOR DEVELOPMENT CHECKPOINT؛T4-C READY FOR SEPARATE EXECUTION APPROVAL / NOT STARTED.** Systems Catalog/Details وDashboard منجزة؛لا استخراججديدلـChanges/Assessments أوT4-D/E أوBatch B/C/D أوGemini أوMigrations/Deployment/Credential changes. التوقفبعدCommit وPush والتحقق والتقرير،وانتظار تفويض جديد قبلأي تطوير.
+
+## 22. A5-T4-C1 — Query Policy Compatibility Gate — 2026-11-03
+
+> سجل التوقف التاريخي قبل اعتماد التصحيح. §23 يثبت التفويض والتنفيذ والنتائج اللاحقة؛لا تتحول نتائج RED أدناه إلىPASS بأثررجعي.
+
+تفويضالمالكC1 Read-Only يبدأمنLocal/Remote HEADa9483fe5f1527c10ed64891928f6def96d14f6b8 والفرعالمعتمدنظيفين؛master10faab20b1c61b5476165bbc1f5d28a2a85e2652 محفوظة. قُرئتLegacy List/Details/Assessments وBackend paging/schema/grants وخطةB1/B2 وسياسةالبوابة. استخراجC1 مشروطببند2 منالطلب:عندتعارضQuery وسياسةClient،التوقفوتقديمتصميمضيقبدلإضعافالحماية.
+
+أُضيفت4 contract tests وسُجلتفيFrontend runner قبلنقلالصفحات. **Frontend89:88Passed/1Failed/0Skipped،exit1**؛85القائمةنجحتو3ضوابطجديدةنجحت. الاختبارالفاشل `C1 slash in form-encoded search must round-trip without changing the request pathname`: `billing/payments` تصبح`billing%2Fpayments`،وحارس`/%2f|%5c/i.test(path)` يشملQuery كاملةفيرفضconfiguration قبلtransport (0calls بدل1). Client/Gateway لمتتغيراعنHEAD؛هذاExisting URI Security Policy/Integration Contract Conflict،لاادعاءفشلTenant/Auth أوثغرةمثبتة. لاSkipped أوإزالةلـRED لإنتاجPASS.
+
+التصميمالمقترحغيرالمنفذفيT4§25.3:تمييزpathname عنQuery لحظر`%2F` فيالمساردونرفضهاكبياناتبحثمشفرة،معثباتTrusted Origin/base-path/redirect/header/generation guards وبقاءحظر`%5C` وrawbackslash الحاليين. يلزماعتمادصريحقبلتعديلClient؛لاdouble-encoding أوfallbackfetch أوتوسعةOrigins. بعدقبولهواجتيازضوابطهفقطيمكنمتابعةC1 الأصلية؛لاC2 تفويضًا.
+
+لمتُنشأChanges Feature/List/Details/Assessment جديدةولمتُنقلroutes،فالـLegacy parity وDTO/race/assessment provenance وC1 Browser/PG/Responsive gates لمتكتمل. القائمةوالتفاصيلوCreate/Revise/Approval/Implementation/History القديمةمحفوظة،وكذلكDashboard/Systems/Auth/Notifications/Users/Invitations. لاProduction Backend/JWT/Permission Matrix/Models/Migrations changes،ولا.env أوبياناتفعليةأوGit writes.
+
+Manifest **3Modified+1New=4**:وثيقتاالخطةوالتقرير،`frontend/scripts/verify.mjs`،و`frontend/tests/change-query-policy.test.ts` الجديدة؛Staging فارغة. Typecheck test project Passed وLint0 warnings/errors وGitleaks8.30.1 للـ4files/0Findings بعدintegrity/synthetic control وdiff/UTF-8/whitespace Passed؛Frontend Gate تبقىRED. Full Backend/Browser/Build reruns ليستدليلًا مطلوبًا لFeature توقفتبأمرالمالكعندبوابةسياسة.
+
+**T4-C1 NOT READY FOR DEVELOPMENT CHECKPOINT — awaiting narrow URI-policy approval.** C2 تتطلبحلQuery ثمC1 كاملةوإثباتParity/quality/security وموثوقيةعرضالتقييموموافقةمنفصلة. Historical CDP وFastAPI Cleanup Timeout وLegacy Demo Credentials باقية،Risk/CAB/SessionRevocation/F2/Hardening إلىB/C/D؛لاProduction Readiness أوFull Browser Suite Parity. لااستمرارفيتطويرأوتغييرسياسةأوCommit/Push/PR/Merge/Deployment قبلالمراجعة.
+
+## 23. A5-T4-C1 — Approved Query Policy & Read-Only Completion — 2026-11-04
+
+أجاز المالك صراحة فصل `%2F` في Query Parameters عنpathname ثم استكمالC1 فقط بعد اجتياز البوابة الأمنية. تحققBaseline المحليةوالبعيدة `a9483fe5f1527c10ed64891928f6def96d14f6b8` والفرع `feature/phase2-batch-a-tenant-security` وorigin الرسمي؛master `10faab20b1c61b5476165bbc1f5d28a2a85e2652` ثابتة. حُفظت3Modified+1New الأولية،ولم تُستخدم Reset/Clean/Stash/Checkout أوأيGit writes.
+
+- [x] **Query Policy:** السبب root guard يفحص المرجع كله؛التعديل الوحيد في ApiClient يقسم عندأول`?` لفحصencoded slash فيpathname فقط،معبقاءحظر`%5C` كاملًا وبقيةbackslash/fragment/control/trusted-origin/base-prefix/redirect/header/generation/abort/timeout guards. لاCanonicalization أوBase Path Prefix Policy جانبية. Query7 مرت RED5/7 ثمGREEN7/7؛ApiClient13 الأصلية محفوظة؛**20/20**. allowed values تصلTrusted Origin/pathname مرةواحدة؛negative cases0HTTP. تفسيرURL الفعلي وعقدslash معFastAPI مثبتان،لاbypass أوتعديلBackend.
+- [x] **Contracts → Implementation:** الستةالجديدة بدأتRED ثمGREEN؛Feature changes مستقلة فوقGateway تشملTyped GET API وruntime decoders وquery/page/date وabort/epoch/key masking وlocal resource lifecycle. لاGlobal Cache أوState dependency أوSession Owner أوauth/me loop جديدة.
+- [x] **Read-Only Pages:** `/changes` بـserver pagination وsearch/status/stored-risk/type/requester/date filters وURL/Back/Forward،و`/changes/:id` للمعلوماتوالعلاقاتوlatest stored assessment. total/total_pages منBackend،لاaggregation منصفحةجزئية أوpriority filter مخترعة. Requester own-only وforeign/missing404 وcurrent DB grants مثبتة علىPostgreSQL.
+- [x] **Assessment Truth:** أكبرassessment.id محفوظة؛تفسيروقوائمhistorical/provisional،null/unknown/missing لاLow/0. Invalid Assessment جزئيةدونإخفاءprimary DTO الصالحة. Risk Rules GLOBAL،ولااعتمادCAB أوGemini provenance أوrecompute/history API جديدة. Approved حالةمسجلةفقط،ولاAuthorized to Proceed label أوApproval/Implementation writes.
+- [x] **Legacy Parity:** modern list/detail منقولتان؛`/legacy/changes` و`/legacy/changes/:id` تحافظان علىالوظائفغيرالمنقولة وHistory/Approvals/Implementation. `/changes/new` و`/changes/:id/revise` والنماذجوالصلاحياتالقديمةباقة؛لاApp.tsx rewrite. Systems/Dashboard/Foundation/Workspace/Auth/Users/Notifications/Invitations باقية. login helper وB2 locator يتبعانhandoff معبقاءsecurity assertions الأصلية.
+- [x] **UI:** Obsidian&Sage/Readex/tokens الحالية،ar-SA/en وRTL/LTR وDark/Light وloading skeletons/empty/error/forbidden/timeout و44px targets. C1 صفحتان×5widths×لغتين×ثيمين=40layouts لكلترتيب،لاoverflow ومخالفاتAxe،keyboard focus-visible وreduced-motion ناجحة. Intl معحفظplanned wall-time؛لاcharts/assets/dependencies جديدة.
+- [x] **Verification:** Frontend **99/99**؛Backend **95/95** منها75PostgreSQL و20unit/memory؛Security7+Presentation4+B1خمسة+B2ستة+C1سبعة=**29/29Forward و29/29Reverse**. Typecheck test/app/config وProduction Build123modules وLint0warnings/errors وGitleaks8.30.1Working Copy33files/0Findings وdiff/UTF-8/syntax/cleanup ناجحة. Production artifact/NODE_ENV وStrictMode محفوظة؛لا.env أوsecrets أوmigrations. contexts0/browser_exit0/runnerexit0،وتدقيقنهائي0owned processes و0run/frontend temp roots.
+
+تفاصيلالمصفوفة والعقودوالـprovenance وLegacy parity ونتائجالجولات وManifest في [T4§26](phase2_a5_t4.md#26-t4-c1--approved-query-policy--read-only-resume--2026-11-04). Manifest النهائية **19Modified+14New=33** في§26.7؛Staging فارغة،وبصماتSHA256 معGitleaks metadata خارجGit في`.../t4-c1-resume-final-scan/gitleaks-summary.json`. لاProduction Backend/JWT/PermissionMatrix/AuthProvider/Gateway/Models/Migrations/package-lock changes؛المساسبـApiClient هوالتفويضالضيقفقط. لاnode_modules/binaries/build/raw logs/database dumps/صور أوtraces/HAR/videos ضمنManifest؛previews صناعية خارجGit.
+
+إخفاقاتالتطويرلمتُمحَ:Query RED التاريخية،وTypecheck test-header union و3lint dependency warnings حُلّت دونإضعافAssertions. C1 smoke القابلةللقراءة6/7:محدد`.legacy-workspace form` خاطئلأنالقديمsection.form-panel؛صُححلاختبارheading/input/زرالفعليدونتعديلLegacy أوwrite. جولتا29 النهائيتانأثبتتاالإصلاح. أولattempt دوننتيجةأداةمحفوظةلايُحسبدليلًا؛التكرارالمحدود للحصولعلىmetadata موثق. لاSkipped أوBlindRetries أوتجميعجولاتمتداخلةكتغطيةمستقلة،ولاادعاءاستحالةflakiness. لاإعادةجولاتطويلةمطلوبةبعدالنجاح.
+
+**T4-C1 READY FOR DEVELOPMENT CHECKPOINT REVIEW AND SEPARATE EXPLICIT SAVE APPROVAL.** صفحاتالأعمالالمنقولةالآنSystems Catalog/Details وDashboard وChanges List/Details/LatestStoredAssessment. لاCommit/Push/PR/Merge/Deployment،ولاC2 أوD/E أوBatch B/C/D أوGemini بدأت. C2 تتطلبتفويضًا مستقلًا بعدمراجعةCheckpoint،ثمخطةwrite/concurrency/conflict/validation ضمنالحدودالمعتمدة.
+
+المخاطرالباقية:Historical CDP Findings **Open**؛FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**؛Risk Rules Isolation Batch B،CAB Enforcement Batch C،Session Revocation/F2/Hardening Batch D. لاFull Browser Suite Parity أوProduction Readiness. أدلةChromium/ownedORM فقط،والـChanges DTO بلاtenant field والقراءاتغيرذرية،مععزلBackend/Gateway/requester مثبت. نجاحcleanup الحالي لايغلقFinding التاريخية. **التوقفبعدالتقريروانتظارإذنصريحقبلالحفظأوالتطويرالتالي.**
+
+## 24. T4-C1 Approved Development Checkpoint — 2026-11-04
+
+اعتمد المالك حفظT4-C1 فقط: Commit واحدة `feat(a5): add tenant-safe change requests and assessment views` ثمPush عادي إلى `origin/feature/phase2-batch-a-tenant-security`. لا تفويض لتطويرC2 أوالنشر. هذه الموافقة تحل محل انتظارالحفظ في §23،مع إبقاء التاريخ ونتائجRED وإخفاقاتالتطوير محفوظة فيT4§§25–26.
+
+Baseline قبلالتعديل مطابقة: Local/Remote HEAD `a9483fe5f1527c10ed64891928f6def96d14f6b8`،master المحليةوالبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`،الفرع وorigin الرسميان،**19Modified+14New=33** وStaging فارغة. تطابقت بصماتكلالملفات معدليل التسليم الأخير؛بعدذلك تغيّرت وثيقتاالتقريروالخطة لتسجيلالموافقة فقط. ManifestT4§26.7 باقيةدونإضافةملفات.
+
+النتائج المعتمدة لنفس ملفاتالتنفيذ: Query20/20،Frontend99،Backend95 منها75PostgreSQL،Security7/7 وPresentation4/4 وB1خمسة/خمسة وB2ستة/ستة وC1سبعة/سبعة،Combined29/29 أمامي وعكسي،40C1layouts لكلترتيب،Typecheck/ProductionBuild/Lint وWorkingCopy Gitleaks0 وdiff/cleanup ناجحة. Production artifact/NODE_ENV وStrictMode محفوظة. لا إعادةاختباراتطويلة لتغييرتوثيقي،ولاادعاءتغطيةإضافيةبجمعالجولاتالمتداخلة.
+
+بوابةالحفظ تتطلب`git add --` بالقائمةالدقيقة فقط،ومطابقةIndex بالأسماءوالمحتوى،وcached diff check وGitleaks على**Staged Blobs الفعلية** قبلCommit. نتيجةالفحص وبصماتالمحتوى المنقحة خارجGit في`t4-c1-checkpoint-staged-scan`؛تفاصيلبوابةالحفظ فيT4§27. النتيجةالنهائيةلـSHA وRemote HEAD ونظافةالشجرةوفراغStaging وثباتmaster يثبتهاGit وتقريرالحفظ؛لاForce/Amend/Rebase/Merge/PR.
+
+Query correction تظلquery-only:رفض`%2F` فيpathname و`%5C` فيالمرجعكله،معثباتOrigin/BasePath/Headers/Redirect/Session/Abort/Timeout وCanonicalization/BasePathPrefix. لاProduction Backend/JWT/PermissionMatrix/Models/Migrations/dependencies changes. Systems/Dashboard/Foundation/Auth/Legacy/Create/Revise/History/Approvals/Implementation محفوظة؛Assessment stored/provisional دونRisk/CAB/Gemini claims أوMissing→Low/Zero. لا.env/secrets أوbinaries/build/database dumps/raw logs/صور/traces/HAR/videos ضمنManifest.
+
+**T4-C1 ACCEPTED FOR DEVELOPMENT CHECKPOINT؛T4-C2 REQUIRES SEPARATE EXECUTION AUTHORIZATION / NOT STARTED.** متطلباتC2 المقترحة فقط:خطةCreate/Revise بعقودwrite فعلية،runtime DTO validation،concurrency/conflicts،tenant/requester/permissions،وسلامةالتقييموالاستجاباتالقديمة،معحدودRisk/CAB المعتمدة واختباراتregression المناسبة. لاC2 أوD/E أوBatch B/C/D أوGemini أوMigrations/Deployment/Credential changes.
+
+المخاطرالمفتوحة محفوظة:Historical CDP **Open**،FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**،Risk Rules Isolation Batch B،CAB Enforcement Batch C،Session Revocation/F2/Hardening Batch D؛**Full Browser Suite Parity Not Established وProduction Readiness Not Approved**. لا إعادةتصنيف بأدلةالتطوير الحالية. التوقفبعدCommit وPush والتحقق والتقرير،وانتظارإذنمنفصل قبلأيتطويرجديد.

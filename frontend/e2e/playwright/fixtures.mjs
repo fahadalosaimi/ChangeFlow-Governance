@@ -44,6 +44,7 @@ export async function login(page, credentials, second = false, legacy = true, pa
   await expect(page.locator('.workspace-identity')).toContainText(second ? 'tenant-2' : 'tenant-1')
   if (legacy) {
     await page.locator('[data-nav-path="/changes"]:visible').click()
+    await page.locator('[data-action=legacy-changes]').click()
     await expect(page.locator('[data-legacy-shell]')).toBeVisible()
   }
 }

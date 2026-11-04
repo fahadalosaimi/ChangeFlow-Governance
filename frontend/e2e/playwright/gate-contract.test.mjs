@@ -31,3 +31,15 @@ test('B2 combined gate retains security, presentation and systems cases and reje
   assert.equal(validateGateResults(rows,'dashboard-forward',0),true)
   assert.equal(validateGateResults(rows.filter(r=>r.case!=='dashboard-roles'),'dashboard-forward',0),false)
 })
+
+test('C1 gate includes all earlier cases and fails if any read-only change case is omitted',()=>{
+  const names=['changes-list','changes-details','changes-races','changes-boundaries','changes-forbidden','changes-faults','changes-layout']
+  assert.deepEqual(expectedCases('changes'),names)
+  const all=[...expectedCases('dashboard-forward'),...names]
+  assert.equal(all.length,29)
+  assert.deepEqual(expectedCases('changes-forward'),all)
+  assert.deepEqual(expectedCases('changes-reverse'),[...all].reverse())
+  const rows=[...all.map(name=>({case:name,status:'passed',duration_ms:1})),{contexts:0,browser_exit:0}]
+  assert.equal(validateGateResults(rows,'changes-forward',0),true)
+  assert.equal(validateGateResults(rows.filter(r=>r.case!=='changes-forbidden'),'changes-forward',0),false)
+})

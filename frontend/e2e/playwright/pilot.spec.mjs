@@ -4,6 +4,7 @@ import { presentationCases } from './presentation.mjs'
 import { expectedCases } from './gate-contract.mjs'
 import { systemsCases } from './systems.mjs'
 import { dashboardCases } from './dashboard.mjs'
+import { changesCases } from './changes.mjs'
 
 const cases = [
   ['login', async ({ page, credentials }) => {
@@ -270,12 +271,12 @@ const cases = [
 ]
 
 const selection = process.env.PILOT_SELECTION
-const available = new Map([...cases, ...presentationCases, ...systemsCases, ...dashboardCases])
+const available = new Map([...cases, ...presentationCases, ...systemsCases, ...dashboardCases, ...changesCases])
 for (const name of expectedCases(selection)) {
   const run = available.get(name)
   if (!run) throw new Error('Missing required gate case')
-  test.describe(name.startsWith('P02-') ? 'Presentation Gate' : name.startsWith('systems-') ? 'Systems B1' : name.startsWith('dashboard-') ? 'Dashboard B2' : 'Security Gate', () => {
-    if (name === 'systems-layout' || name === 'dashboard-layout') test.setTimeout(90000)
+  test.describe(name.startsWith('P02-') ? 'Presentation Gate' : name.startsWith('systems-') ? 'Systems B1' : name.startsWith('dashboard-') ? 'Dashboard B2' : name.startsWith('changes-') ? 'Changes C1' : 'Security Gate', () => {
+    if (['systems-layout','dashboard-layout','changes-layout'].includes(name)) test.setTimeout(90000)
     test(name, run)
   })
 }

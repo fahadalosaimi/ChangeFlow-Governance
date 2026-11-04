@@ -20,7 +20,9 @@ export function LegacyWorkspaceAdapter() {
   if (!route) return <StatePage kind="notFound" />
   if (!routeAllowed(location.pathname, state.user!.permissions)) return <StatePage kind="forbidden" />
   const go = (view: WorkspaceView, id?: number) => {
-    const path = viewDestination(view, id)
+    const legacy = location.pathname.startsWith('/legacy/changes')
+    const path = legacy && view === 'dashboard' ? '/legacy/changes'
+      : legacy && view === 'details' && Number.isSafeInteger(id) && id! > 0 ? `/legacy/changes/${id}` : viewDestination(view, id)
     if (path !== location.pathname) void navigate(withRecoveryMarker(path, state.storageWarning))
   }
   const pending = <div lang={i18n.language} dir={i18n.dir()}><StateCard level={2} title={t('legacy.loading')} body={t('common:feedback.loading')} loading /></div>

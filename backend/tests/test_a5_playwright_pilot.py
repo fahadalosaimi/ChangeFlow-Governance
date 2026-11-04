@@ -136,7 +136,7 @@ def pilot_http(workspace):
         assert not thread.is_alive(), "Owned HTTP cleanup failed"
 
 
-@pytest.mark.parametrize("selection", ["security", "presentation", "forward", "reverse", "session-boundaries", "systems", "systems-layout", "systems-forward", "systems-reverse", "systems-probe", "dashboard", "dashboard-layout", "dashboard-boundaries", "dashboard-forward", "dashboard-reverse"])
+@pytest.mark.parametrize("selection", ["security", "presentation", "forward", "reverse", "session-boundaries", "systems", "systems-layout", "systems-forward", "systems-reverse", "systems-probe", "dashboard", "dashboard-layout", "dashboard-boundaries", "dashboard-forward", "dashboard-reverse", "changes", "changes-forward", "changes-reverse"])
 def test_playwright_pilot(pilot_http, tmp_path, selection):
     run_playwright_gate(pilot_http, tmp_path, selection)
 
@@ -152,7 +152,7 @@ def run_playwright_gate(pilot_http, tmp_path, selection, *, expect_success=True)
     if os.environ.get("CHANGEFLOW_TEST_ARTIFACTS_ROOT"):
         env["PILOT_VISUAL_ROOT"] = os.environ["CHANGEFLOW_TEST_ARTIFACTS_ROOT"]
     result = subprocess.run([node, str(pilot / "run.mjs")], cwd=pilot, env=env,
-        capture_output=True, text=True, timeout=360 if selection.startswith('dashboard') else 300 if selection.startswith('systems') else 150)
+        capture_output=True, text=True, timeout=480 if selection.startswith('changes') else 360 if selection.startswith('dashboard') else 300 if selection.startswith('systems') else 150)
     # Never forward assertion errors, response bodies, call logs or credentials.
     rows = []
     for line in result.stdout.splitlines():
@@ -172,7 +172,8 @@ def run_playwright_gate(pilot_http, tmp_path, selection, *, expect_success=True)
         assert all(r.get("status") == "passed" for r in rows if "case" in r), "Gate cannot exclude a failed/skipped case"
         assert len([r for r in rows if r.get("status") == "passed"]) == {"security": 7, "presentation": 4, "forward": 11, "reverse": 11, "session-boundaries": 1,
             "systems":5,"systems-layout":1,"systems-forward":16,"systems-reverse":16,"systems-probe":2,
-            "dashboard":6,"dashboard-layout":1,"dashboard-boundaries":1,"dashboard-forward":22,"dashboard-reverse":22}[selection]
+            "dashboard":6,"dashboard-layout":1,"dashboard-boundaries":1,"dashboard-forward":22,"dashboard-reverse":22,
+            "changes":7,"changes-forward":29,"changes-reverse":29}[selection]
     assert not any(p.suffix in {".zip", ".png", ".webm", ".har"} for p in tmp_path.rglob("*")), "Sensitive artifact capture forbidden"
 
 

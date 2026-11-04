@@ -166,6 +166,35 @@
       "body": "Try reloading the page. Your account details and request information have not been displayed."
     }
   },
+  "changes": {
+    "list":"Change requests","scopeOwn":"Your requests, with search and pagination applied by the server.","scopeTenant":"Requests you can read in this workspace. Search and counts follow your current access.",
+    "filters":"Filter change requests","search":"Search requests","searchHint":"Title, description, justification or requester. Search syntax follows the server.",
+    "status":"Recorded status","risk_level":"Stored risk (preliminary)","change_type":"Change type","requester":"Requester","all":"All","allRequesters":"All requesters",
+    "created_from":"Created from (UTC date)","created_to":"Created to (UTC date)","pageSize":"Rows per page","apply":"Apply filters","clear":"Clear filters","refresh":"Refresh","retry":"Try again",
+    "invalidQuery":"Check the page, filters and date window. The end date must not precede the start date.","requestersUnavailable":"Requester names could not be loaded. Existing filters and request records remain available.",
+    "existingCreate":"Create request (existing form)","results":"Showing {{visible}} of {{total}} matching requests","empty":"No matching requests","emptyBody":"Adjust or clear the filters to see records available to your membership.",
+    "request":"Change request","typePriority":"Type / priority","storedAssessment":"Stored assessment","created":"Created","pagination":"Request pages","pageOf":"Page {{page}} of {{total}}","goPage":"Go to page {{page}}","previous":"Previous","next":"Next",
+    "legacyList":"Open existing request workspace","legacyDetails":"Open existing actions and history","back":"Back to requests","information":"Request information","priority":"Priority","mode":"Change mode","complexity":"Rollback complexity","sensitivity":"Security sensitivity",
+    "downtime":"Expected downtime (minutes)","justification":"Business justification","created_at":"Created","updated_at":"Updated","planned_start":"Planned start (recorded local time)","planned_end":"Planned end (recorded local time)",
+    "systems":"Affected systems","systemReference":"System","systemNamesUnavailable":"System names could not be loaded. Verified record references are shown.","assessment":"Latest stored assessment",
+    "assessmentWarning":"Stored assessments are preliminary. Shared risk rules do not provide approved tenant-isolated risk governance. A recorded Approved status does not establish completed CAB governance.",
+    "originalNarrative":"Stored narrative and lists are shown in their original language. They do not establish a Gemini integration or an execution authorization.",
+    "storedRisk":"Stored risk","storedScore":"Stored impact score","storedRecommendation":"Stored suggestion (preliminary)","unknownRecommendation":"Unrecognized stored suggestion","noAssessment":"No assessment has been stored for this request.","invalidAssessment":"The stored assessment could not be validated. Request information remains available; no default score or risk is assumed.",
+    "noItems":"None recorded","unavailable":"Not available","unknown":"Unrecognized value: {{value}}",
+    "loading":{"title":"Loading requests","body":"Retrieving current authorized data. Previous records are not shown."},
+    "error":{"title":"This request data is unavailable","body":"Try again to retrieve current data. Previous values are not shown."},
+    "missing":{"title":"Request not found","body":"This request is unavailable in the current workspace."},
+    "forbidden":{"title":"Request access is unavailable","body":"The server denied this request. Use the membership verification control to check your current grants."},
+    "timeout":{"title":"The request took too long","body":"The request timed out. Try again to retrieve current data."},
+    "enum":{
+      "status":{"Pending Approval":"Pending review","Needs More Information":"Awaiting requester","Approved":"Approved (recorded)","Rejected":"Rejected","In Progress":"In progress","Implemented":"Implemented","Failed":"Failed","Rolled Back":"Rolled back","Closed":"Closed"},
+      "priority":{"Low":"Low","Medium":"Medium","High":"High","Critical":"Critical"},"risk":{"Low":"Low (stored)","Medium":"Medium (stored)","High":"High (stored)","Critical":"Critical (stored)"},
+      "change_type":{"application":"Application","database":"Database","network":"Network","security":"Security","documentation":"Documentation"},"mode":{"Standard":"Standard","Normal":"Normal","Emergency":"Emergency"},
+      "complexity":{"Low":"Low","Medium":"Medium","High":"High"},"sensitivity":{"Low":"Low","Medium":"Medium","High":"High"},
+      "recommendation":{"Proceed":"Proceed suggestion (stored)","Proceed with Review":"Review suggestion (stored)","Requires Manager Approval":"Manager review suggested (stored)","Do Not Proceed Without CAB Approval":"CAB review suggested (stored)"}
+    },
+    "assessmentLists":{"directly_affected_systems":"Directly affected systems","indirectly_affected_systems":"Indirectly affected systems","affected_departments":"Affected departments","system_owners":"System owners","previous_incidents":"Previous incidents","risk_factors":"Stored risk factors","recommendations":"Stored recommendations","rollback_plan":"Stored rollback plan","testing_checklist":"Stored testing checklist"}
+  },
   "dashboard": {
     "title": "Operational overview",
     "intro": "A clear view of your change records, review queues and delivery status.",

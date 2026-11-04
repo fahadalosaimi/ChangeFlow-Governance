@@ -2,9 +2,14 @@ export const securityNames = ['login', 'A05', 'A06-control', 'A06-race', 'isolat
 export const presentationNames = ['P02-rtl', 'P02-ltr', 'P02-disabled', 'P02-frozen']
 export const systemsNames = ['systems-catalog', 'systems-details', 'systems-races', 'systems-boundaries', 'systems-layout']
 export const dashboardNames = ['dashboard-data','dashboard-faults','dashboard-races','dashboard-boundaries','dashboard-roles','dashboard-layout']
+export const changesNames=['changes-list','changes-details','changes-races','changes-boundaries','changes-forbidden','changes-faults','changes-layout']
 
 export function expectedCases(selection) {
   const all = [...securityNames, ...presentationNames]
+  if(selection==='changes')return [...changesNames]
+  if(changesNames.includes(selection))return [selection]
+  if(selection==='changes-forward')return [...all,...systemsNames,...dashboardNames,...changesNames]
+  if(selection==='changes-reverse')return [...all,...systemsNames,...dashboardNames,...changesNames].reverse()
   if (selection === 'dashboard') return [...dashboardNames]
   if (dashboardNames.includes(selection)) return [selection]
   if (selection === 'dashboard-forward') return [...all,...systemsNames,...dashboardNames]
