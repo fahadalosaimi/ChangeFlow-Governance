@@ -82,7 +82,9 @@ def invitations(a1_pg_engine, original_password_hash):
 @pytest.fixture
 def pilot_http(workspace,request):
     password = secrets.token_urlsafe(24)
-    editor = getattr(request.node, 'callspec', None) and str(request.node.callspec.params.get('selection','')).startswith('editor')
+    selection=str(request.node.callspec.params.get('selection','')) if getattr(request.node,'callspec',None) else ''
+    editor = selection.startswith('editor') or selection in {'notices-forward','notices-reverse'}
+    notices = selection.startswith('notices')
     write_nonce = secrets.token_hex(32) if editor else None
     with Session(workspace.engine) as db:
         assert_owned_test_connection(db.connection())
@@ -92,6 +94,7 @@ def pilot_http(workspace,request):
         db.commit()
         baseline = {model:{row.id for row in db.query(model)} for model in (ManagedChangeRequest,ManagedImpactAssessment,ChangeStatusHistory,AuditLog,Notification)} if editor else {}
         original_change = {c.name:getattr(db.get(ManagedChangeRequest,100),c.name) for c in ManagedChangeRequest.__table__.columns} if editor else {}
+        original_notices={row.id:{c.name:getattr(row,c.name) for c in Notification.__table__.columns} for row in db.query(Notification)} if notices else {}
 
     async def controlled(request):
         if not write_nonce or not secrets.compare_digest(request.headers.get('X-Synthetic-Ownership',''),write_nonce):
@@ -108,11 +111,21 @@ def pilot_http(workspace,request):
 
     async def control(request):
         action = (await request.json()).get("action")
-        if action not in {"limit", "restore", "disable", "enable", "revoke-foundation", "dashboard-manager", "dashboard-admin", "editor-eligible", "editor-reset"} or (str(action).startswith('editor-') and not editor):
+        if action not in {"limit", "restore", "disable", "enable", "revoke-foundation", "dashboard-manager", "dashboard-admin", "editor-eligible", "editor-reset",'notices-seed','notices-reset','notices-revoke'} or (str(action).startswith('editor-') and not editor) or (str(action).startswith('notices-') and not notices):
             return JSONResponse({"status": "invalid"}, status_code=400)
         with Session(workspace.engine) as db:
             assert_owned_test_connection(db.connection())
-            if action=='editor-eligible':
+            if action=='notices-seed':
+                from test_a5_t4_d1 import seed_notices
+                seed_notices(db)
+            elif action=='notices-reset':
+                db.query(Notification).filter(~Notification.id.in_(original_notices)).delete(synchronize_session=False)
+                for nid,values in original_notices.items():
+                    for key,value in values.items():setattr(db.get(Notification,nid),key,value)
+                db.get(User,2).role_id=3;db.get(User,2).is_active='active'
+            elif action=='notices-revoke':
+                db.get(User,2).role_id=10
+            elif action=='editor-eligible':
                 db.get(ManagedChangeRequest,100).status='Needs More Information'
             elif action=='editor-reset':
                 # Owned synthetic fixtures only. Restore baseline after each write
@@ -162,7 +175,7 @@ def pilot_http(workspace,request):
         assert not thread.is_alive(), "Owned HTTP cleanup failed"
 
 
-@pytest.mark.parametrize("selection", ["security", "presentation", "forward", "reverse", "session-boundaries", "systems", "systems-layout", "systems-forward", "systems-reverse", "systems-probe", "dashboard", "dashboard-layout", "dashboard-boundaries", "dashboard-forward", "dashboard-reverse", "changes", "changes-forward", "changes-reverse", "editor", "editor-create", "editor-layout", "editor-forward", "editor-reverse"])
+@pytest.mark.parametrize("selection", ["security", "presentation", "forward", "reverse", "session-boundaries", "systems", "systems-layout", "systems-forward", "systems-reverse", "systems-probe", "dashboard", "dashboard-layout", "dashboard-boundaries", "dashboard-forward", "dashboard-reverse", "changes", "changes-forward", "changes-reverse", "editor", "editor-create", "editor-layout", "editor-forward", "editor-reverse",'notices','notices-list','notices-races','notices-forward','notices-reverse'])
 def test_playwright_pilot(pilot_http, tmp_path, selection):
     run_playwright_gate(pilot_http, tmp_path, selection)
 
@@ -177,10 +190,10 @@ def run_playwright_gate(pilot_http, tmp_path, selection, *, expect_success=True)
         PLAYWRIGHT_BROWSERS_PATH=str(pilot / ".browsers"), NODE_ENV="test")
     if os.environ.get("CHANGEFLOW_TEST_ARTIFACTS_ROOT"):
         env["PILOT_VISUAL_ROOT"] = os.environ["CHANGEFLOW_TEST_ARTIFACTS_ROOT"]
-    if selection.startswith('editor'):
+    if selection.startswith('editor') or selection in {'notices-forward','notices-reverse'}:
         env['PILOT_WRITE_NONCE']=os.environ['CHANGEFLOW_TEST_WRITE_NONCE']
     result = subprocess.run([node, str(pilot / "run.mjs")], cwd=pilot, env=env,
-        capture_output=True, text=True, timeout=600 if selection.startswith('editor') else 480 if selection.startswith('changes') else 360 if selection.startswith('dashboard') else 300 if selection.startswith('systems') else 150)
+        capture_output=True, text=True, timeout=660 if selection.startswith('notices') else 600 if selection.startswith('editor') else 480 if selection.startswith('changes') else 360 if selection.startswith('dashboard') else 300 if selection.startswith('systems') else 150)
     # Never forward assertion errors, response bodies, call logs or credentials.
     rows = []
     for line in result.stdout.splitlines():
@@ -201,7 +214,7 @@ def run_playwright_gate(pilot_http, tmp_path, selection, *, expect_success=True)
         assert len([r for r in rows if r.get("status") == "passed"]) == {"security": 7, "presentation": 4, "forward": 11, "reverse": 11, "session-boundaries": 1,
             "systems":5,"systems-layout":1,"systems-forward":16,"systems-reverse":16,"systems-probe":2,
             "dashboard":6,"dashboard-layout":1,"dashboard-boundaries":1,"dashboard-forward":22,"dashboard-reverse":22,
-            "changes":7,"changes-forward":29,"changes-reverse":29,"editor":7,"editor-create":1,"editor-layout":1,"editor-forward":36,"editor-reverse":36}[selection]
+            "changes":7,"changes-forward":29,"changes-reverse":29,"editor":7,"editor-create":1,"editor-layout":1,"editor-forward":36,"editor-reverse":36,'notices':8,'notices-list':1,'notices-races':1,'notices-forward':44,'notices-reverse':44}[selection]
     assert not any(p.suffix in {".zip", ".png", ".webm", ".har"} for p in tmp_path.rglob("*")), "Sensitive artifact capture forbidden"
 
 

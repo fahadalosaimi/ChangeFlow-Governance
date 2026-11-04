@@ -4,9 +4,14 @@ export const systemsNames = ['systems-catalog', 'systems-details', 'systems-race
 export const dashboardNames = ['dashboard-data','dashboard-faults','dashboard-races','dashboard-boundaries','dashboard-roles','dashboard-layout']
 export const changesNames=['changes-list','changes-details','changes-races','changes-boundaries','changes-forbidden','changes-faults','changes-layout']
 export const editorNames=['editor-default','editor-create','editor-revise','editor-validation','editor-uncertain','editor-boundaries','editor-layout']
+export const notificationNames=['notices-list','notices-mark','notices-navigation','notices-races','notices-boundaries','notices-mutation','notices-roles','notices-layout']
 
 export function expectedCases(selection) {
   const all = [...securityNames, ...presentationNames]
+  if(selection==='notices')return [...notificationNames]
+  if(notificationNames.includes(selection))return [selection]
+  if(selection==='notices-forward')return [...all,...systemsNames,...dashboardNames,...changesNames,...editorNames,...notificationNames]
+  if(selection==='notices-reverse')return [...all,...systemsNames,...dashboardNames,...changesNames,...editorNames,...notificationNames].reverse()
   if(selection==='editor')return [...editorNames]
   if(editorNames.includes(selection))return [selection]
   if(selection==='editor-forward')return [...all,...systemsNames,...dashboardNames,...changesNames,...editorNames]

@@ -401,5 +401,86 @@
     "uncertain": "Outcome not confirmed",
     "uncertainBody": "The server may have saved the request. Do not submit it again automatically. Read current records and reconcile the result; no automatic retry will run.",
     "verify": "Check current server records"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "scope": "Events visible to your current workspace and recipient identity.",
+    "unread": "Unread",
+    "read": "Read",
+    "refresh": "Refresh",
+    "filters": "Notification filters",
+    "search": "Search title or message",
+    "type": "Event type",
+    "allTypes": "All event types",
+    "unknownType": "Other event ({{code}})",
+    "status": "Read status",
+    "all": "All notifications",
+    "unreadOnly": "Unread only",
+    "rows": "Rows per page",
+    "apply": "Apply filters",
+    "clear": "Clear filters",
+    "allScope": "Mark all applies to all notifications currently visible to you, across filters.",
+    "markAll": "Mark all as read",
+    "markOne": "Mark as read",
+    "open": "Open related change",
+    "preview": "View details",
+    "less": "Hide details",
+    "actor": "Actor",
+    "linkedChange": "Related change",
+    "readAt": "Server read time:",
+    "unavailable": "Not recorded",
+    "results": "Showing {{visible}} of {{total}} matching notifications",
+    "empty": "No matching notifications",
+    "emptyBody": "Try other filters or refresh. Only events you are currently allowed to view appear here.",
+    "pagination": "Notification pages",
+    "pageOf": "Page {{page}} of {{total}}",
+    "goPage": "Go to page {{page}}",
+    "previous": "Previous",
+    "next": "Next",
+    "legacy": "Open existing notification center",
+    "backToCenter": "Back to notifications",
+    "reconcile": "Reconcile server state",
+    "loading": {
+      "title": "Loading notifications",
+      "body": "Fetching the authorized list and unread count from the server."
+    },
+    "error": {
+      "title": "Notifications unavailable",
+      "body": "The current server response could not be verified. Refresh to try a new read."
+    },
+    "forbidden": {
+      "title": "Notifications are forbidden",
+      "body": "Your current permissions do not allow this operation. Verify your identity or refresh after access is restored."
+    },
+    "missing": {
+      "title": "Notification or related resource unavailable",
+      "body": "The item may be missing or outside your current access. Refresh the authorized list."
+    },
+    "mutation": {
+      "saving": "Updating and verifying",
+      "confirmed": "Server update confirmed",
+      "rejected": "Operation unavailable",
+      "uncertain": "Outcome not confirmed",
+      "observed": "Current server state observed",
+      "updateBody": "Only server responses and fresh reads update this view.",
+      "rejectedBody": "No automatic retry will run. Refresh the authorized data before choosing another action.",
+      "uncertainBody": "The server may have completed the update. Further writes are locked. Reconcile by reading current server data; this never resends the PATCH.",
+      "observedBody": "The current authorized data shows the intended read state. This does not establish which request changed it or whether hidden records were changed."
+    },
+    "types": {
+      "GENERAL": "General notice",
+      "CHANGE_SUBMITTED": "Change submitted",
+      "CHANGE_RESUBMITTED": "Change resubmitted",
+      "CHANGE_APPROVED": "Approval recorded",
+      "CHANGE_REJECTED": "Rejection recorded",
+      "CHANGE_INFORMATION_REQUESTED": "Information requested",
+      "CHANGE_IMPLEMENTATION_STARTED": "Implementation started",
+      "CHANGE_IMPLEMENTED": "Implementation recorded",
+      "CHANGE_IMPLEMENTATION_FAILED": "Implementation failed",
+      "CHANGE_ROLLED_BACK": "Rollback recorded",
+      "CHANGE_CLOSED": "Change closed",
+      "CHANGE_STATUS_UPDATED": "Status updated",
+      "CHANGE_DECISION_RECORDED": "Decision recorded"
+    }
   }
 }

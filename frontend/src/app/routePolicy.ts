@@ -26,6 +26,7 @@ export const destinations: readonly WorkspaceRoute[] = [
 export function resolveWorkspaceRoute(path: string): WorkspaceRoute | null {
   const known = destinations.find(route => route.path === path)
   if (known) return known
+  if(path==='/legacy/notifications')return {path,title:'notifications:legacy',permission:'notifications.own',icon:'bell',view:'notifications'}
   if(controlledWritesAvailable&&path==='/development/changes/new')return {path,title:'editor:create',permission:'changes.create',icon:'plus'}
   const editor=/^\/development\/changes\/([1-9]\d*)\/revise$/.exec(path)
   if(controlledWritesAvailable&&editor&&Number.isSafeInteger(Number(editor[1])))return {path,title:'editor:revise',permission:'changes.revise',icon:'changes',changeId:Number(editor[1])}

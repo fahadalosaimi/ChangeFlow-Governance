@@ -27,9 +27,10 @@ export function createApplicationRouter(runtime: AuthRuntime) {
           { path: '/systems/:systemId', lazy: async () => ({ Component: (await import('../features/systems/SystemsPages.tsx')).SystemDetailsPage }) },
           { path: '/changes', lazy: async () => ({ Component: (await import('../features/changes/ChangesPages.tsx')).ChangesListPage }) },
           { path: '/changes/:changeId', lazy: async () => ({ Component: (await import('../features/changes/ChangesPages.tsx')).ChangeDetailsPage }) },
+          {path:'/notifications',lazy:async()=>({Component:(await import('../features/notifications/NotificationsPage.tsx')).NotificationsPage})},
           ...['/development/changes/new','/development/changes/:changeId/revise'].map(path=>({path,lazy:async()=>({Component:(await import('../features/change-editor/EditorPage.tsx')).EditorPage})})),
           { lazy: async () => ({ Component: (await import('../app/LegacyWorkspaceAdapter.tsx')).LegacyWorkspaceAdapter }), children: [
-            ...['/legacy/changes', '/legacy/changes/:changeId', '/changes/new', '/changes/:changeId/revise', '/foundation', '/users', '/notifications']
+            ...['/legacy/changes', '/legacy/changes/:changeId', '/legacy/notifications', '/changes/new', '/changes/:changeId/revise', '/foundation', '/users']
               .map(path => ({ path, Component: EmptyRoute })),
           ] },
         ],

@@ -1,6 +1,6 @@
 # ChangeFlow Governance — A5-T4 / T4-A
 
-> أحدث حالة: **T4-C2A ACCEPTED FOR DEVELOPMENT CHECKPOINT — SAVE AUTHORIZED** في §29. وافق المالك على Commit واحدة وPush للفرع المعتمد بعد بوابة الحفظ. نماذج الكتابة الجديدة تبقى مغلقة تشغيليًا؛لاC2B أوBatch B/C/D أوProduction Approval.
+> أحدث حالة: **T4-D1 ACCEPTED FOR DEVELOPMENT CHECKPOINT — SAVE AUTHORIZED** وفق §31. موافقة المالك تسمح بـCommit واحدة وPush للفرع المعتمد بعد بوابة الحفظ. لاD2/E أوBatch B/C/D أوتفعيلCreate/Revise التشغيلية أوProduction Approval.
 
 **Goal:** جرد الوظائف القائمة وعقودها، وتحديد نقل تدريجي قابل للمراجعة دون فقد سلوك أوتوسيع صلاحيات.
 
@@ -2173,3 +2173,170 @@ Baseline قبل تعديل الوثائق: Local/Remote HEAD `883629bcc1fc2749b9
 المخاطر ثابتة: **Risk Rules GLOBAL — Batch B**؛**No Server-Side Idempotency Guarantee**؛**Unknown Mutation Outcomes require explicit reconciliation**؛CAB Enforcement **Batch C**؛Session Revocation/F2/Hardening **Batch D**؛Legacy Demo Credentials وFastAPI Cleanup Timeout **Unresolved**؛Historical CDP Findings **Open**؛Full Browser Suite Parity **Not Established**؛Production Readiness **Not Approved**. لا إعادةتصنيف بأدلةالتطوير الحالية.
 
 **T4-C2A ACCEPTED FOR DEVELOPMENT CHECKPOINT — CONTROLLED SYNTHETIC MODE ONLY.** C2B والتفعيل الرسمي يحتاجان تفويضًا منفصلًا وحلRisk Rules Isolation/تدقيقها ضمنBatch B وسياسةمعتمدةللنتائجغيرالمحسومة والتعارضات ونقلالكتابة،كمافي§28.8. لاC2B أوT4-D/E أوBatch B/C/D أوGemini أوMigrations/Deployment/real data فيمهمةالحفظ. التوقفبعدCommit وPush والتحقق والتقرير،وانتظارموافقةصريحةقبلأيتطويرأوتفعيلجديد.
+
+## 30. T4-D1 — Notifications Center Implementation Plan — 2026-11-04
+
+> **For Codex:** Execute the explicitly authorized D1 plan task-by-task in this session. No delegation or Git writes. Backend isolation proof precedes activation of the new mark-as-read client.
+
+**Goal:** نقلNotifications إلىFeature مستقلة تحفظوظائفLegacy وعزلTenant/Recipient/linked-resource،معmark-read مصرحبهافيD1 فقط.
+
+**Architecture:** Notifications API/decoders/query وواجهةمملوكةللميزة،فوقClient/Gateway وC1 ChangesResource/hook القائمة. Mutation controller مستقلةلدورةmark/reconcile المتكررة؛لاglobal cache/polling. `/notifications` الحديثةبعدالتكافؤ،و`/legacy/notifications` تحفظالقديمة. الروابطمشتقةمن`change_request_id` فقط،ولاURL منمحتوىالإشعار.
+
+**Tech Stack:** React/TypeScript/i18next/CSS tokens وNode tests وPlaywright/FastAPI/owned PostgreSQL القائمة؛لاdependencies جديدة.
+
+**Spec:** طلبالمالكT4-D1 المرفقبهذهالمحادثة،خاصة§§2–6 و§8 و§§9–12. Baseline b50cd0b المحليةوالبعيدة،Working Tree/Staging نظيفتان؛master10faab2 ثابتة.
+
+**Global Constraints:** D1 فقط؛لاD2/E أوBatch B/C/D أوتفعيلCreate/Revise التشغيلية أوRisk/CAB/JWT/PermissionMatrix/Models/Migrations changes،ولاPush/WebSocket/Email/Gemini/real credentials/Git writes/Deployment.
+
+**Review Focus:** hidden linked rows must remain unchanged byread-all؛read_at خادميةفقط؛lost mutation receipt لايعنيfailure؛pagination/filter change لايسببold navigation؛unknown event labels لاتتحولإلىURL أوموردغيرمدعوم.
+
+| Legacy function قبلتحويلالمسار | بديلD1 المخطط / الحفاظ |
+|---|---|
+|Unread count|GETunread-count scoped؛لاzero افتراضيةعندالخطأ |
+|List/title/message/actor/type/created/read state|DTO كاملةوPreview محلية؛لاmetadata مخترعة |
+|All/Unread،type،search|نفسserver filters،Query serialization وURL/history معmemory-only fallback |
+|Pagination/page-size/total|metadata الخادمية،bounded page controls وتصحيحout-of-range بقراءةفقط |
+|Mark One|PATCH واحدة وresponse validated ثمfresh count/page؛timestamp منالخادم |
+|Mark All|PATCHread-all تشملكلالمرئيالمصرحبهمتجاوزةفلاترالواجهة؛updated_count منالخادم وrefetch،بدلLegacy browser-time fallback |
+|Open Linked Item|mark unread ثمfreshGET للموردوتحققgrants/binding قبلrouter؛الانتقاللايثبتaccess |
+|Errors/refresh|حالاتصريحةومحاولةقراءةيدوية؛unknown write لاretry تلقائية |
+|Permissions|notifications.own والعزلخادميان؛linked changes.read منcurrent DB role |
+|Legacy path|`/legacy/notifications` بنفسgrant وAdapter،بلاApp.tsx deletion |
+
+- [x] **Task1 — Backend permission/isolation gate:** `backend/tests/test_a5_t4_d1.py`،owned ORM PG فقط؛counts/filters/search/pages/mark one/all/recipient/foreign actor/linked visibility/current roles/inactive membership/idempotent repeat وhidden rows unchanged. إعادةاستعمالاختباراتorphan/quarantine الحالية دونإضعافها؛أيsecurity gap حقيقيةتوقفwrite activation.
+- [x] **Task2 — RED→GREEN contracts:** `frontend/tests/notifications.test.ts` ثم `frontend/src/features/notifications/{query.ts,decoders.ts,api.ts,mutation.ts}`. APIs الأربعةالموجودة،DTO IDs/dates/ownership/counts/page consistency،safe fixedchange destination،double submit/epoch/no retry/uncertain/read-only reconciliation. استعمالC1 resource للقراءاتومفاتيحbinding/query.
+- [x] **Task3 — Page/parity/UI:** `NotificationsPage.tsx` و`notifications.css` وnamespace`notifications`ar-SA/en،وتحويلrouter معLegacy alias بعدTask1/2. Unread badge/cards/preview/filterform/44px actions/focus/RTL/LTR/Dark/Light/reduced-motion. Mark/Open منفصلانوOpen يعلّمunread أولًا؛لاglobaltoast أوtimestamp optimistic أوpolling.
+- [x] **Task4 — Browser/bounded verification:** `frontend/e2e/playwright/notifications.mjs` وstrict gate registry؛D1 list/read/mark-all/pages/filter+search races/200+401/session/role/unknown outcomes/navigation/Axe و20layouts. Security/P02/B1/B2/C1/C2A/D1 Forward/Reverse؛C2A guard remainsclosed ordinary build،test plugin فقطلـcombined ownedfixtures. Frontend/PG/Typecheck/Build/Lint/Gitleaks/diff/cleanup/Manifest ثمالتقريروالتوقف.
+
+**Design:** Obsidian#151a18/Forest#28352f/Sage#b8f28b/Sand#d9c8a9/Ivory#f4f1e8 عبرtokens وReadex Pro. Header معunread badge،filterbar،notification cards بخطaccent للـunread ونصread/unread،Preview وactions واضحة،pagination خادمية؛لاcharts أوزخارفازدحام،وmobileعمودواحد.
+
+
+### 30.1 Baseline وNotification Contracts
+
+بدأ D1 على `b50cd0b8be8de3961e90f9a759b76ad033cc1cc5` محليًا وبعيدًا،في `feature/phase2-batch-a-tenant-security` وorigin الرسمي؛Working Tree وStaging نظيفتان. master المحلية والبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`. التفويض لهذه الدفعة وحدها؛لا صلاحية Commit/Push. راجعت Legacy وClient/Gateway/AuthRoot وRoute Policy والعقود الحالية قبل النقل،وأثبتت اختبارات PostgreSQL حدود الكتابة قبل تفعيل عميل mark-as-read.
+
+| API القائمة | الدلالة والنتيجة | Permission / Safety |
+|---|---|---|
+|GET `/notifications/unread-count`|`unread_count` صحيحة غير سالبة؛تخص كل غير المقروء المرئي الحالي،لا مرشح الشاشة|`notifications.own`،العزل الخادمي قبل العد|
+|GET `/notifications/paged`|`page`≥1،`page_size`1..100،`unread_only`،`notification_type` و`search`؛items/total/page/page_size/total_pages خادمية،ترتيب created_at DESC ثم id DESC|نفس scope قبل البحث والعد والتقسيم؛لا تجميع من صفحة جزئية|
+|PATCH `/notifications/{id}/read`|DTO الإشعار؛server read_at عند أول تعليم،التكرار يحافظ على الوقت|foreign/invisible/missing تعيد404 عامة،لا client ownership بديلة|
+|PATCH `/notifications/read-all`|`updated_count` فقط؛كل unread المرئية الحالية،وليس مرشح الشاشة|لا تغيير hidden/foreign/already-read؛Refetch القائمة والعداد بدل timestamps محلية|
+
+العزل الحالي يفرض current organization وrecipient وactive membership،وactor محلية أوnull،ومرئية change المرتبطة وفق current DB role وRequester own-only وtenant consistency. GENERAL غير المرتبطة موثوقة؛orphan CHANGE_* والصفوف المعزولة بعقد visibility لا تظهر ولا تتغير. `notification_type` string وليست resource-kind enum؛يسمح Backend بتسمية Legacy غير معروفة إذا بقي FK صحيحًا ومرئيًا. لم تُخف هذه الصفوف لمجرد تسمية غير معروفة.
+
+| Current role / case | Read/mark result |
+|---|---|
+|الأدوار الثمانية المعروفة ومنهاRequester وSystem Administrator|`notifications.own` تمنح الوصول للإشعارات الخاصة؛ظهور linked change يعتمد على grants/own-only الحالية|
+|System Administrator بلاchanges.read|GENERAL فقط في fixture؛linked row مخفية وPATCH عليها404؛لا زرOpen|
+|Unknown role بلاnotifications.own|403 على المسارات الأربعة،دون كشف صفوف|
+|Inactive membership|401 على المسارات الأربعة|
+|Foreign tenant / recipient / actor / linked change / orphan|غير ظاهرة فيcount/page؛PATCH مرفوضة،read-all لا تمسها|
+
+لم تتغير Production Backend أوJWT أوPermission Matrix أوModels/Migrations أوRisk/CAB. لا409 موثقة لهذه المسارات حاليًا؛الواجهة تتعامل مع رفض409 لوورد منTransport دون اختراع State Machine جديدة.
+
+### 30.2 Feature Architecture وRuntime Validation
+
+`frontend/src/features/notifications` تملك query/decoders/api/mutation/page/styles. النقل عبر Workspace Gateway وApiClient الحاليين،والقراءات تستخدم C1 `ChangesResource` دون Cache أوState library جديدة. مفتاح resource يضم binding وquery؛تغيير الجلسة أوالمرشح يخفي snapshot السابقة عند render،والـabort/epoch تمنع late publication. React StrictMode باقية،وProduction Artifact تبنى بـNODE_ENV=production وفق runner المعتمد.
+
+Decoders تفحص root وأنواع الحقول وsafe positive IDs وtenant/recipient وbool والتواريخ وnullable metadata،وتطابق PATCH id المقصودة وis_read=true. Page metadata يجب أن تطابق query والحساب الخادمي،بلاduplicate IDs أوصفوف مخالفة لفلاترunread/type. غيابcount أوpayload غير صالحة خطأ،وليس0/empty ناجحة. `is_read=true,read_at=null` مسموحة فيschema القديمة؛تعرض «غير مسجل»،ولا تُخترع timestamp. تاريخ UTC-naive من backend يفسرUTC،وIntl يعرض الأرقام والتواريخ. النصوص المخزنة لا يعاد تفسيرها كـHTML أوURL.
+
+Query تبقى server-side وURLSearchParams،مع البحث `billing/payments` المشفر `%2F`؛لا تعديل إضافي لسياسةClient. يدعم all/unread/type/search/page و5/10/20،وقيم page_size الصحيحة1..100 فيdeep links. Unknown labels تحتفظ بقيمAPI. memory-only session لا تسرب query إلىURL؛return state تمر عبر decoder ثمserialize ومسار ثابت.
+
+### 30.3 Mark-as-Read Lifecycle وSafe Navigation
+
+قفل متزامن يمنع double submission قبلawait. الحالات idle/saving/confirmed/rejected/uncertain/observed مستقلة؛لاautomatic mutation retry أوoptimistic timestamp/count. PATCH receipt متحققة ثمfresh count/page قبلconfirmation. فشلHTTP4xx محدد قبلacknowledgment رفض قابل للتصحيح؛network/timeout/5xx/invalid receipt/فقدتأكيد ما بعدcommit تبقي النتيجة **uncertain** والكتابة مقفولة. Cancel لا يثبت أن الخادم لم يحفظ. لاglobal toast أوتنقل منold session؛scope/binding/epoch تفحص بعد كلawait وقبلبدءقراءة لاحقة والتنقل.
+
+المصالحة صريحة وقراءة فقط: one/open تبحث عنID ضمن GET page محدودة100 بالـtype/title،وغيابها **inconclusive** لايفتحretry. لاGETsingle notification أوoperation-id فيالعقد. read-all تفحص unread_count الحالية=0 ثمfresh snapshot؛هذا يثبت حالةscope المرئية الآن فقط،ولا يثبت أيطلبسببالتغيير أوحالةصفوفأصبحت مخفية. الحالة observed مختلفة عنconfirmed،ولا تنفذOpen تلقائيًا. قد يبقىunknown مقفولًا عند وصولإشعارجديد أواختفاءالصف؛لاpolling أوunbounded scan. Manual refresh أثناءunknown لايعيدPATCH ولايمحوعدم اليقين.
+
+Open يشتق فقط `/changes/{safe change_request_id}` منFK معلومة النوع وcurrent changes.read؛لاURL منtitle/message/type/extra url. يعلّمunread أولًا،ثمGET فعلية للـChange مع C1 decoder/Requester constraint،ثمrefresh وscope check قبلRouter. 403/404 لا تفتح موردًا ولا تبقيبياناتقديمة. Router وDetails يعيدانفحصالوصول؛preflight ليستauthorization دائمة. Back إلىnotifications يعيدquery متحققة علىمسار ثابت،ولايقبلraw return URL.
+
+### 30.4 Legacy Parity وUI/Localization
+
+مصفوفة §30 كُتبت قبلتحويلالمسار. تحققت count/list/full preview/all-unread/type/search/server pagination/mark one/all/open/errors/permissions في D1 contracts وPG وBrowser. الاختلاف المقصود: Apply واضحة للمرشحات،والـread-all تشملكلscope معوصفصريح؛عرضread_at خادمي/refetch بدلLegacy browser-time fallback. **لا تغيير App.tsx أوLegacy Adapter**؛`/legacy/notifications` بنفسgrant تحتفظبالوظائفالقديمة،ولم يُعتبرسلوكهاالقديممعتمدًابنجاحD1.
+
+التنقل الرئيسي وBreadcrumbs يستعملانnotifications الحالية القائمة فيroutePolicy؛تحويلlazy route فقط،مععقدعودةمحددفيChange Details. Dashboard/Systems/Changes/Create/Revise/History/Approvals/Implementation/Foundation/Auth/Invitations محفوظة. C2A تبقى default-deny فيالبناءالعادي؛الجولتان المشتركتان تبنيانordinary artifact مستقلة لاختبارالرفض،ثمcontrolled synthetic artifact بإثباتownedPG/nonce لاختبارC2A القائمة؛لاoperational activation.
+
+Obsidian & Sage وReadex Pro وtokens الحالية؛Unread واضحةبالنصوالأيقونةوالحدود،وبطاقةPreview كاملة وحقولمرشحات معنونة وحالاتloading/empty/error/forbidden ومصالحة. namespace notifications كاملة ar-SA/en،بمافيها13تسميةمدعومة وunknown label والأخطاء وARIA. Approval تعنيحدثًا مسجلًا،لاتعنيCAB enforcement. المخزن titles/messages/actors يبقىكماهو معbdi. لابياناتوهمية أوRisk/Gemini claims أوPush/WebSocket/Email/polling.
+
+D1 layout: **20 تركيبة لكل ترتيب** =5عرض ×2لغة ×2ثيم،360/390/768/1366/1440؛لاoverflow،وأهدافmain التفاعلية≥44px،وAxe WCAG2/2.1/2.2 A/AA صفرمخالفات،Tab/ShiftTab وfocus-visible وReduced Motion ناجحة. شاهدتلقطتينمصطنعتينمقتصرتينعلىالميزةخارجGit (desktop dark EN وmobile light AR)،دونهويةShell أوtokens. الجولاتالنهائية لاتحفظtraces/screenshots/video/HAR.
+
+### 30.5 RED→GREEN وQuality Evidence
+
+| البوابة | النتيجة النهائية |
+|---|---|
+|Frontend unit/contracts + runner contracts|119/119،0failed/0skipped؛8D1 test bodies الجديدة ضمنها|
+|Relevant Backend regression|139/139،منها119PostgreSQL+20unit/memory،0failed/0skipped،131.75s؛ownedPG cleanup completed|
+|D1 PostgreSQL المستقلة قبل تفعيل العميل|16/16،19.66s؛mark one/all محفوظتان فعليًا والصفوفالخارجية لم تتغير|
+|D1 Browser المستقلة|8/8،39.47s؛contexts0/browser_exit0/runner_exit0 وcleanuppassed|
+|Combined Forward / Reverse|44/44 لكلترتيب،2pytest wrappers passed في282.18s؛strict contract تفرض العددوالأسماء وعدمskips|
+|تكوينكلCombined|Security7 +Presentation4 +B1خمسة +B2ستة +C1سبعة +C2Aسبعة +D1ثمانية =44|
+|Typecheck / Production Build / Lint|test/app/config ناجحة؛135modules transformed؛0warnings/0errors|
+|Working Copy Gitleaks / syntax / diff / cleanup|Gitleaks8.30.1:0findings على25WorkingCopy files كاملة؛integrity/positive synthetic detection-redaction وUTF-8/JSON/Python/JS syntax/new-file whitespace وgit diff --check ناجحة؛cleanup0owned processes/0run roots/0frontend roots|
+
+D1 cases: notices-list،notices-mark،notices-navigation،notices-races،notices-boundaries،notices-mutation،notices-roles،notices-layout. تحملالـBrowser بوابة7Security الأصلية وP02MotionNegative/reduced-motion دونإضعافها. Fake transport يستخدمفقطللأعطالالمضبوطةبعداختبارالـHTTP الحقيقي،وownedFastAPI/PostgreSQL يثبتانالإذنوالحفظ. لا.env تشغيلية ولاsetup/bootstrap/migrations. Forward/Reverse تشاركاننفسالـ44سيناريو؛لاتُجمعكتغطيةمستقلةولايثبتنجاحهااستحالةflakiness.
+
+**Failure ledger محفوظ:** (1) 8/8Frontend RED بسببغيابmodules ثم8/8GREEN. (2) notices-list RED قبلUI،ثمأولD1run7/8: test حاولselect page_size2 غيرالمعروضضمن5/10/20؛صُححالfixture لاستخدامdeep link صحيحة2،معالإبقاءعلىassertions الصفحتين. التصنيفTest Fixture. (3) اختبارسلبيمضبوطأظهرسباقًا: Open بعدPATCH حقيقيةيمسكtarget GET،ثمBrowser Back يغيرquery؛ردGET المتأخركانيمكنهبدءrefresh للمرشحالسابق وإلغاءالقراءةالحالية. RED0/1،التصنيفFrontend Resource Lifecycle Race. أضيفscope/currentBinding guard **قبل**resource.load وبعدtarget؛نجحتD1 كاملة ثمالجولتان. ليسBackend security gap أوإصلاحCDP. (4) تقريرBackend الأوللميبقملخصهالنهائيمتاحًامنsession؛أُعيدنفسRegression المحدد مرةلاستعادةدليلنهائي،بلازيادةنطاقأواحتسابتغطيةإضافية. (5) آخرتقويةللاختباراتقارنتDOM read_at معreceipt وfresh server rows بالضبطبدلصيغةتاريخعامة؛الجولتانتشملانها،ثمأُعيدFrontend all القصير. لاإخفاققديمتحوللنجاحبأثررجعي،ولامحاولاتعمياء.
+
+PG يختبرrecipient/tenant/actor/linked visibility والـRequester والـ9roles،وactive membership،والـcount/type/slash-search/paging،وservertimestamps وتكرارmarkone/all وعدممسhiddenrows. Browser يختبرlate200/401 عندTenant2،pendingPATCH committed ثمswitch دونsuccess/navigationقديمين،وlostreceipt بعدcommit معGETreconciliation فقط،وcurrent-role403/foreign404،وLegacyalias وsafeOpen404 وbackquery. Unread/page GETs منفصلتان وليستاsnapshot transaction واحدةعندوصولأحداثمتزامنة؛لايُفرضتطابقرياضيكاذببينcountعاموفلترصفحة.
+
+### 30.6 Changed-File / Checkpoint Manifest
+
+**16 Modified +9 New =25 files**،Staging فارغة؛كلالتغييراتلهذهالدفعةمنbaselineنظيفة. المراجعةوالفحصللمحتوىالكاملWorkingCopy،وليستStagedBlobs أوhistoryscan. لاGitwrites.
+
+|حالة|الملف|الغرض|
+|---|---|---|
+|M|`backend/docs/development_master_plan.md`|حالةD1 وحدودالدُفعةالتالية|
+|M|`backend/docs/phase2_a5_t4.md`|الخطةوالعقودوالأدلةوالتكافؤوالـManifest|
+|M|`backend/tests/test_a5_playwright_pilot.py`|ownednotice fixtures/reset وstrict wrappers/combined selection|
+|M|`frontend/e2e/playwright/gate-contract.mjs`|8D1 و44combined contract|
+|M|`frontend/e2e/playwright/gate-contract.test.mjs`|رفضنقصالحالاتوالبواباتالقديمة|
+|M|`frontend/e2e/playwright/pilot.spec.mjs`|تسجيلD1 وfixture lifecycle|
+|M|`frontend/e2e/playwright/playwright.config.mjs`|bounded D1 suite timeout؛retries0|
+|M|`frontend/e2e/playwright/reporter.mjs`|allowlist metadata دونrawerrors|
+|M|`frontend/e2e/playwright/run.mjs`|C2Acontrolled mode للتشغيلالمشتركفقط|
+|M|`frontend/scripts/verify.mjs`|تسجيلFrontendD1 contracts|
+|M|`frontend/src/app/routePolicy.ts`|Legacy notifications alias بنفسgrant|
+|M|`frontend/src/app/router.tsx`|lazy feature route والـalias|
+|M|`frontend/src/features/changes/ChangesPages.tsx`|safe validated return إلىNotifications|
+|M|`frontend/src/localization/index.ts`|namespace notifications|
+|M|`frontend/src/localization/locales/ar-SA.json`|النصوصالعربيةوالـARIA والحالات|
+|M|`frontend/src/localization/locales/en.json`|النصوصالإنجليزيةوالـARIA والحالات|
+|N|`backend/tests/test_a5_t4_d1.py`|16PG permission/isolation/markread tests|
+|N|`frontend/e2e/playwright/notifications.mjs`|8browser scenarios و20layouts|
+|N|`frontend/src/features/notifications/NotificationsPage.tsx`|feature page/filters/preview/resources/actions|
+|N|`frontend/src/features/notifications/api.ts`|typed APIs وtarget/reconciliation reads|
+|N|`frontend/src/features/notifications/decoders.ts`|DTO/count/page/owner/date/destination validation|
+|N|`frontend/src/features/notifications/mutation.ts`|duplicate lock/epoch/uncertain/reconciliation|
+|N|`frontend/src/features/notifications/notifications.css`|responsive token styles|
+|N|`frontend/src/features/notifications/query.ts`|server query parsing/serialization|
+|N|`frontend/tests/notifications.test.ts`|8unit/contract/lifecycle tests|
+
+لا.env أوSecrets/credentials حقيقية أوPostgreSQL files/dumps أوbrowser binaries أوnode_modules/build outputs أوraw diagnostic logs/temporary artifacts أوصور/traces/HAR/videos ضمنManifest. لمتتغيرlicenses/resources المحلية أوpackage/package-lock أوdependencies. ProductionBackend/Models/Migrations/JWT/Permissions/Risk/CAB وClient/Gateway/AuthRoot/AuthProvider وApp.tsx/LegacyAdapter وchange-editor boundary والتنفيذالقديممحفوظة. الأدلةالمنقحةوبصماتSHA256 النهائيةخارجGit في`t4-d1-final-scan` بجانبسجلاتالتحققالمحلية؛لاsecretmatches/rawbodies مخزنة.
+
+### 30.7 Decision / Open Risks / T4-D2
+
+**T4-D1 READY FOR DEVELOPMENT CHECKPOINT REVIEW.** وظائفNotifications المنقولةوالـmark-as-read المصرحبهااختبرتضمنبيئةاصطناعيةمعزولة،معالحفاظعلىLegacy وإصلاحسباقscope المثبت. هذهجاهزيةمراجعةحفظتطويرفقط؛لاCommit/Push أوDeployment أوproductionapproval،ولاT4-D2/E أوC2B أوBatch B/C/D. Create/Revise الجديدةتبقىمغلقةتشغيليًا. HEAD تبقىb50cd0b حتىموافقةحفظمنفصلة.
+
+حدودD1: reconciliation محدودة100صف وقدتكونinconclusive؛لاoperation-id/server idempotency/versionprecondition. observedلايثبتسببالكتابة،وقفلUI ليسحمايةمنHTTPreplay. تركالصفحةبعدإرسالPATCH قديفقدحالةعدم اليقينالمحلية؛لاافتراضعدمcommit ولاretryتلقائية. الدورقديتغيربعدtargetGET؛الـDetails/Backend يعيدانفحصه. Count/pageليستاatomic. labelsالمستقبليةتعرضكماهي،ولاقدرةNotification delivery جديدة. Legacybrowser-time fallback باقيةتاريخيًاوليسمعتمدةبهذهالدفعة.
+
+المخاطرالتاريخيةباقيةدونإغلاق: **Historical CDP Findings Open؛FastAPI Cleanup Timeout وLegacy Demo Credentials Unresolved؛Risk Rules Isolation Batch B؛CAB Enforcement Batch C؛Session Revocation/F2/Hardening Batch D؛Full Browser Suite Parity Not Established؛Production Readiness Not Approved.** نجاحcleanup الحاليلايثبتحلالـtimeout التاريخي. لااختبارمتصفحاتمتعددةأوmigration/productionrelease فيهذهالأدلة.
+
+**المقترحالمحدد لـT4-D2،ولميبدأ:** نقلUsers/Invitations الموجودةفقطإلىFeatureOwned UI بعدتفويضمنفصلومراجعةالعقودوالصلاحياتوالتكافؤ؛حمايةtenant/session/recipient وruntimevalidation وbinding/abort/epoch،واختباراتownedPG وSecurityGate،دونتوسيعroles/grants أوSessionRevocation أوemaildelivery أوBatchD أوتغييرJWT. التوقفعندD1 وانتظارموافقةالحفظوأيتطويرتالٍ.
+
+## 31. T4-D1 — Approved Development Checkpoint — 2026-11-04
+
+وافق المالك صراحة على حفظ Enterprise Notifications Center بإنشاء Commit واحدة بالرسالة `feat(a5): add tenant-safe notifications center` ثم Push عادي إلى `origin/feature/phase2-batch-a-tenant-security` فقط. هذا التفويض يحل محل انتظار موافقة الحفظ في §30.7؛لا يسمح ببدءD2 أوأي مرحلة أخرى أوProduction Approval. خطة §30 ونتائجها وقيودها سجل تنفيذ تاريخي محفوظ.
+
+Baseline مهمة الحفظ: Local/Remote HEAD `b50cd0b8be8de3961e90f9a759b76ad033cc1cc5`،master المحلية والبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`،والفرع وorigin الرسميان. الحالة **16Modified+9New=25files،Staging فارغة** مطابقة Manifest §30.6. تطابقت SHA256 لكل الملفات الـ25 مع `t4-d1-final-scan/gitleaks-summary.json`،بما فيها scope-race correction وأقوى assertions لمطابقة server read_at. التغيير اللاحق في مهمة الحفظ يقتصر على تسجيل هذا الاعتماد في وثيقتي التقرير والخطة؛لا تغيير للتنفيذ أوالاختبارات ولا سبب لإعادة الجولات الطويلة.
+
+الأدلة المقبولة: Frontend119/119،Backend139/139 منها119PostgreSQL و20unit/memory،D1Browser8/8،Combined44/44 لكل ترتيب. تشمل Security7 وPresentation4 وB1خمسة وB2ستة وC1سبعة وC2Aسبعة وD1ثمانية. Typecheck وProductionBuild135modules وLint0warnings/errors،وWorkingCopy Gitleaks0 وsyntax/diff/cleanup ناجحة. 20D1layouts لكل ترتيب عبر5widths واللغتين والثيمين،بلاAxe/overflow،مع44px targets وkeyboard/focus/reduced-motion. لا جمع للجولات المتداخلة كتغطية مستقلة. StrictMode وProduction Artifact المعتمدة محفوظتان؛C2A default-deny في البناء العادي دون تفعيل تشغيل جديد.
+
+المراجعة النهائية للـ25 ملفًا تؤكد notifications.own والعزل الخادمي الحالي للـtenant/recipient/linked change/requester/current role وactive membership،ولا تعديل صفوف hidden/foreign عندread-all. لا صلاحيات جديدة أوtimestamps مخترعة أوautomatic mutation retry. Receipt متحققة ثمfresh read قبلconfirmed؛unknown outcome تبقى locked حتى reconciliation صريحة،وقد تبقى غير محسومة بعد lookup المحدودة. No stale response/toast/navigation عبرbinding/abort/epoch،والـscope guard قبلresource.load يمنع سباقOpen/filter المثبت. روابط ثابتة منFK آمنة وcurrent grant وtarget GET؛لاURL مننص الإشعار. Count/List منفصلتان وليستاatomic snapshot،والواجهة لا تدعي ذلك.
+
+`/notifications` تستخدمFeature الحديثة،و`/legacy/notifications` بنفسnotifications.own والـAdapter تحفظ الوظائف القديمة. App.tsx/LegacyAdapter وClient/Gateway/AuthRoot/AuthProvider وJWT/PermissionMatrix وProductionBackend/RiskEngine/CAB وModels/Migrations وdependencies/package-lock لم تتغير. لا.env/secrets/credentials فعلية أوtokens أوbrowser binaries/node_modules/build outputs/PG clusters/dumps أوصور/traces/HAR/video/raw logs/temporary scan artifacts ضمنManifest. ما في tests بياناتاصطناعية فقط؛Legacy Demo Credentials التاريخية لم تُغيّر ولم تُعتمد.
+
+بوابة الحفظ: `git add --` بأسماء Manifest الـ25 فقط،مطابقةIndex بالأسماء والمحتوى المراجع بعدGit newline normalization الموثقة،و`git diff --cached --check` ثمGitleaks8.30.1 على **Staged Blobs الفعلية كاملة**. يلزم integrity للأداة وsynthetic positive detection/redaction و0findings؛أي اختلاف غيرمتوقع يوقفالحفظ. Metadata المنقحة وبصماتIndex خارجGit في`t4-d1-checkpoint-staged-scan`. نتيجةCommit SHA والدفع ومطابقةRemote ونظافةWorkingTree وفراغStaging وثباتmaster يثبتهاGit والتقريرالنهائي؛لاForce/Amend/Rebase/Merge/PR.
+
+المخاطر باقية دونإعادةتصنيف: **Uncertain Mutation Outcome may remain unresolved after bounded reconciliation؛Unread Count/List not atomic؛Historical CDP Findings Open؛FastAPI Cleanup Timeout وLegacy Demo Credentials Unresolved؛Risk Rules Isolation Batch B؛CAB Enforcement Batch C؛Session Revocation/F2/Hardening Batch D؛Server-Side Idempotency Not Established؛Full Browser Suite Parity Not Established؛Production Readiness Not Approved.** لا يغلقcleanup الحاليfinding تاريخية،ولاOpen preflight ضمانوصولدائم أوUI lock حمايةمنHTTPreplay.
+
+**T4-D1 ACCEPTED FOR DEVELOPMENT CHECKPOINT. T4-D2 READY FOR SEPARATE EXECUTION AUTHORIZATION / NOT STARTED.** المقترح المحدد في§30.7 هوUsers/Invitations ضمنالعقودالقائمةبعدتفويضمنفصل،ولم يبدأتنفيذه. لاD2/E أوBatch B/C/D أوتفعيلCreate/Revise التشغيلية أوPush/WebSocket/Email/Gemini أوMigrations/Deployment. التوقفبعدCommit وPush والتحقق والتقرير،وانتظارموافقةصريحةقبلأيتطويرجديد.

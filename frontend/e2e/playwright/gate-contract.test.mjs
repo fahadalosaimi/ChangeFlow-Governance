@@ -55,3 +55,13 @@ test('C2A cannot pass without the ordinary-build denial or any existing security
   assert.equal(validateGateResults(rows,'editor-forward',0),true)
   for(const missing of ['editor-default','editor-boundaries','A05','changes-forbidden'])assert.equal(validateGateResults(rows.filter(r=>r.case!==missing),'editor-forward',0),false)
 })
+
+test('D1 gate preserves C2A default denial and all earlier cases and refuses omitted notification mutation/isolation cases',()=>{
+  const notices=['notices-list','notices-mark','notices-navigation','notices-races','notices-boundaries','notices-mutation','notices-roles','notices-layout']
+  const all=[...expectedCases('editor-forward'),...notices]
+  assert.equal(all.length,44);assert.deepEqual(expectedCases('notices'),notices)
+  assert.deepEqual(expectedCases('notices-forward'),all);assert.deepEqual(expectedCases('notices-reverse'),[...all].reverse())
+  const rows=[...all.map(name=>({case:name,status:'passed',duration_ms:1})),{contexts:0,browser_exit:0}]
+  assert.equal(validateGateResults(rows,'notices-forward',0),true)
+  for(const missing of ['notices-mutation','notices-roles','editor-default','A05'])assert.equal(validateGateResults(rows.filter(r=>r.case!==missing),'notices-forward',0),false)
+})

@@ -1,6 +1,6 @@
 # ChangeFlow Governance — Master Development Implementation Plan
 
-> **الحالة الأحدث — 2026-11-04:** T4-C2A مقبولة كـDevelopment Checkpoint،ومصرح بحفظها بـCommit واحدة وPush بعد بوابة الحفظ،وفق §26 وT4§29. نماذج الكتابة الجديدة تبقى مغلقة في النسخة العادية؛لا تفعيل تشغيلي أوC2B أوBatch B/C/D أوProduction Approval.
+> **الحالة الأحدث — 2026-11-04:** T4-D1 مقبولة كـDevelopment Checkpoint ومصرح بحفظها بـCommit واحدة وPush بعد بوابة الحفظ،وفق §28 وT4§31. لاD2/E أوBatch B/C/D أوتفعيلCreate/Revise التشغيلية أوProduction Approval.
 
 > **For Codex:** After plan review and authorization, implement this plan task-by-task using the user-selected execution method and available native tools. Steps use checkbox (`- [ ]`) syntax for tracking. No external framework sub-skill is required.
 
@@ -1041,3 +1041,34 @@ Baseline مطابقة: Local/Remote HEAD `883629bcc1fc2749b975fddc4f87f38d370719
 **T4-C2A ACCEPTED FOR DEVELOPMENT CHECKPOINT — CONTROLLED SYNTHETIC MODE ONLY.** C2B والتفعيلالرسمي يحتاجان تفويضًا منفصلًا،وحلBatch B لعزلوتدقيقRisk Rules وخطةنقلالكتابةوسياسةunknown outcomes/concurrency/reconciliation؛لا تنفيذلهذهالتبعياتهنا. لاC2B أوT4-D/E أوBatch B/C/D أوGemini أوMigrations/Deployment أوبياناتحقيقية.
 
 المخاطر محفوظةدونإعادةتصنيف:Risk Rules **GLOBAL — Batch B**؛**No Server-Side Idempotency Guarantee**؛unknown outcomes تحتاج**explicit reconciliation**؛CAB **Batch C**؛Session Revocation/F2/Hardening **Batch D**؛Legacy Demo Credentials وFastAPI Cleanup Timeout **Unresolved**؛Historical CDP **Open**؛Full Browser Suite Parity **Not Established**؛Production Readiness **Not Approved**. التوقفبعدالحفظوالتحققوالتقرير،وانتظارموافقةصريحةقبلأيتطويرأوتفعيلجديد.
+
+## 27. T4-D1 — Tenant-Safe Notifications Center — 2026-11-04
+
+تفويض D1 فقط،من baseline المحلية والبعيدة `b50cd0b8be8de3961e90f9a759b76ad033cc1cc5`،والفرع المعتمد وorigin الرسمي،وشجرة وStaging نظيفتين. master `10faab20b1c61b5476165bbc1f5d28a2a85e2652` ثابتة. لا Master Plan audit شاملة أوGit writes أوD2/E/Batch B/C/D.
+
+- [x] **Contracts / Backend gate:** APIs notifications الأربع القائمة و`notifications.own` دونتغيير. أثبتPG قبلتفعيلالعميلcurrenttenant/recipient/active membership وlinkedresource/currentrole/requesterown-only،وmarkone/all فعليةمعserverread_at وعدممسhiddenrows. Unknown linked legacy labels مسموحةوفقالعقد؛orphanغيرموثوقةمعزولة. لاProductionBackend أوJWT/PermissionMatrix/Models/Migrations changes.
+- [x] **Feature-owned center:** `/notifications` حديثة query/decoders/API/mutation/page/styles فوقClient/Gateway وC1resource. Count/list/all-unread/type/search/serverpagination/preview/markone/all/open/loading/empty/error/forbidden/manualrefresh كاملة؛لاfake metadata أوclient-time timestamp. namespacear-SA/en وObsidian&Sage وReadex وRTL/LTR/Dark/Light. `/legacy/notifications` بنفسgrant تحفظالقديمة؛App.tsx/Adapter لمتحذف أوتُعدّل.
+- [x] **Mutation/navigation integrity:** duplicate lock وbinding/abort/epoch،لاautomatic retry،confirmationبعدreceipt وfreshread،وuncertainتحتاجمصالحةقراءةصريحةومحدودة. observed الحاليةلاتعنيإثباتسببالكتابة. FK آمنةوchanges.read وfreshGET قبلOpen؛لاURL مننصالإشعار أوتنقلمنجلسةقديمة. BrowserREDأظهرscope race بينtargetGET وBack/filter؛أُصلحguardقبلresource.load ثمGREEN،بلاsecuritybackendchange. التفصيلوالإخفاقاتالتاريخية فيT4§30.5.
+- [x] **Regression / presentation:** Frontend119/119 وD1PG16/16 المستقلة؛Relevant Backend139/139 منها119PostgreSQL و20unit/memory،بلاfail/skip. Browser D1ثمانية/ثمانية،وCombined44/44 forward و44/44 reverse،Security7 وP02أربعة وB1خمسة وB2ستة وC1سبعة وC2Aسبعة وD1ثمانية. 20D1layouts لكلترتيب عند360/390/768/1366/1440 واللغتينوالثيمين؛Axe0/overflow0/targets≥44px/keyboard/focus/reducedmotion ناجحة. Typecheck/ProductionBuild135modules/Lint0warnings/errors ناجحة. لااحتسابالجولاتالمتداخلةكتغطيةمستقلة ولاادعاءانعدامflakiness.
+
+**Legacy/C2A preservation:** Dashboard/Systems/Changes/Create/Revise/History/Approvals/Implementation/Foundation/Auth/Invitations محفوظة. Controlled Create/Revise تبقىdefault-deny فيordinarybuild؛الجولتانالمشتركتانتختبرانالأصلالمغلق ثمownedPG/nonce artifact الاصطناعيةفقط. لاRisk/CAB claims أوPush/WebSocket/Email/Gemini أوdependenciesجديدة.
+
+**Manifest:**16Modified+9New=25 فيT4§30.6؛Stagingفارغة،ولاenv/realcredentials/dumps/binaries/node_modules/buildoutputs/rawlogs أوصور/traces/HAR/video ضمنها. WorkingCopy Gitleaks8.30.1:0findings على25ملفًا،معintegrity وsynthetic positive control؛diff/syntax/cleanup ناجحة. Metadata وبصماتالمحتوىخارجGit في`t4-d1-final-scan`؛WorkingCopy فقط،ليستstaged/historyscan.
+
+**T4-D1 READY FOR DEVELOPMENT CHECKPOINT REVIEW — SAVE REQUIRES SEPARATE APPROVAL.** لاCommit/Push/PR/Merge أوDeployment. Openrisks: boundedreconciliation قدتبقىغيرمحسومة،لاoperation-id/serveridempotency/versionprecondition،count/page غيرatomic،وpreflight لايستبدلالـBackendauthorization. Historical CDP **Open**،FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**،RiskRulesIsolation **BatchB**،CAB **BatchC**،SessionRevocation/F2/Hardening **BatchD**،FullBrowserSuiteParity **NotEstablished**،ProductionReadiness **NotApproved**. لاإغلاقبأثررجعي.
+
+**T4-D2 مقترحة فقط/NOTSTARTED:** Users/Invitations migration للعقودوالقدراتالقائمة،بعدتفويضمنفصل،معtenant/session/grant/runtime/mutation safety وLegacyparity وownedPG/browserregression؛دونroles/JWT/sessionrevocation/emaildelivery أوBatchD expansion. توقفبعدD1 والتقريروانتظرالإذنللحفظأوأيتطويرجديد.
+
+## 28. T4-D1 — Approved Development Checkpoint — 2026-11-04
+
+وافق المالك صراحة على حفظ Notifications Center بإنشاء Commit واحدة `feat(a5): add tenant-safe notifications center` وPush عادي إلى `origin/feature/phase2-batch-a-tenant-security` فقط. التفويض للحفظ؛لاD2/E أوBatch B/C/D أوتفعيلCreate/Revise التشغيلية. يحل محل انتظار موافقة الحفظ في§27،مع بقاء أدلة التنفيذ والإخفاقات وRED→GREEN فيT4§30.
+
+Baseline مطابقة: Local/Remote HEAD `b50cd0b8be8de3961e90f9a759b76ad033cc1cc5`،master المحلية والبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`،الفرع وorigin المعتمدان،16Modified+9New=25 وStaging فارغة. تطابقت SHA256 لكل الـ25 مع أدلة التسليم؛ثم تغيّرت وثيقتا التقرير والخطة لتسجيل الاعتماد فقط. Manifest T4§30.6 دون زيادة،والتنفيذ والاختبارات النهائية دون تغيير؛لا إعادة لجولات طويلة ولا احتساب التكرارات كتغطية إضافية.
+
+النتائج المقبولة: Frontend119/119؛Backend139/139 منها119PostgreSQL؛D1Browser8/8؛Combined44/44 أمامي وعكسي تشملSecurity/Presentation/B1/B2/C1/C2A/D1،Typecheck/ProductionBuild/Lint وWorkingCopy Gitleaks0 وsyntax/diff/cleanup ناجحة. 20D1layouts لكل ترتيب،Axe0/overflow0/targets≥44px وkeyboard/focus/reducedmotion. StrictMode وProduction Artifact محفوظتان،والـC2A ordinary default-deny باقية.
+
+مراجعة الأمان النهائية: Backend هي السلطة للـtenant/recipient/linked change/current roles/requester/active membership. MarkOne/All لا تعدلانhiddenrows؛server read_at فقط،لاautomaticretry أوoldsession completion/toast/navigation. Unknown تبقىlocked للمصالحة الصريحة وقدتبقىغيرمحسومة؛observed لايثبتأيطلبسببالتغيير. Count/List غيرatomic ولايعرضانكـtransaction snapshot. الروابط منFK وfixedroute وgrant وfreshGET؛Legacy alias بنفسgrant بلاحذفAdapter،ولاProductionBackend/JWT/PermissionMatrix/Models/Migrations/Risk/CAB/dependencies changes.
+
+بوابة الحفظ المطلوبة: أسماءManifest الدقيقة مع`git add --`،Index/content match وcached diff check وGitleaks علىStaged Blobs الفعلية قبلCommit،معintegrity وpositive synthetic control و0findings. الأدلة المنقحة في`t4-d1-checkpoint-staged-scan` خارجGit؛لاenv/credentials/binaries/build/PG dumps/صور/traces/HAR/video/rawlogs/temp artifacts ضمنالحفظ. Commit SHA وRemote HEAD ونظافةالشجرة وفراغStaging وثباتmaster يثبتهاGit والتقرير النهائي؛لاForce/Amend/Rebase/Merge/PR/Deployment.
+
+**T4-D1 ACCEPTED FOR DEVELOPMENT CHECKPOINT. T4-D2 READY FOR SEPARATE EXECUTION AUTHORIZATION / NOT STARTED.** تبقى المخاطر: bounded uncertain reconciliation،Count/List غيرatomic،Server-Side Idempotency **Not Established**،Historical CDP **Open**،FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**،RiskIsolation **Batch B**،CAB **Batch C**،SessionRevocation/F2/Hardening **Batch D**،FullBrowserSuiteParity **Not Established**،ProductionReadiness **Not Approved**. لاإغلاقبأثررجعي أوتوسيعSecurity batches. التوقفبعدالحفظوالدفعوالتقريروانتظارموافقةصريحةقبلأيتطويرجديد.

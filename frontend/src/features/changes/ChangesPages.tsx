@@ -13,6 +13,7 @@ import { ChangeValue,ChangesState } from './ChangesState.tsx'
 import { ChangesFilters } from './ChangesFilters.tsx'
 import { AssessmentPanel } from './AssessmentPanel.tsx'
 import './changes.css'
+import {readQuery as readNoticeQuery,serializeQuery as serializeNoticeQuery} from '../notifications/query.ts'
 type Context=ReturnType<typeof useChangesApi>
 function returnQuery(value:unknown):ChangesQuery {
   try{return readChangesQuery(new URLSearchParams(typeof value==='string'?value:''))}catch{return readChangesQuery(new URLSearchParams())}
@@ -81,6 +82,8 @@ function Details({context,id}:{context:Context;id:number}) {
   const {api,binding,catalogAllowed}=context
   const {t,i18n}=useTranslation('changes'),language=i18n.language as Language
   const location=useLocation(),backQuery=serializeChangesQuery(returnQuery(location.state?.changesReturn))
+  let notificationsReturn:string|null=null
+  try{if(typeof location.state?.notificationsReturn==='string')notificationsReturn=serializeNoticeQuery(readNoticeQuery(new URLSearchParams(location.state.notificationsReturn)))}catch{/* Invalid return data cannot supply a route. */}
   const load=useCallback((signal:AbortSignal)=>api.detail(id,signal),[api,id])
   const result=useChangesResource(`${binding}:detail:${id}`,load)
   const systemLoad=useCallback((signal:AbortSignal)=>catalogAllowed?api.systems(signal):Promise.resolve([]),[api,catalogAllowed])
@@ -90,7 +93,7 @@ function Details({context,id}:{context:Context;id:number}) {
   const date=(value:string|null,created=false)=>value===null?t('unavailable'):formatDateTime(created?creationInstant(value):value,
     created||/(?:Z|[+-]\d{2}:\d{2})$/.test(value)?'utc':'organization-local',language)
   return <div className="changes-feature" data-page="change-details" data-change-id={record.id}>
-    <Link className="changes-back" state={{changesReturn:backQuery}} to={context.memoryOnly?'/changes?memory=1':`/changes?${backQuery}`}>{t('back')}</Link>
+    <Link className="changes-back" state={notificationsReturn!==null?{notificationsReturn}:{changesReturn:backQuery}} to={notificationsReturn!==null?(context.memoryOnly?'/notifications?memory=1':`/notifications?${notificationsReturn}`):(context.memoryOnly?'/changes?memory=1':`/changes?${backQuery}`)}>{notificationsReturn!==null?t('notifications:backToCenter'):t('back')}</Link>
     <header className="page-heading"><div><p className="muted small"><bdi dir="ltr">#{record.id}</bdi></p><h1><bdi>{record.title}</bdi></h1><p><ChangeValue category="status" value={record.status}/></p></div>
       <Button variant="secondary" data-action="change-refresh" onClick={result.refresh}><Icon name="refresh"/>{t('refresh')}</Button></header>
     <section className="ui-card change-overview" aria-labelledby="change-overview-title"><h2 id="change-overview-title">{t('information')}</h2><p><bdi>{record.description}</bdi></p>

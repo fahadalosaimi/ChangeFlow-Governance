@@ -18,7 +18,7 @@ try {
   process.env.NODE_ENV = 'production'
   const outDir = join(root, 'build')
   await mkdir(outDir)
-  const editor=process.env.PILOT_SELECTION?.startsWith('editor')
+  const editor=process.env.PILOT_SELECTION?.startsWith('editor')||['notices-forward','notices-reverse'].includes(process.env.PILOT_SELECTION)
   let defaultOrigin,plugins=[]
   if(editor){
     // Build an ordinary artifact independently. No controlled plugin or nonce.
