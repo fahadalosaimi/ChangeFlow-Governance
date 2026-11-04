@@ -3,9 +3,14 @@ export const presentationNames = ['P02-rtl', 'P02-ltr', 'P02-disabled', 'P02-fro
 export const systemsNames = ['systems-catalog', 'systems-details', 'systems-races', 'systems-boundaries', 'systems-layout']
 export const dashboardNames = ['dashboard-data','dashboard-faults','dashboard-races','dashboard-boundaries','dashboard-roles','dashboard-layout']
 export const changesNames=['changes-list','changes-details','changes-races','changes-boundaries','changes-forbidden','changes-faults','changes-layout']
+export const editorNames=['editor-default','editor-create','editor-revise','editor-validation','editor-uncertain','editor-boundaries','editor-layout']
 
 export function expectedCases(selection) {
   const all = [...securityNames, ...presentationNames]
+  if(selection==='editor')return [...editorNames]
+  if(editorNames.includes(selection))return [selection]
+  if(selection==='editor-forward')return [...all,...systemsNames,...dashboardNames,...changesNames,...editorNames]
+  if(selection==='editor-reverse')return [...all,...systemsNames,...dashboardNames,...changesNames,...editorNames].reverse()
   if(selection==='changes')return [...changesNames]
   if(changesNames.includes(selection))return [selection]
   if(selection==='changes-forward')return [...all,...systemsNames,...dashboardNames,...changesNames]

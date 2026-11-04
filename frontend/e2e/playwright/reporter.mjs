@@ -1,9 +1,9 @@
-import { securityNames, presentationNames, systemsNames, dashboardNames, changesNames } from './gate-contract.mjs'
+import { securityNames, presentationNames, systemsNames, dashboardNames, changesNames, editorNames } from './gate-contract.mjs'
 
 // Intentionally omit error messages, call logs, stdout, attachments and URLs.
 export default class SafeReporter {
   onTestEnd(test, result) {
-    if (![...securityNames, ...presentationNames, ...systemsNames, ...dashboardNames, ...changesNames].includes(test.title)
+    if (![...securityNames, ...presentationNames, ...systemsNames, ...dashboardNames, ...changesNames, ...editorNames].includes(test.title)
       || !['passed', 'failed', 'timedOut', 'skipped', 'interrupted'].includes(result.status)
       || !Number.isFinite(result.duration) || result.duration < 0) {
       this.onError()
@@ -11,7 +11,7 @@ export default class SafeReporter {
     }
     process.stdout.write(`PILOT=${JSON.stringify({ case: test.title, status: result.status,
       duration_ms: result.duration,
-      ...(result.status === 'passed' ? {} : { failure_line: Number(result.errors?.[0]?.stack?.match(/(?:pilot\.spec|systems|dashboard|changes)\.mjs:(\d+)/)?.[1] ?? 0),
+      ...(result.status === 'passed' ? {} : { failure_line: Number(result.errors?.[0]?.stack?.match(/(?:pilot\.spec|systems|dashboard|changes|editor)\.mjs:(\d+)/)?.[1] ?? 0),
         failure_rule: ['contrast-kpi','contrast-queue','contrast-distribution','contrast-table','contrast-boundary','definition-list','dlitem','listitem','color-contrast','label','aria-required-children','aria-required-parent','region','heading-order','link-name','button-name'].find(rule => result.errors?.[0]?.message?.includes(rule)) ?? 'none' }) })}\n`)
   }
   onError() { process.stdout.write('PILOT={"failed":1}\n') }

@@ -5,6 +5,7 @@ import { expectedCases } from './gate-contract.mjs'
 import { systemsCases } from './systems.mjs'
 import { dashboardCases } from './dashboard.mjs'
 import { changesCases } from './changes.mjs'
+import { editorCases } from './editor.mjs'
 
 const cases = [
   ['login', async ({ page, credentials }) => {
@@ -271,12 +272,13 @@ const cases = [
 ]
 
 const selection = process.env.PILOT_SELECTION
-const available = new Map([...cases, ...presentationCases, ...systemsCases, ...dashboardCases, ...changesCases])
+const available = new Map([...cases, ...presentationCases, ...systemsCases, ...dashboardCases, ...changesCases, ...editorCases])
 for (const name of expectedCases(selection)) {
   const run = available.get(name)
   if (!run) throw new Error('Missing required gate case')
   test.describe(name.startsWith('P02-') ? 'Presentation Gate' : name.startsWith('systems-') ? 'Systems B1' : name.startsWith('dashboard-') ? 'Dashboard B2' : name.startsWith('changes-') ? 'Changes C1' : 'Security Gate', () => {
-    if (['systems-layout','dashboard-layout','changes-layout'].includes(name)) test.setTimeout(90000)
+    if(name.startsWith('editor-'))test.afterEach(async({request})=>{expect((await request.post(`${api}/_test/control`,{data:{action:'editor-reset'}})).status()).toBe(200)})
+    if (['systems-layout','dashboard-layout','changes-layout','editor-layout'].includes(name)) test.setTimeout(90000)
     test(name, run)
   })
 }

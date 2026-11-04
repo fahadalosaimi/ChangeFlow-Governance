@@ -43,3 +43,15 @@ test('C1 gate includes all earlier cases and fails if any read-only change case 
   assert.equal(validateGateResults(rows,'changes-forward',0),true)
   assert.equal(validateGateResults(rows.filter(r=>r.case!=='changes-forbidden'),'changes-forward',0),false)
 })
+
+test('C2A cannot pass without the ordinary-build denial or any existing security and read-only case',()=>{
+  const editor=['editor-default','editor-create','editor-revise','editor-validation','editor-uncertain','editor-boundaries','editor-layout']
+  const all=[...expectedCases('changes-forward'),...editor]
+  assert.equal(all.length,36)
+  assert.deepEqual(expectedCases('editor'),editor)
+  assert.deepEqual(expectedCases('editor-forward'),all)
+  assert.deepEqual(expectedCases('editor-reverse'),[...all].reverse())
+  const rows=[...all.map(name=>({case:name,status:'passed',duration_ms:1})),{contexts:0,browser_exit:0}]
+  assert.equal(validateGateResults(rows,'editor-forward',0),true)
+  for(const missing of ['editor-default','editor-boundaries','A05','changes-forbidden'])assert.equal(validateGateResults(rows.filter(r=>r.case!==missing),'editor-forward',0),false)
+})

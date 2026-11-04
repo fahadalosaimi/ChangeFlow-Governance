@@ -28,6 +28,8 @@ from a4_workspace import workspace
 from app.database import Base, get_db
 from app.main import app
 from app.models.foundation import Organization, Role, Department, User
+from app.models.change_management import ManagedChangeRequest,ManagedImpactAssessment,ChangeStatusHistory,AuditLog
+from app.models.notification import Notification
 from app.services.auth_service import hash_password, create_access_token
 from app.settings import settings
 from test_a2_authentication import Client
@@ -78,14 +80,25 @@ def invitations(a1_pg_engine, original_password_hash):
 
 
 @pytest.fixture
-def pilot_http(workspace):
+def pilot_http(workspace,request):
     password = secrets.token_urlsafe(24)
+    editor = getattr(request.node, 'callspec', None) and str(request.node.callspec.params.get('selection','')).startswith('editor')
+    write_nonce = secrets.token_hex(32) if editor else None
     with Session(workspace.engine) as db:
         assert_owned_test_connection(db.connection())
         for uid in (2,3):
             db.get(User, uid).password_hash = hash_password(password)
         db.get(User, 3).role_id = 7
         db.commit()
+        baseline = {model:{row.id for row in db.query(model)} for model in (ManagedChangeRequest,ManagedImpactAssessment,ChangeStatusHistory,AuditLog,Notification)} if editor else {}
+        original_change = {c.name:getattr(db.get(ManagedChangeRequest,100),c.name) for c in ManagedChangeRequest.__table__.columns} if editor else {}
+
+    async def controlled(request):
+        if not write_nonce or not secrets.compare_digest(request.headers.get('X-Synthetic-Ownership',''),write_nonce):
+            return JSONResponse({'status':'denied'},status_code=403)
+        with workspace.engine.connect() as connection:
+            assert_owned_test_connection(connection)
+        return JSONResponse({'mode':'owned-synthetic-postgresql','nonce':write_nonce})
 
     async def fixture(_request):
         return JSONResponse(dict(workspace="tenant-1", other_workspace="tenant-2",
@@ -95,11 +108,22 @@ def pilot_http(workspace):
 
     async def control(request):
         action = (await request.json()).get("action")
-        if action not in {"limit", "restore", "disable", "enable", "revoke-foundation", "dashboard-manager", "dashboard-admin"}:
+        if action not in {"limit", "restore", "disable", "enable", "revoke-foundation", "dashboard-manager", "dashboard-admin", "editor-eligible", "editor-reset"} or (str(action).startswith('editor-') and not editor):
             return JSONResponse({"status": "invalid"}, status_code=400)
         with Session(workspace.engine) as db:
             assert_owned_test_connection(db.connection())
-            if action in {"limit", "restore", "revoke-foundation", "dashboard-manager", "dashboard-admin"}:
+            if action=='editor-eligible':
+                db.get(ManagedChangeRequest,100).status='Needs More Information'
+            elif action=='editor-reset':
+                # Owned synthetic fixtures only. Restore baseline after each write
+                # case so reverse order does not inherit another case's records.
+                for model in (Notification,ChangeStatusHistory,AuditLog,ManagedImpactAssessment):
+                    db.query(model).filter(~model.id.in_(baseline[model])).delete(synchronize_session=False)
+                for row in db.query(ManagedChangeRequest).filter(~ManagedChangeRequest.id.in_(baseline[ManagedChangeRequest])):
+                    db.delete(row)
+                for key,value in original_change.items():setattr(db.get(ManagedChangeRequest,100),key,value)
+                db.get(User,2).role_id=3
+            elif action in {"limit", "restore", "revoke-foundation", "dashboard-manager", "dashboard-admin"}:
                 db.get(User, 2).role_id = {"limit":14,"restore":3,"revoke-foundation":10,"dashboard-manager":5,"dashboard-admin":2}[action]
             else:
                 db.get(User, 2).is_active = "inactive" if action == "disable" else "active"
@@ -110,7 +134,7 @@ def pilot_http(workspace):
     listener.bind(("127.0.0.1", 0))
     listener.listen()
     api = "http://127.0.0.1:" + str(listener.getsockname()[1])
-    fixture_app = Starlette(routes=[Route("/_test/fixture", fixture),
+    fixture_app = Starlette(routes=[Route("/_test/fixture", fixture),Route('/_test/controlled-writes',controlled),
         Route("/_test/control", control, methods=["POST"]), Mount("/", app=app)])
     isolated = CORSMiddleware(fixture_app, allow_origin_regex=r"http://127\.0\.0\.1:[0-9]+",
         allow_methods=["*"], allow_headers=["*"])
@@ -128,15 +152,17 @@ def pilot_http(workspace):
     thread.start()
     try:
         assert ready.wait(10), "Owned HTTP fixture did not become ready"
+        if write_nonce:os.environ['CHANGEFLOW_TEST_WRITE_NONCE']=write_nonce
         yield api
     finally:
+        if write_nonce:os.environ.pop('CHANGEFLOW_TEST_WRITE_NONCE',None)
         server.should_exit = True
         thread.join(timeout=10)
         listener.close()
         assert not thread.is_alive(), "Owned HTTP cleanup failed"
 
 
-@pytest.mark.parametrize("selection", ["security", "presentation", "forward", "reverse", "session-boundaries", "systems", "systems-layout", "systems-forward", "systems-reverse", "systems-probe", "dashboard", "dashboard-layout", "dashboard-boundaries", "dashboard-forward", "dashboard-reverse", "changes", "changes-forward", "changes-reverse"])
+@pytest.mark.parametrize("selection", ["security", "presentation", "forward", "reverse", "session-boundaries", "systems", "systems-layout", "systems-forward", "systems-reverse", "systems-probe", "dashboard", "dashboard-layout", "dashboard-boundaries", "dashboard-forward", "dashboard-reverse", "changes", "changes-forward", "changes-reverse", "editor", "editor-create", "editor-layout", "editor-forward", "editor-reverse"])
 def test_playwright_pilot(pilot_http, tmp_path, selection):
     run_playwright_gate(pilot_http, tmp_path, selection)
 
@@ -151,8 +177,10 @@ def run_playwright_gate(pilot_http, tmp_path, selection, *, expect_success=True)
         PLAYWRIGHT_BROWSERS_PATH=str(pilot / ".browsers"), NODE_ENV="test")
     if os.environ.get("CHANGEFLOW_TEST_ARTIFACTS_ROOT"):
         env["PILOT_VISUAL_ROOT"] = os.environ["CHANGEFLOW_TEST_ARTIFACTS_ROOT"]
+    if selection.startswith('editor'):
+        env['PILOT_WRITE_NONCE']=os.environ['CHANGEFLOW_TEST_WRITE_NONCE']
     result = subprocess.run([node, str(pilot / "run.mjs")], cwd=pilot, env=env,
-        capture_output=True, text=True, timeout=480 if selection.startswith('changes') else 360 if selection.startswith('dashboard') else 300 if selection.startswith('systems') else 150)
+        capture_output=True, text=True, timeout=600 if selection.startswith('editor') else 480 if selection.startswith('changes') else 360 if selection.startswith('dashboard') else 300 if selection.startswith('systems') else 150)
     # Never forward assertion errors, response bodies, call logs or credentials.
     rows = []
     for line in result.stdout.splitlines():
@@ -173,7 +201,7 @@ def run_playwright_gate(pilot_http, tmp_path, selection, *, expect_success=True)
         assert len([r for r in rows if r.get("status") == "passed"]) == {"security": 7, "presentation": 4, "forward": 11, "reverse": 11, "session-boundaries": 1,
             "systems":5,"systems-layout":1,"systems-forward":16,"systems-reverse":16,"systems-probe":2,
             "dashboard":6,"dashboard-layout":1,"dashboard-boundaries":1,"dashboard-forward":22,"dashboard-reverse":22,
-            "changes":7,"changes-forward":29,"changes-reverse":29}[selection]
+            "changes":7,"changes-forward":29,"changes-reverse":29,"editor":7,"editor-create":1,"editor-layout":1,"editor-forward":36,"editor-reverse":36}[selection]
     assert not any(p.suffix in {".zip", ".png", ".webm", ".har"} for p in tmp_path.rglob("*")), "Sensitive artifact capture forbidden"
 
 

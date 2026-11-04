@@ -1,6 +1,6 @@
 # ChangeFlow Governance — A5-T4 / T4-A
 
-> أحدث حالة: **T4-C1 ACCEPTED FOR DEVELOPMENT CHECKPOINT — SAVE AUTHORIZED** في §27. اعتمد المالك حفظ العمل بـCommit واحدة وPush للفرع المحدد بعد بوابة الحفظ. §26 أدلة التنفيذ و§25 سجل التوقف التاريخي؛لاC2 أوProduction Approval.
+> أحدث حالة: **T4-C2A ACCEPTED FOR DEVELOPMENT CHECKPOINT — SAVE AUTHORIZED** في §29. وافق المالك على Commit واحدة وPush للفرع المعتمد بعد بوابة الحفظ. نماذج الكتابة الجديدة تبقى مغلقة تشغيليًا؛لاC2B أوBatch B/C/D أوProduction Approval.
 
 **Goal:** جرد الوظائف القائمة وعقودها، وتحديد نقل تدريجي قابل للمراجعة دون فقد سلوك أوتوسيع صلاحيات.
 
@@ -1996,3 +1996,180 @@ Responsive/Axe matrix لكل ترتيب: صفحتان ×5 widths(360/390/768/136
 **المخاطر لم تتغير:** Historical CDP Findings **Open**؛FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**؛Risk Rules Isolation إلىBatch B،CAB Enforcement إلىBatch C،Session Revocation/F2/Hardening إلىBatch D. **Full Browser Suite Parity Not Established؛Production Readiness Not Approved.** نجاحDevelopment Tests والتنظيف الحالي لا يغلقانFindings التاريخية أويثبتان غيابflakiness.
 
 **T4-C1 ACCEPTED FOR DEVELOPMENT CHECKPOINT؛T4-C2 NOT STARTED / SEPARATE AUTHORIZATION REQUIRED.** تتطلبC2 تفويضًا جديدًا وخطةCreate/Revise وwrite DTO validation وconcurrency/conflict handling وtenant/requester/permission enforcement وسلامةالتقييم والتراجع عنالطلبات القديمة،مع إبقاءحدودRisk/CAB حتىدفعاتها المعتمدة. لاC2 أوT4-D/E أوBatch B/C/D أوGemini أوMigrations/Deployment/Credential changes فيمهمةالحفظ. التوقفبعدCommit وPush والتحقق والتقرير،وانتظارتفويض منفصل لأي تطوير.
+
+## 28. T4-C2A Controlled Create/Revise Implementation Plan — 2026-11-04
+
+> **For Codex:** Implement the authorized C2A scope task-by-task in this session. No delegation, commits or operational activation. Checkboxes record verified deliverables.
+
+**Goal:** نماذج Create/Revise مملوكة للـFeature مع اختبار الكتابة علىFastAPI/PostgreSQL اصطناعيتين فقط،وبقاء الكتابة الجديدة مغلقة افتراضيًا.
+
+**Architecture:** `change-editor` مستقلة فوقClient/Gateway وC1 decoders/resources. Production boundary ترفض الكتابة قبلTransport؛Playwright build plugin تستبدلها فقط بعدownership handshake معالخادم الاصطناعي. مسارات `/development/changes/new` و`/development/changes/:id/revise` منفصلة،ولااستبدالLegacy أوتغييرBackend.
+
+**Tech Stack:** React/TypeScript/Vite/i18next/CSS tokens وNode tests وPlaywright/PostgreSQL القائمة؛لاDependencies جديدة.
+
+**Spec:** تفويضالمالك «A5-T4-C2A — Enterprise Change Creation & Revision — Controlled Development» فيالمحادثة الحالية،خاصةحدود§5 و§§8–12.
+
+**Global Constraints:** C2A فقط؛لاoperational writes جديدة أوC2B/D/E/Batch B/C/D/Gemini أوProduction Backend/JWT/PermissionMatrix/Models/Migrations changes،ولا.env/real credentials/Legacy Setup/Bootstrap/Git writes/Deployment. الخطة الحالية مستمرة دونMaster Plan audit شاملة.
+
+**Review Focus:** انقطاعالرد بعدcommit قد يعني نجاحالخادم؛لاretry تلقائية. Session/tenant/unmount يمنعانtoast/navigation قديمة. Duplicate submit يُقفل تزامنيًا. DTO response معطوبة بعدwrite تعنيuncertain لافشلًا مؤكّدًا. نقصsystem catalog أوrevision غيرمؤهلة يمنعsubmit ولايمنحصلاحيةمنFrontend.
+
+- [x] **Task1 — RED→GREEN contracts:** إنشاء `frontend/tests/change-editor.test.ts` ثم `frontend/src/features/change-editor/{form.ts,boundary.ts,api.ts,mutation.ts}`. `validateDraft(draft,systems,revision)` يعيدpayload أوfield errors؛`createEditorApi(gateway,ownId)` يرفضالكتابةدونboundary؛`ChangeMutation.run(write,refresh)` قفلواحدوepoch وuncertain علىنتيجةغيرمحسومة. إثباتtitle3..255/description≥10/justification≤8000/comment3..4000 وEnums وIDs/duplicates/empty systems/downtime0..43200/dates،وحظرdefault mode0HTTP،وduplicate/stale/timeout/4xx/refresh. تشغيلNode test RED ثمGREEN دونتغييرProduction Backend.
+- [x] **Task2 — Forms/Controlled Boundary:** `EditorPage.tsx` و`editor.css` معnamespace`editor` باللغتين،وroutes منفصلة وpermission policy. أقسامinformation/scope/schedule/risk/review،أخطاءمرتبطةبالحقول وfocus summary،لاwizard ولاrisk preview. تحميلcatalog/detail معbinding keys،مسحdraft عندتغيرالهوية،وتحقيقeligible requester/status. test-only build ownership guard داخل`frontend/e2e/playwright/controlled-build.mjs`؛default production build بلاoverride،والـAPI ترفضبصرفالنظرعنإخفاءUI. Client/Gateway contracts باقية.
+- [x] **Task3 — Real Writes/Integration:** إنشاء`backend/tests/test_a5_t4_c2a.py` لPOST/PUT محفوظتين فعليًا وFK/tenant/role/state/validation/history/assessment،و`frontend/e2e/playwright/editor.mjs` للإنشاء/التعديل/رفضdefault mode/duplicate/unknown outcome/session races/validation/40layouts. تحديثrunner registration فقط،معclosed ownership endpoint علىfixture الاصطناعية. لا409 production contract مخترعة؛تُختبرHTTP409 فيtransport boundary فقط إذا لمتُنتجها هذهالمساراتحاليًا.
+- [x] **Task4 — Bounded Quality/Documentation:** Frontend وownedPG regression وSecurity/Presentation/B1/B2/C1/C2A مشتركةForward/Reverse،Axe/keyboard/reduced-motion،Typecheck/production build/lint/Gitleaks/diff/cleanup،ثمManifest والنتائجوالحدود ومتطلباتC2B/Batch B. لاجمعجولاتمتداخلةكتغطيةمستقلة. التوقفبعدالتقريرلإذنCheckpoint منفصل.
+
+**Design:** Obsidian#151a18/Forest#28352f/Sage#b8f28b/Sand#d9c8a9/Ivory#f4f1e8 منtokens الحالية،Readex Pro،محاذاةstart وRTL/LTR. نموذجواحد بأقسام واضحة،عمودمراجعةجانبي علىdesktop وأسفلعلىmobile،وزرواحدللحفظالاصطناعي. تحذيرمستمرعنGLOBAL Risk وحدودالاستخدام،وحالةغيرمحسومةتوجّهلقراءةالخادم بدلإعادةالإرسال.
+
+### 28.1 Baseline وCreate/Revise Contracts
+
+قبلالتنفيذ: Local/Remote HEAD `883629bcc1fc2749b975fddc4f87f38d37071944`،الفرع `feature/phase2-batch-a-tenant-security` وorigin الرسمي،Working Tree وStaging نظيفتان. master المحليةوالبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652` محفوظة. قُرئت الخطةالحالية وتقاريرC1 وLegacy form وschemas/routers/Risk service/permissions وGateway/Client/Resource وSecurity Gate؛لاMaster Plan audit شاملة.
+
+| العقد الفعلي | Authorization/Behavior |
+|---|---|
+| `POST /change-management/requests` | `changes.create` الحالية؛ينشئorganization_id/requester_id منالهويةالخادمية،ويحفظPending Approval وassessment/history/audit/notifications الفعلية |
+| `PUT /change-management/requests/{id}/revise` | `changes.revise` الحالية،نفسالمؤسسة وrequester_id،وحالة`Needs More Information` حرفيًا؛تعليقغيرفارغ؛يحدّثالحقول ويعيدPending Approval ويضيفassessment/history |
+| `GET /foundation/systems` | foundation.read؛catalog الحالية للمؤسسة،runtime decoder تتحققمنكلorganization_id وID والفرادة |
+| `GET /change-management/requests/{id}` | changes.read؛Requester own-only وtenant scope؛قراءةتهيئةRevision وقراءةتأكيدبعدالحفظ |
+
+Backend هيالسلطةالنهائية؛لاState Machine أوPermissions أوRisk Engine جديدة. Requester وحده يملكCreate/Revise وفقالمصفوفةالحالية؛اختُبرتالأدوارالتسعة دونتوسعةgrants. foreign/missing requests أوsystems تعيد404؛غيرالمخوّل403؛state غيرمؤهلة400؛schema غيرصالحة422. هذهالمساراتلاتولّد409 فيالعقدالمراجع؛اختبار409 فيUI/transport معالجةتوافق آمنة،لاادعاءBackend behavior جديدة.
+
+### 28.2 Typed Forms وRuntime Validation
+
+`change-editor/form.ts` تملكEditorDraft وWritePayload والتحققوالتهيئةمنDTO؛`api.ts` typed mutations عبرGateway وC1 decodeChange؛`mutation.ts` lifetime؛`boundary.ts` default-deny؛`EditorPage.tsx/editor.css` العرض. لاGlobal Cache أوState Library أوSession Owner أوDependencies جديدة.
+
+| الحقل | الضابط الفعلي/الواجهة |
+|---|---|
+| title | trim ثم3..255 Unicode code points،مثلPython schema؛لاقصّصامت |
+| description | trim ثم≥10؛لاmax وهميةغيرموجودةفيschema |
+| type/mode/priority | database/application/network/security/documentation؛Standard/Normal/Emergency؛Low/Medium/High/Critical حرفيًا |
+| affected_system_ids | علىالأقلواحد،positive safe integer،فريد،موجودفيcatalog المصرح بها؛catalog فارغةأومعطوبةتعطّلwrite؛Backend يعيدالتحققمنالمؤسسة |
+| expected_downtime_minutes | whole integer0..43200؛لاnegative/fraction/exponent أوcoercion صامت |
+| rollback_complexity/security_sensitivity | Low/Medium/High حرفيًا |
+| business_justification | optional،≤8000،trim/empty→null كماالعقد |
+| planned_start/end | optional؛تاريختقويميصالح وend≥start؛واجهةC2A تعتمدorganization-local ISO بلاoffset وفقmodel comment،وترفضoffset بدلإسقاطها أوتحويلهاصامتًا؛لاtimezone تُضافإلىpayload |
+| revision_comment | إلزاميةفيRevision،trim ثم3..4000؛لاينتقلComment إلىCreate payload |
+
+Frontend validation لتحسينالإدخال وليستلمنحالصلاحية؛Backend tests تتجاوزها عمدًا وتؤكّدرفضالمدخلات. الحقولوEnums منالعقودالفعلية؛DTO ابتدائية منC1 decoder،وunknown stored enum تبقىظاهرةكقيمةغيرمدعومةتتطلبتصحيحًا،دونdefault بديلةصامتة. Revision eligibility: owner+grant+exact state،ثمBackend يكررالقرارعندPUT.
+
+Write response تحتاجprimary DTO صالحة وown requester وID متوقعةلـRevision وPending Approval وكلالحقولالمُرسلةوالأنظمة والمواعيدمطابقة. اختلافseconds formatting الصفريالمشروع مقبول دونتحويلwall-time؛الفروقالمعنويةتُرفض. قراءةGET حديثةبعدwrite تتحققمنالمحتوىمرةأخرىقبلconfirmation. Response غيرمتوقعةأوGET confirmation فاشلة تعنيuncertain؛لاsuccess مفترضة.
+
+### 28.3 Production Safety Boundary
+
+النسخةالعادية تستورد `boundary.ts`: `controlledWritesAvailable=false` و`assertControlledWrite()` ترميconfiguration قبلGateway/Transport. لاquery/localStorage/sessionStorage/NODE_ENV/runtime caller option يفعّلها. مساراتالتطوير `/development/changes/new` و`/development/changes/:id/revise` ترجعforbidden فيالنسخةالعادية،ولاnav links أوSubmit جديدةفيالمساراتالتشغيلية. اختباراتAPI تستدعيCreate/Revise مباشرةبـpayload سليمةومعرّفمخوّلظاهريًا وتؤكد **0transport**؛الحمايةليستمجردإخفاءزر.
+
+حصرالاختبار:
+
+1. `controlled-build.mjs` موجودةفيtest infrastructure فقط،ويستخدمهاPlaywright run عنداختيارeditor cases صراحة. تقبلhttp127.0.0.1 فقط،ومجلدowned runner،وnonce عشوائية64محرفًامنfixture،وتطلبownership proof من`/_test/controlled-writes`.
+2. هذاendpoint مسجلعلىStarlette wrapper للاختبارفقط،وليسفيProduction FastAPI routes. لاproof دونnonce صحيحة،والخادميفحص`assert_owned_test_connection` قبلإرجاعmode `owned-synthetic-postgresql` المطابقة. لاcredentials حقيقيةأو.env.
+3. بعدproof،تستبدلVite test plugin **module boundary المحددة فقط** بmodule افتراضيةتتحققمنproof قبل **كل** Mutation. ثميرسلGateway/ApiClient الفعليانJSON وJWT الجلسةالاصطناعية إلىBackend القائمة،معtenant/grants الخادميةالأصلية. لاnative-fetch business bypass؛nativefetch المنفصلةلـownership GET فقط.
+4. نفسالتشغيل يبنيartifact عاديةمستقلة **بلاplugin أوnonce** علىorigin ثانوية،ويختبرمنعالنموذجينعليها رغمQuery/Storage flags،معبقاءLegacy create متاحةكماكانت. Node tests ترفضroot/origin/nonce/mode غيرالصحيحة؛Origin الأجنبيةتُرفضقبلحتىownership HTTP.
+
+الحدأعلاهخاصبالمساراتوالـadapter الجديدة والبيئةالمملوكة؛لايدّعيإغلاقHTTP APIs القديمةأمامالأدوارالمخوّلة أوإصلاحRisk Isolation فيها. Legacy بقيتبسلوكهاومخاطرهاالحالية. لاproduction feature switch معتمدةولانقلتشغيلي؛لايُعاداستخدامtest build معبياناتحقيقية. nonce وbuild outputs مؤقتةتُنظّف،ولاtraces/HAR/videos/raw logs أوسورسGenerated معnonce ضمنGit.
+
+### 28.4 Mutation Lifecycle وTenant Safety
+
+قفلChangeMutation تزامنيقبلأولawait: duplicate requestSubmit لايرسلMutation ثانية،ولاretry تلقائيةبأيمسار. حالاتidle/saving/saved/rejected/uncertain صريحة. definite400/401/403/404/409/422 تسمحبتصحيحيدوي؛400/409/422 تحفظdraft والقيم. 403/404 تزيلالنموذج منDOM وتعرضحالةآمنة. لاserver detail خامفيUI.
+
+network/timeout/5xx/invalid response أوفشلconfirmation بعدwrite تترك **uncertain مقفولة**؛قديكونالخادمcommit بالفعل. الواجهةتطلبقراءةالسجلالحالي/القائمةومطابقةالنتيجة،ولايُفهمغيابردالنجاحكفشلمؤكد. لاretry button لهذهالحالة ولاreplay عندfocus/reconnect. Create لايملكidempotency key أوlookup operation-id فيBackend الحالية؛قراءةالقائمةومطابقةالمستخدمليستدليلًا آليًا علىexactly-once،وخاصةمععناوينمكررة. هذاقيدمفتوح،لاادعاءidempotency خادمية.
+
+Form وresources مرتبطةبـbinding وID،وتُعادتهيئتهاعندتغيرالهوية؛لاdraft فيStorage. Abort/epoch وGateway binding/session generation تحجبlate result حتىلوالخادمأكملwrite. Cancel لايتراجععنcommit خادمية. `saved` لايُنشرإلابعدGET مطابقة،والـUI confirmation محليةللمكون،دونglobal toast أوautomatic navigation. الانتقالللتفاصيلعبررابطصريحبعدالتحقق؛لاstale navigation side effect. StrictMode وcleanup/replay محفوظة.
+
+المختبرفعليًا: تعليقPOST بعدcommit ثمlogout/login لمؤسسةأخرى؛بعدrelease تبقىdraft الجديدةفارغة ولاتظهرsuccess ولاتتغيرالوجهة،والسجلالقديم404 بالمؤسسةالأخرى. ردضائعبعدcommit،ورد200معidمعطوبةبعدcommit: كلاهمامصنفuncertain،وقراءةBackend تثبتالسجل موجودًا،وعددMutation واحدةلكلنموذج. Unit tests تغطيcancel قبلwrite completion وأثناءconfirmation GET وlate rejection،والـtimeout/5xx وrefresh failure دونretry.
+
+### 28.5 Synthetic PostgreSQL Evidence وLegacy Parity
+
+`test_a5_t4_c2a.py`: **28/28 PostgreSQL** علىowned ORM schema،دونAlembic. Create حفظorganization/requester/status/حقول/affected association وassessment وhistory؛GET مطابق،وقراءةforeign404. Revise تحدّثنفسالسجل وتضيفassessment/history وتعيدPending Approval؛إعادةRevision بعدذلك400. 14invalid payload cases422 بلاصفوفجديدة؛تسعةأدوار؛foreign systems/requests/other-requester writes مرفوضةدونpartial changes؛comment/state enforced؛PostgreSQL FK ترفضsystem غيرموجودةداخلsavepoint فعلية. ليستمحاكاةذاكرةولاrisk evaluation stub؛Risk Engine القائمةنُفّذتداخلPG الاصطناعيةفقط،ولاتتحولنتيجتهاإلىحوكمةمعتمدة.
+
+بعدكلC2A Browser case،test-only control تستعيدseed المعروفةوتزيلالصفوفوالـassessment/history/notification/audit الإضافيةفيالقاعدةالمملوكةفقط. هذايكشفorder/resource interference: C1/B2 assertions الأصليةعلىcounts/Stored assessment تبقىناجحةعندمايأتيC2A قبلهافيReverse. لاProduction data cleanup أوmodels/migrations changes.
+
+`/changes/new` و`/changes/:id/revise` بقيتاLegacy بنفسالصلاحياتوالنماذج؛لمتُستبدلابنموذجغيرمفعّل. Dashboard/Systems/List/Details/Foundation وAuth/Invitations وHistory/Approvals/Implementation وLegacy Adapter/App.tsx محفوظة. لاApproval/Implementation writes جديدة؛التغييراتالكتابيةالمختبرةتقتصرعلىPOSTCreate وPUTRevise الاصطناعيتين.
+
+### 28.6 UI/UX وQuality Ledger
+
+نموذجواحدبأقسامinformation/scope/schedule/risk/revision ومراجعةجانبيةعلىdesktop،وتكدسواحدعلىmobile. Obsidian&Sage وReadex Pro وtokens الحالية،وnamespace`editor` كامللـar-SA/en؛لاcharts أوrisk preview أوبيناتمؤشراتمصطنعة. Required labels وinline field errors وfocusable error summary وروابطتركيزحقيقيةللمدخلات. لاautosave إلىStorage يسرّبdraft بينالجلسات. defaults أصليةمنschema؛مواعيدISO تعرضدونتحويلtimezone.
+
+| الفحص | النتيجة |
+|---|---|
+| Form/API/Mutation contracts |8/8؛6RED ثمGREEN،ثم2RED إضافيةلمواعيدwall-time ومطابقةالرد→GREEN |
+| Controlled build negatives |2/2 بعدRED؛root/origin/nonce/mode وmodule scope |
+| Frontend |110Passed/0Failed/0Skipped،exit0 |
+| Query Security الأصلية |20/20 ضمنFrontend؛Client/Gateway الأصليانلميتغيرا |
+| C2A PostgreSQL منفردة |28/28،54.56s؛ضمنالإجماليأدناهدونجمعمضاعف |
+| Relevant Backend |123/123:103PostgreSQL+20unit/memory؛132.45s،exit0 |
+| C2A Browser smoke |7/7؛33.36s wrapper،contexts0/browser_exit0/cleanup passed |
+| Combined Forward |36/36:Security7+Presentation4+B1خمسة+B2ستة+C1سبعة+C2Aسبعة |
+| Combined Reverse |36/36 بالعكس؛لاmissing/skipped/filtered cases |
+| Combined runtime/cleanup |2pytest wrappers Passed خلال224.85s،exit0 وcontexts0/browser_exit0 وcleanup passed؛ليسااختباريbusiness إضافيين |
+| Responsive/Axe/Keyboard/Reduced Motion |C2A صفحتان×5widths360/390/768/1366/1440×لغتين×ثيمين=40layouts لكلترتيب؛overflow0،targets≥44،Axe violations0،Tab/ShiftTab وreduced-motion ناجحة |
+| Typecheck/Production Build/Lint |ناجحة؛test/app/config،production129modules،Lint0warnings/0errors |
+
+Production artifact وNODE_ENV=production وStrictMode محفوظة. no.env وownedPG/loopback FastAPI وmanagedChromium المثبتة،بلاdeps جديدةأومigrations. assertions ذاتحالاتasynchronous تنتظرcondition أوHTTP الفعلية،لاfixed sleeps أوblind retries؛retries0/repeatEach1. لاجمعالجولاتالمتداخلةكتغطيةمستقلة،ولاادعاءاستحالةflakiness أومقارنةأداءبسببالتشغيلالمتوازي.
+
+سجلإخفاقاتالتطوير: Browser RED للنموذجقبلتنفيذه0/1 (الواجهةغيرموجودة)؛التوقعلميتحولإلىSkipped. Typecheck أوليةكشفتreadonly arrays وTS7022 فيأنواعالاختبار؛تصحيحtypes فقطدونإضعافAssertions،ثمGREEN. التفريغالمختصرلعداداتFrontend احتاجencoding/stream parsing صحيحين؛المحاولةالمحجوبةبالـSandbox وفشلاستخراجالعداداتليستapplication failures،والعداداتالمثبتةالنهائية110/110. تحسينRTL البصريوفحصهالموجهيسجّلانأدناهقبلالتسليم. لاapplication/security regression جديدةمثبتةمنهذهالدفعة.
+
+**آخرمراجعةبصرية:** لقطتاCreate اصطناعيتانمحصورتانفي`.editor-feature` خارجGit،دونShell identity أوtokens. كشفتاتحسينًا فياتجاهISO داخلRTL؛أُضيفتassertiondir=ltr ورُصدتRED0/1 عند`editor-layout` السطر115 آنذاك. التصحيحهو`technical` input direction والـplaceholder/helper فقط،لاpayload أوAPI أوbusiness rule change. **Layout الموجهةنهائيًا1/1،40حالة**،والقيمة`2026-12-01T10:00` ثابتةمعcomputed LTR فيكلااللغتين؛Axe/overflow/focus/reduced-motion ناجحة. أُعيدFrontend all علىآخرنسخة:110/110 وTypecheck/Build129modules/Lint0. لمتُعدBackend أو36-case comparisons بعدهذاالتغييرالعرضيغيرالمؤثر؛النتائجالأمنيةوالكتابيةالسالفةلنفسمنطقالتنفيذ،وفحوصالعرضالمتأثرةأُعيدت. اختيارLayout إضافيللمراجعةليسجولةتغطيةمستقلة،ولاتحوّلRED السابقةإلىPASS بأثررجعي.
+
+### 28.7 Changed-File / Checkpoint Manifest
+
+**15Modified+11New=26files؛Staging فارغة؛لاCommit/Push.** هذههيالقائمةالنهائيةلمراجعةCheckpoint:
+
+| الحالة | الملف | الغرض |
+|---|---|---|
+|M|`backend/docs/phase2_a5_t4.md`|الخطةوالعقودوحدودالكتابةوالنتائجوالـManifest |
+|M|`backend/docs/development_master_plan.md`|حالةC2A المحدودةوتبعياتC2B/Batch B فقط |
+|M|`backend/tests/test_a5_playwright_pilot.py`|owned proof endpoint وfixture-only reset وC2A selections/strict counts/timeout |
+|M|`frontend/e2e/playwright/gate-contract.mjs`|تسجيلC2A والجولتين36 |
+|M|`frontend/e2e/playwright/gate-contract.test.mjs`|رفضmissing default-deny/security/C1 cases |
+|M|`frontend/e2e/playwright/pilot.spec.mjs`|C2A registry وowned cleanup afterEach |
+|M|`frontend/e2e/playwright/playwright.config.mjs`|deadline متناسبةمع36حالة،دونretries |
+|M|`frontend/e2e/playwright/reporter.mjs`|allowlist metadata فقط |
+|M|`frontend/e2e/playwright/run.mjs`|ordinary artifact مستقلة وowned controlled build معcleanup لكلاpreview servers |
+|M|`frontend/scripts/verify.mjs`|تسجيلform/controlled-build tests |
+|M|`frontend/src/app/routePolicy.ts`|development paths بشرطcontrolled boundary؛grants القائمة |
+|M|`frontend/src/app/router.tsx`|lazy development routes دونتغييرLegacy paths |
+|M|`frontend/src/localization/index.ts`|namespace editor |
+|M|`frontend/src/localization/locales/ar-SA.json`|النصوصوالأخطاءوالحدودالعربية |
+|M|`frontend/src/localization/locales/en.json`|النصوصوالأخطاءوالحدودالإنجليزية |
+|N|`backend/tests/test_a5_t4_c2a.py`|28PostgreSQL write/validation/permission/isolation/FK cases |
+|N|`frontend/e2e/playwright/controlled-build.mjs`|test-only ownership-verified boundary replacement |
+|N|`frontend/e2e/playwright/controlled-build.test.mjs`|رفضorigins/roots/nonce/mode وعدمoverride خارجboundary |
+|N|`frontend/e2e/playwright/editor.mjs`|7C2A browser cases و40layouts ولقطاتمصطنعةاختيارية خارجGit |
+|N|`frontend/src/features/change-editor/EditorPage.tsx`|النموذجوالأهليةوالتهيئةوالحالاتوالتركيز |
+|N|`frontend/src/features/change-editor/api.ts`|typed guarded POST/PUT وresponse validation |
+|N|`frontend/src/features/change-editor/boundary.ts`|ordinary build default-deny قبلTransport |
+|N|`frontend/src/features/change-editor/editor.css`|responsive token-based form styles |
+|N|`frontend/src/features/change-editor/form.ts`|Draft/Payload/schema validation وconfirmation matching |
+|N|`frontend/src/features/change-editor/mutation.ts`|lock/abort/epoch/rejected/uncertain lifecycle |
+|N|`frontend/tests/change-editor.test.ts`|8form/API/lifecycle contracts |
+
+بوابةالتسليم: Gitleaks8.30.1 على **26Working Copy files كاملة**،0Findings،معتحققSHA للأرشيفوchecksum manifest ومساواةbinary بالأرشيف،وpositive synthetic detection/redaction. `git diff --check` وUTF-8/JSON/Python/JS syntax/new-file whitespace ناجحة. ليستStaged Blobs أوhistory scan،فـStaging فارغة. metadata وبصماتSHA256 لكلملفالنهائيةخارجGit في `C:\Users\W10\.codex\visualizations\2026\11\03\01a1a027-2e96-71f0-82ea-b19195fdcb8a\t4-c2a-final-scan\gitleaks-summary.json`،وأدلةالتحققالمختصرةبجواره؛لاraw errors أوresponse bodies أوcredentials محفوظة.
+
+لا.env أوSecrets/credentials حقيقيةأوdatabase dumps/browser binaries/node_modules/build outputs/raw logs/screenshots/traces/HAR/videos/temporary artifacts ضمنManifest. لاProductionBackend أوRiskEngine أوApiClient/Gateway/AuthProvider/JWT/PermissionMatrix/App.tsx/LegacyAdapter/Models/Migrations/package-lock changes. صورPreview تخصبياناتمُصطنعةخارجGit فقط. تدقيقcleanup النهائييتطلب0owned processes و0run roots و0frontend roots؛نجاحالتنظيفالحاليلاثبتحلالـFastAPI historical timeout.
+
+### 28.8 Decision وRemaining Risks ومتطلباتالتفعيل
+
+**T4-C2A READY FOR DEVELOPMENT CHECKPOINT REVIEW — CONTROLLED SYNTHETIC MODE ONLY.** Create/Revise وtyped validation وreal synthetic write integration مكتملةضمنالتفويض،معبقاءالنماذجالجديدةمغلقةفيالنسخةالعادية. هذاليسoperational activation أوProduction Approval،ولااعتمادًا لأمانLegacy writes. لاCommit/Push/PR/Merge أوDeployment،ولاmaster changes. HEAD المحليةوالبعيدةتبقى `883629bcc1fc2749b975fddc4f87f38d37071944` حتىتفويضحفظمنفصل.
+
+المخاطرالباقية: **Risk Rules GLOBAL وغيرمعزولة/مدققةعلىمستوىTenant**؛إنشاءأوتعديلالطلبينيفعّلانمحركالتقييمالحالي،لذلكالتجربةعلىقاعدةمُصطنعةفقط. Historical CDP Findings **Open**؛FastAPI Cleanup Timeout وLegacy Demo Credentials **Unresolved**؛Risk Rules Isolation **Batch B**،CAB Enforcement **Batch C**،Session Revocation/F2/Hardening **Batch D**. Full Browser Suite Parity **Not Established** وProduction Readiness **Not Approved**. Chromium/ownedORM evidence ليستmigration/multi-browser/release certification. لاETag/version precondition أوserver idempotency guarantee؛قفلUI يحميالجلسةالحاليةمنduplicate submit،وليسHTTP replay أوإعادةالدخولالمتعمدة. تركالنموذج/إغلاقالمتصفحبعدالإرسالقديتركwrite محفوظة؛لايُفترضفشلها.
+
+**قبلالتفعيلالرسمي/‏C2B:** موافقةمنفصلةوخطةنقلwrite routes بعدحلBatch B لعزلوقابليةتدقيقRisk Rules؛سياسةصريحةللتعارضاتوالـunknown outcomes وreconciliation/idempotency وفقعقودBackend معتمدة،ومراجعةsecurity/quality للنسخةالمفعلة. الحفاظعلىLegacy حتىاعتمادتكافؤالكتابة،وتحققpost-write refresh وtenant/requester/grants وretry safety. لا إضافةتخمنETag/409/idempotency API أوتعديلRisk/CAB engine تلقائيًا. هذهتبعياتقرارمحددةوليستتحقيقBrowser مفتوحالنطاق.
+
+**C2B وT4-D/E وBatch B/C/D وGemini لمتبدأ.** لاMigrations أوLegacy Setup/Bootstrap أوreal credentials/data. التوقفبعدالتقرير،وانتظارتفويضصريحقبلالحفظأوتفعيلالكتابةالجديدةأوأيتطويرتالٍ.
+
+## 29. T4-C2A — Approved Development Checkpoint — 2026-11-04
+
+اعتمد المالك حفظ **Enterprise Change Creation & Revision Controlled Development** بإنشاء Commit واحدة بالرسالة `feat(a5): add guarded change creation and revision forms` ثم Push عادي إلى `origin/feature/phase2-batch-a-tenant-security` فقط. هذا التفويض يحل محل انتظار موافقة الحفظ في §28.8؛لا يسمح بتفعيل الكتابة الجديدة تشغيليًا أوبدءC2B أوأي دفعة أخرى.
+
+Baseline قبل تعديل الوثائق: Local/Remote HEAD `883629bcc1fc2749b975fddc4f87f38d37071944`،master المحلية والبعيدة `10faab20b1c61b5476165bbc1f5d28a2a85e2652`،والفرع وorigin الرسميان. الحالة **15Modified+11New=26files،Staging فارغة** مطابقة Manifest §28.7. تطابقت SHA256 لكل الملفات الـ26 مع `t4-c2a-final-scan/gitleaks-summary.json`،بما فيها آخر تصحيحISO/RTL واختباره. التعديل اللاحق في مهمة الحفظ يقتصر على تسجيل التفويض في وثيقتي التقرير والخطة؛ملفات التنفيذ والاختبارات دون تغيير.
+
+الأدلة المقبولة: Frontend110/110؛Backend123/123 منها103PostgreSQL،و28C2A write cases ضمنها؛Security7 وPresentation4 وB1خمسة وB2ستة وC1سبعة وC2Aسبعة،Combined36/36 أمامي وعكسي. Typecheck/ProductionBuild/Lint وWorkingCopy Gitleaks0 وdiff/syntax/cleanup ناجحة. إصلاحISO البصري شملLTR صريحة وحفظ القيمة؛أُعيدتFrontend all و40Layout المتأثرة وAxe/keyboard/reduced-motion بنجاح. أدلة الجولتين المشتركتين تخص نفس منطق الكتابة والأمان،كما يوضح §28.6؛لا إعادة اختبارات طويلة لتغيير توثيقي،ولا جمع للجولات المتداخلة كتغطية مستقلة.
+
+المراجعة الحرجة تؤكد **default-deny route + API guard قبلTransport** في النسخة العادية،دونQuery/Storage/NODE_ENV activation. Test-only build تحتاجnonce وإثباتowned PostgreSQL قبلoverride وقبل كلMutation؛endpoint فيfixture wrapper فقط. Backend Authorization الأصلية هي السلطة،ولم تتحول Legacy APIs إلىمسارات آمنة للإنتاج بهذاالحارس. لاautomatic Mutation retries؛Success بعدfresh GET مطابقة فقط؛uncertain تبقى مقفولة وتحتاجreconciliation صريحة،وepoch/binding/abort تمنعold session result/toast/navigation. لاserver idempotency guarantee.
+
+بوابة الحفظ تتطلب `git add --` بأسماءManifest الـ26 فقط،ومطابقةIndex بالأسماء والمحتوى المراجع،و`git diff --cached --check` وGitleaks8.30.1 على **Staged Blobs الفعلية كاملة**،معintegrity وsynthetic detection/redaction. أيFinding أواختلاف غيرمتوقع يوقفCommit. metadata وبصماتWorking Copy/Index المنقحة خارجGit في `t4-c2a-checkpoint-staged-scan`. نتيجةSHA والدفع ومطابقةRemote HEAD ونظافةالشجرة وفراغStaging وثباتmaster يثبتهاGit والتقرير النهائي؛لاForce/Amend/Rebase/Merge أوPR.
+
+لا.env/secrets/credentials فعلية أوPG clusters/dumps/binaries/node_modules/build outputs/صور/traces/HAR/videos/raw logs/temp artifacts ضمنManifest. لاProductionBackend/RiskEngine/JWT/PermissionMatrix/Models/Migrations/dependencies changes. Legacy Create/Revise وAdapter وDashboard/Systems/Changes/Foundation/Auth/Invitations وHistory/Approvals/Implementation محفوظة.
+
+المخاطر ثابتة: **Risk Rules GLOBAL — Batch B**؛**No Server-Side Idempotency Guarantee**؛**Unknown Mutation Outcomes require explicit reconciliation**؛CAB Enforcement **Batch C**؛Session Revocation/F2/Hardening **Batch D**؛Legacy Demo Credentials وFastAPI Cleanup Timeout **Unresolved**؛Historical CDP Findings **Open**؛Full Browser Suite Parity **Not Established**؛Production Readiness **Not Approved**. لا إعادةتصنيف بأدلةالتطوير الحالية.
+
+**T4-C2A ACCEPTED FOR DEVELOPMENT CHECKPOINT — CONTROLLED SYNTHETIC MODE ONLY.** C2B والتفعيل الرسمي يحتاجان تفويضًا منفصلًا وحلRisk Rules Isolation/تدقيقها ضمنBatch B وسياسةمعتمدةللنتائجغيرالمحسومة والتعارضات ونقلالكتابة،كمافي§28.8. لاC2B أوT4-D/E أوBatch B/C/D أوGemini أوMigrations/Deployment/real data فيمهمةالحفظ. التوقفبعدCommit وPush والتحقق والتقرير،وانتظارموافقةصريحةقبلأيتطويرأوتفعيلجديد.

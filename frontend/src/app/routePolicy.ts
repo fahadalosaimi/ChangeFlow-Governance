@@ -1,5 +1,6 @@
 import type { Permission } from '../types/api.ts'
 import type { WorkspaceView } from '../features/auth/permissions.ts'
+import {controlledWritesAvailable} from '../features/change-editor/boundary.ts'
 
 export interface WorkspaceRoute {
   path: string
@@ -25,6 +26,9 @@ export const destinations: readonly WorkspaceRoute[] = [
 export function resolveWorkspaceRoute(path: string): WorkspaceRoute | null {
   const known = destinations.find(route => route.path === path)
   if (known) return known
+  if(controlledWritesAvailable&&path==='/development/changes/new')return {path,title:'editor:create',permission:'changes.create',icon:'plus'}
+  const editor=/^\/development\/changes\/([1-9]\d*)\/revise$/.exec(path)
+  if(controlledWritesAvailable&&editor&&Number.isSafeInteger(Number(editor[1])))return {path,title:'editor:revise',permission:'changes.revise',icon:'changes',changeId:Number(editor[1])}
   if (path === '/legacy/changes') return {path,title:'changes:legacyList',permission:'changes.read',icon:'changes',view:'dashboard'}
   const legacy = /^\/legacy\/changes\/([1-9]\d*)$/.exec(path)
   if (legacy && Number.isSafeInteger(Number(legacy[1]))) return {path,title:'changes:legacyDetails',permission:'changes.read',icon:'changes',view:'details',changeId:Number(legacy[1])}
